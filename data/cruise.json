@@ -1,0 +1,32 @@
+{
+  "kpis": {
+    "totalPlaced": 580,
+    "activeOpenings": 142,
+    "partnerLines": 24,
+    "avgDaysToPlace": 18,
+    "renewalRate": 76
+  },
+  "positionPlacements": {
+    "labels": ["Housekeeping","F&B","Entertainment","Deck","Engineering","Medical","Admin"],
+    "data":   [142, 118, 74, 68, 62, 44, 72]
+  },
+  "monthlyTrend": {
+    "labels": ["Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May"],
+    "data":   [42,58,71,65,48,39,35,42,51,60,68,74]
+  },
+  "pipeline": {
+    "labels": ["Applied","Screened","Interviewed","Offered","Placed"],
+    "data":   [920,620,380,210,580]
+  },
+  "clients": [
+    { "name": "Carnival Cruise Lines",    "placements": 112, "openRoles": 28, "status": "Active",   "lastActivity": "2026-05-05" },
+    { "name": "Virgin Voyages",           "placements": 88,  "openRoles": 15, "status": "Active",   "lastActivity": "2026-05-03" },
+    { "name": "Cunard",                   "placements": 74,  "openRoles": 12, "status": "Active",   "lastActivity": "2026-04-28" },
+    { "name": "Holland America Line",     "placements": 68,  "openRoles": 20, "status": "Active",   "lastActivity": "2026-05-01" },
+    { "name": "Oceania Cruises",          "placements": 55,  "openRoles": 18, "status": "Active",   "lastActivity": "2026-04-22" },
+    { "name": "Regent Seven Seas",        "placements": 48,  "openRoles": 10, "status": "Active",   "lastActivity": "2026-04-30" },
+    { "name": "P&O Cruises",              "placements": 62,  "openRoles": 22, "status": "Active",   "lastActivity": "2026-05-04" },
+    { "name": "Margaritaville at Sea",    "placements": 44,  "openRoles": 14, "status": "Pending",  "lastActivity": "2026-04-15" },
+    { "name": "CIEE",                     "placements": 29,  "openRoles": 3,  "status": "Active",   "lastActivity": "2026-05-02" }
+  ]
+}

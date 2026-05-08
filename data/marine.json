@@ -1,0 +1,31 @@
+{
+  "kpis": {
+    "totalPlaced": 218,
+    "activeRoutes": 12,
+    "partnerVessels": 38,
+    "countriesCovered": 28,
+    "avgContractMonths": 9
+  },
+  "rolePlacements": {
+    "labels": ["Officers","Engineers","Ratings","Hospitality","Medical"],
+    "data":   [58, 62, 48, 32, 18]
+  },
+  "routes": [
+    { "route": "Caribbean Circuit",        "vessel": "MV Pacific Star",    "crewPlaced": 24, "departurePort": "Miami, FL",       "nextRotation": "2026-06-01" },
+    { "route": "Mediterranean Round",      "vessel": "MV Adriatic Breeze",  "crewPlaced": 18, "departurePort": "Barcelona, Spain", "nextRotation": "2026-06-15" },
+    { "route": "Trans-Pacific",            "vessel": "MV Horizon Voyager",  "crewPlaced": 22, "departurePort": "Los Angeles, CA", "nextRotation": "2026-05-28" },
+    { "route": "Northern Europe Circuit",  "vessel": "MV Nordic Glory",     "crewPlaced": 16, "departurePort": "Hamburg, Germany","nextRotation": "2026-07-01" },
+    { "route": "Southeast Asia Route",     "vessel": "MV Asian Pearl",      "crewPlaced": 20, "departurePort": "Singapore",       "nextRotation": "2026-06-10" },
+    { "route": "Gulf of Mexico",           "vessel": "MV Gulf Mariner",     "crewPlaced": 14, "departurePort": "Houston, TX",     "nextRotation": "2026-05-20" },
+    { "route": "Alaska Passage",           "vessel": "MV Aurora Voyager",   "crewPlaced": 18, "departurePort": "Seattle, WA",     "nextRotation": "2026-05-30" },
+    { "route": "Indian Ocean Circuit",     "vessel": "MV Malabar Star",     "crewPlaced": 12, "departurePort": "Mumbai, India",   "nextRotation": "2026-07-15" }
+  ],
+  "nationalities": {
+    "labels": ["Philippines","Indonesia","Ukraine","India","Romania","Croatia","Greece","Myanmar","Colombia","Brazil"],
+    "data":   [68, 44, 28, 22, 18, 14, 12, 10, 8, 6]
+  },
+  "monthlyTrend": {
+    "labels": ["Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May"],
+    "data":   [18,22,25,24,20,19,18,17,19,21,23,22]
+  }
+}

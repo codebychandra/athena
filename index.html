@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — CTI Group</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23B01A18'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <script src="data.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-mark"><em>CTi</em><span class="logo-group">Group</span></div>
+        <div class="logo-sub">WORLDWIDE SERVICES</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-label">OVERVIEW</div>
+          <a href="#" class="nav-link active" data-page="dashboard">Dashboard</a>
+          <a href="#" class="nav-link" data-page="analytics">Analytics</a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">DIVISIONS</div>
+          <a href="#" class="nav-link" data-page="cruise">Cruise Line</a>
+          <a href="#" class="nav-link" data-page="j1">J1 Cultural Exchange</a>
+          <a href="#" class="nav-link" data-page="marine">Marine Travel</a>
+          <a href="#" class="nav-link" data-page="visa">Visa Services</a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">MANAGEMENT</div>
+          <a href="#" class="nav-link" data-page="candidates">Candidates</a>
+          <a href="#" class="nav-link" data-page="clients">Clients</a>
+          <a href="#" class="nav-link" data-page="reports">Reports</a>
+          <a href="#" class="nav-link" data-page="settings">Settings</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" id="hamburger" aria-label="Toggle sidebar">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="topbar-breadcrumb">
+            <span class="breadcrumb-app">CTI Group</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-page" id="topbar-title">Dashboard</span>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <span class="topbar-date" id="topbar-date"></span>
+          <button class="theme-toggle" id="theme-toggle">
+            <span class="theme-toggle-light">Light</span>
+            <span class="theme-toggle-dark">Dark</span>
+          </button>
+          <div class="user-avatar" title="Admin User">AD</div>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <main class="main-content" id="main-content">
+        <div class="loading-state" id="loading-state">
+          <div class="skeleton-block tall"></div>
+          <div class="skeleton-row-group">
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
+          </div>
+          <div class="skeleton-row-group">
+            <div class="skeleton-block medium"></div>
+            <div class="skeleton-block medium"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="main-footer">
+        © 2026 CTI Group Worldwide Services, Inc. · All rights reserved
+      </footer>
+    </div>
+  </div>
+
+  <!-- Candidate Side Panel -->
+  <div class="side-panel" id="sidePanel">
+    <div class="side-panel-header">
+      <h3 id="panelTitle">Candidate Profile</h3>
+      <button class="panel-close" id="panelClose">✕</button>
+    </div>
+    <div class="side-panel-body" id="panelBody"></div>
+  </div>
+  <div class="panel-overlay" id="panelOverlay"></div>
+
+  <!-- Client Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="clientModal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Client Details</h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
