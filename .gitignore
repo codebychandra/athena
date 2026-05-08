@@ -1,0 +1,10 @@
+# Secrets — never commit these
+.env
+.zoho_tokens.json
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

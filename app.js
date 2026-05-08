@@ -39,6 +39,7 @@ const state = {
   period:    'month',
   dataCache: {},
   charts:    new Map(),
+  zoho: { connected: false, checked: false },
   candidates: {
     all: [], filtered: [], currentPage: 1, perPage: 25,
     sortCol: null, sortDir: 'asc',
@@ -155,6 +156,58 @@ async function loadJSON(file) {
   if (!data) throw new Error(`No data found for ${file}`);
   state.dataCache[file] = data;
   return data;
+}
+
+// ============================
+// ZOHO INTEGRATION
+// ============================
+async function checkZohoStatus() {
+  try {
+    const res = await fetch('/api/status');
+    if (!res.ok) throw new Error('no server');
+    const data = await res.json();
+    state.zoho.connected = data.connected;
+    state.zoho.checked   = true;
+    updateZohoBadge();
+  } catch {
+    state.zoho.connected = false;
+    state.zoho.checked   = true;
+  }
+}
+
+function updateZohoBadge() {
+  const badge = document.getElementById('zohoBadge');
+  if (!badge) return;
+  if (state.zoho.connected) {
+    badge.textContent   = 'Zoho Live';
+    badge.style.background = 'rgba(45,122,85,0.15)';
+    badge.style.color      = '#2D7A55';
+  } else {
+    badge.textContent   = 'Connect Zoho';
+    badge.style.background = 'rgba(176,26,24,0.12)';
+    badge.style.color      = '#B01A18';
+    badge.style.cursor     = 'pointer';
+    badge.onclick = () => { window.location.href = '/auth/zoho'; };
+  }
+}
+
+async function fetchZohoJ1Data() {
+  try {
+    const res = await fetch('/api/zoho/j1-placements');
+    if (!res.ok) throw new Error('fetch failed');
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function zohoRowsToTable(zohoData) {
+  if (!zohoData || !zohoData.columns || !zohoData.rows) return null;
+  return zohoData.rows.map(row => {
+    const obj = {};
+    zohoData.columns.forEach((col, i) => { obj[col] = row[i]; });
+    return obj;
+  });
 }
 
 // ============================
@@ -507,6 +560,33 @@ chartInits.cruise = async function () {
 // ============================
 pages.j1 = async function () {
   const d = await loadJSON('data/j1.json');
+
+  // Try to load live Zoho data
+  let zohoTable = '';
+  if (state.zoho.connected) {
+    const zohoRaw = await fetchZohoJ1Data();
+    if (zohoRaw && zohoRaw.data) {
+      const rows = zohoRowsToTable(zohoRaw.data);
+      if (rows && rows.length > 0) {
+        const cols = Object.keys(rows[0]);
+        const headerCells = cols.map(c => `<th>${c}</th>`).join('');
+        const bodyRows = rows.slice(0, 50).map(row =>
+          `<tr>${cols.map(c => `<td>${row[c] ?? '—'}</td>`).join('')}</tr>`
+        ).join('');
+        zohoTable = `
+          <div class="section-title" style="margin-top:24px;">
+            J1 Placement Report
+            <span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 8px;border-radius:20px;margin-left:8px;">Live from Zoho Analytics</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>${headerCells}</tr></thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </div>`;
+      }
+    }
+  }
   const countryRows = d.countryOrigin.map((c,i) => `
     <tr>
       <td>${i+1}</td><td><strong>${c.country}</strong></td><td>${fmt(c.count)}</td>
@@ -543,7 +623,8 @@ pages.j1 = async function () {
           <tbody>${countryRows}</tbody></table>
         </div>
       </div>
-    </div>`;
+    </div>
+    ${zohoTable}`;
 };
 
 chartInits.j1 = async function () {
@@ -1164,6 +1245,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay').classList.remove('active');
   });
+
+  // Check Zoho connection (only works when running via node server.js)
+  checkZohoStatus();
+
+  // Handle redirect from Zoho callback
+  if (window.location.search.includes('zoho=connected')) {
+    showToast('Zoho Analytics connected!', 'success');
+    history.replaceState({}, '', '/');
+  }
 
   showPage('dashboard');
 });
