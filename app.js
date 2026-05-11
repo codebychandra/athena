@@ -789,47 +789,86 @@ function j1BuildTableFilterBar(allRows) {
 function j1UpdateCharts(rows) {
   const C = DIVISION_COLORS.j1;
 
+  // ── KPI card helpers ────────────────────────────────────────
+  const setKpi = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+
+  // ── Chart update helpers ─────────────────────────────────────
   const reBar = (id, entries) => {
     const ch = state.charts.get(id);
-    if (!ch || !entries.length) return;
-    ch.data.labels            = entries.map(e=>e[0]);
-    ch.data.datasets[0].data  = entries.map(e=>e[1]);
-    ch.update('none');
+    if (!ch) return;
+    ch.data.labels           = entries.map(e=>e[0]);
+    ch.data.datasets[0].data = entries.map(e=>e[1]);
+    ch.update();
   };
   const reDoughnut = (id, map, colors) => {
     const ch = state.charts.get(id);
     if (!ch) return;
-    ch.data.labels                         = Object.keys(map);
-    ch.data.datasets[0].data               = Object.values(map);
-    ch.data.datasets[0].backgroundColor    = Object.keys(map).map((_,i)=>colors[i%colors.length]);
-    ch.update('none');
+    ch.data.labels                        = Object.keys(map);
+    ch.data.datasets[0].data              = Object.values(map);
+    ch.data.datasets[0].backgroundColor  = Object.keys(map).map((_,i)=>colors[i%colors.length]);
+    ch.update();
   };
 
-  // 1 Hosting
+  // ── Compute KPI values from filtered rows ───────────────────
+  const today      = new Date();
+  let maleCount    = 0, femaleCount = 0, activeCount = 0, totalDurDays = 0, durCount = 0;
+  const hostSet    = new Set();
+
+  rows.forEach(r => {
+    const g = (r['Gender'] || '').toLowerCase();
+    if (g === 'male')   maleCount++;
+    if (g === 'female') femaleCount++;
+
+    const host = r['Hosting Company'];
+    if (host) hostSet.add(host);
+
+    const startD = parseZohoDate(r['Program Start Date']);
+    const endD   = parseZohoDate(r['Program End Date']);
+    if (startD && endD && startD <= today && endD >= today) activeCount++;
+    if (startD && endD) {
+      totalDurDays += (endD - startD) / (1000 * 60 * 60 * 24);
+      durCount++;
+    }
+  });
+
+  const avgDurMonths = durCount ? (totalDurDays / durCount / 30.44).toFixed(1) : '0.0';
+
+  // ── Update KPI cards ────────────────────────────────────────
+  setKpi('j1KpiTotal',  fmt(rows.length));
+  setKpi('j1KpiActive', fmt(activeCount));
+  setKpi('j1KpiMale',   fmt(maleCount));
+  setKpi('j1KpiFemale', fmt(femaleCount));
+  setKpi('j1KpiHosts',  fmt(hostSet.size));
+  setKpi('j1KpiDur',    avgDurMonths + ' mo');
+
+  // ── 1 Hosting ───────────────────────────────────────────────
   const hMap = {};
   rows.forEach(r=>{const h=r['Hosting Company']||'?'; hMap[h]=(hMap[h]||0)+1;});
   reBar('chartJ1Hosting', Object.entries(hMap).sort((a,b)=>b[1]-a[1]).slice(0,10));
 
-  // 2 Gender
+  // ── 2 Gender ────────────────────────────────────────────────
   const gMap = {};
   rows.forEach(r=>{const g=r['Gender']||'Other'; gMap[g]=(gMap[g]||0)+1;});
   reDoughnut('chartJ1Gender', gMap, [C,'#B01A18','#888']);
 
-  // 3 Job
+  // ── 3 Job ───────────────────────────────────────────────────
   const jMap = {};
   rows.forEach(r=>{const j=r['Selected Job']||'?'; jMap[j]=(jMap[j]||0)+1;});
-  const jS = Object.entries(jMap).sort((a,b)=>b[1]-a[1]);
+  const jS  = Object.entries(jMap).sort((a,b)=>b[1]-a[1]);
   const jCh = state.charts.get('chartJ1Job');
-  if (jCh && jS.length) {
+  if (jCh) {
     const JC = [C,'#2D7A55','#B87A14','#B01A18','#888'];
-    jCh.data.labels = jS.map(e=>e[0]);
+    jCh.data.labels                      = jS.map(e=>e[0]);
     jCh.data.datasets[0].data            = jS.map(e=>e[1]);
     jCh.data.datasets[0].backgroundColor = jS.map((_,i)=>hexToRgba(JC[i%JC.length],0.85));
     jCh.data.datasets[0].borderColor     = jS.map((_,i)=>JC[i%JC.length]);
-    jCh.update('none');
+    jCh.update();
   }
 
-  // 4 Sponsor
+  // ── 4 Sponsor ───────────────────────────────────────────────
   const sMap = {};
   rows.forEach(r=>{const s=r['Processing Sponsor']||'?'; sMap[s]=(sMap[s]||0)+1;});
   reDoughnut('chartJ1Sponsor', sMap, [C,'#B01A18','#2D7A55','#B87A14','#6B47DC','#888']);
@@ -1097,24 +1136,24 @@ pages.j1 = async function () {
       ${j1BuildFilterBar(rows)}
 
       <div class="kpi-grid mb-24" id="j1KpiGrid">
-        ${simpleKpi('Total Participants', fmt(total))}
-        ${simpleKpi('Active Now',         fmt(activeCount))}
+        <div class="kpi-card"><span class="kpi-label">Total Participants</span><span class="kpi-value" id="j1KpiTotal">${fmt(total)}</span></div>
+        <div class="kpi-card"><span class="kpi-label">Active Now</span><span class="kpi-value" id="j1KpiActive">${fmt(activeCount)}</span></div>
         <div class="kpi-card j1-gpill" data-g="Male"
           style="cursor:pointer;border-top:3px solid #1B3A6B;transition:all 0.15s;user-select:none;"
           title="Click to filter table by Male">
           <span class="kpi-label">Male</span>
-          <span class="kpi-value" style="color:#1B3A6B;">${fmt(maleCount)}</span>
+          <span class="kpi-value" id="j1KpiMale" style="color:#1B3A6B;">${fmt(maleCount)}</span>
           <span style="font-size:10px;color:var(--text-muted,#999);margin-top:2px;">click to filter ↓</span>
         </div>
         <div class="kpi-card j1-gpill" data-g="Female"
           style="cursor:pointer;border-top:3px solid #B01A18;transition:all 0.15s;user-select:none;"
           title="Click to filter table by Female">
           <span class="kpi-label">Female</span>
-          <span class="kpi-value" style="color:#B01A18;">${fmt(femaleCount)}</span>
+          <span class="kpi-value" id="j1KpiFemale" style="color:#B01A18;">${fmt(femaleCount)}</span>
           <span style="font-size:10px;color:var(--text-muted,#999);margin-top:2px;">click to filter ↓</span>
         </div>
-        ${simpleKpi('Hosting Companies',  fmt(uniqueHosts))}
-        ${simpleKpi('Avg. Duration',      avgDurMonths + ' mo')}
+        <div class="kpi-card"><span class="kpi-label">Hosting Companies</span><span class="kpi-value" id="j1KpiHosts">${fmt(uniqueHosts)}</span></div>
+        <div class="kpi-card"><span class="kpi-label">Avg. Duration</span><span class="kpi-value" id="j1KpiDur">${avgDurMonths} mo</span></div>
       </div>
 
       <div class="two-col mb-24">
