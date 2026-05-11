@@ -19,6 +19,7 @@ const ZOHO_ANALYTICS = 'https://analyticsapi.zoho.com/restapi/v2';
 // TOKEN MANAGEMENT
 // ============================
 let tokens = { accessToken: null, refreshToken: null, expiresAt: 0 };
+let cachedOrgId = null;
 
 function loadTokens() {
   try {
@@ -47,7 +48,6 @@ async function ensureValidToken() {
     return tokens.accessToken;
   }
 
-  // Refresh expired token
   console.log('Refreshing Zoho access token...');
   const res = await axios.post(`${ZOHO_ACCOUNTS}/oauth/v2/token`, null, {
     params: {
@@ -67,6 +67,76 @@ async function ensureValidToken() {
   return tokens.accessToken;
 }
 
+// Helper — build headers with org ID
+async function zohoHeaders(token) {
+  const orgId = await getOrgId(token);
+  return {
+    Authorization:    `Zoho-oauthtoken ${token}`,
+    'ZANALYTICS-ORGID': orgId
+  };
+}
+
+// Helper — get org ID (cached)
+async function getOrgId(token) {
+  if (cachedOrgId) return cachedOrgId;
+  try {
+    const r = await axios.get(`${ZOHO_ANALYTICS}/orgs`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const orgs = r.data?.data?.orgs || [];
+    if (orgs.length > 0) {
+      cachedOrgId = orgs[0].orgId;
+      console.log('✅ Org ID cached:', cachedOrgId);
+      return cachedOrgId;
+    }
+  } catch (e) {
+    console.warn('Could not fetch org ID:', e.message);
+  }
+  // Fallback from env
+  return process.env.ZOHO_ORG_ID || null;
+}
+
+// Helper — parse Zoho CSV response into { columns, rows }
+function parseCSV(text) {
+  if (!text || typeof text !== 'string') return { columns: [], rows: [] };
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (!lines.length) return { columns: [], rows: [] };
+
+  function parseLine(line) {
+    const result = [];
+    let cur = '';
+    let inQ  = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === ',' && !inQ) {
+        result.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  const columns = parseLine(lines[0]);
+  const rows    = lines.slice(1).filter(l => l.trim()).map(parseLine);
+  return { columns, rows };
+}
+
+// Helper — get all workspaces (owned + shared)
+async function getAllWorkspaces(token) {
+  const headers    = await zohoHeaders(token);
+  const r          = await axios.get(`${ZOHO_ANALYTICS}/workspaces`, { headers });
+  const data       = r.data?.data || {};
+  const owned      = data.ownedWorkspaces  || [];
+  const shared     = data.sharedWorkspaces || [];
+  return [...owned, ...shared];
+}
+
 // ============================
 // INIT
 // ============================
@@ -78,7 +148,6 @@ app.use(express.json());
 // OAUTH ROUTES
 // ============================
 
-// Step 1: Redirect user to Zoho login
 app.get('/auth/zoho', (req, res) => {
   const scopes = [
     'ZohoAnalytics.data.read',
@@ -96,7 +165,6 @@ app.get('/auth/zoho', (req, res) => {
   res.redirect(url);
 });
 
-// Step 2: Zoho redirects back with a code
 app.get('/callback', async (req, res) => {
   const { code, error } = req.query;
 
@@ -125,6 +193,7 @@ app.get('/callback', async (req, res) => {
     tokens.accessToken  = response.data.access_token;
     tokens.refreshToken = response.data.refresh_token;
     tokens.expiresAt    = Date.now() + response.data.expires_in * 1000;
+    cachedOrgId = null; // reset org cache on new auth
     saveTokens();
 
     console.log('✅ Zoho OAuth successful — tokens saved');
@@ -144,7 +213,6 @@ app.get('/callback', async (req, res) => {
 // API ENDPOINTS
 // ============================
 
-// Connection status
 app.get('/api/status', (req, res) => {
   res.json({
     connected:  !!tokens.refreshToken,
@@ -153,27 +221,50 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// List all workspaces (for debugging/discovery)
+// Debug — full diagnostic
+app.get('/api/zoho/debug', async (req, res) => {
+  try {
+    const token   = await ensureValidToken();
+    const baseHdr = { Authorization: `Zoho-oauthtoken ${token}` };
+    const results = {};
+
+    try {
+      const r = await axios.get(`${ZOHO_ANALYTICS}/orgs`, { headers: baseHdr });
+      results.orgs = r.data;
+    } catch (e) { results.orgs_error = e.response?.data || e.message; }
+
+    try {
+      const headers = await zohoHeaders(token);
+      const r = await axios.get(`${ZOHO_ANALYTICS}/workspaces`, { headers });
+      results.workspaces = r.data;
+    } catch (e) { results.workspaces_error = e.response?.data || e.message; }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// List all workspaces
 app.get('/api/zoho/workspaces', async (req, res) => {
   try {
-    const token    = await ensureValidToken();
-    const response = await axios.get(`${ZOHO_ANALYTICS}/workspaces`, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    });
-    res.json(response.data);
+    const token      = await ensureValidToken();
+    const workspaces = await getAllWorkspaces(token);
+    res.json({ count: workspaces.length, workspaces });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     res.status(status).json({ error: err.message, details: err.response?.data });
   }
 });
 
-// List views in a workspace (for debugging)
+// List views in a workspace
 app.get('/api/zoho/workspaces/:wsId/views', async (req, res) => {
   try {
-    const token    = await ensureValidToken();
+    const token   = await ensureValidToken();
+    const headers = await zohoHeaders(token);
     const response = await axios.get(
       `${ZOHO_ANALYTICS}/workspaces/${req.params.wsId}/views`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      { headers }
     );
     res.json(response.data);
   } catch (err) {
@@ -185,14 +276,12 @@ app.get('/api/zoho/workspaces/:wsId/views', async (req, res) => {
 // J1 Placement Report — auto-discover + fetch
 app.get('/api/zoho/j1-placements', async (req, res) => {
   try {
-    const token = await ensureValidToken();
+    const token      = await ensureValidToken();
+    const headers    = await zohoHeaders(token);
+    const workspaces = await getAllWorkspaces(token);
 
-    // 1. List all workspaces
-    const wsRes = await axios.get(`${ZOHO_ANALYTICS}/workspaces`, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    });
+    console.log('Workspaces found:', workspaces.map(w => w.workspaceName));
 
-    const workspaces = wsRes.data.data?.workspaces || [];
     if (workspaces.length === 0) {
       return res.status(404).json({ error: 'No workspaces found in your Zoho Analytics account' });
     }
@@ -200,11 +289,10 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
     let foundWs   = null;
     let foundView = null;
 
-    // 2. Search each workspace for "J1 Placement Report"
     for (const ws of workspaces) {
       const viewsRes = await axios.get(
         `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`,
-        { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+        { headers }
       );
       const views = viewsRes.data.data?.views || [];
       const match = views.find(v =>
@@ -215,12 +303,11 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
     }
 
     if (!foundView) {
-      // Return list of available workspaces/views to help diagnose
       const allViews = [];
       for (const ws of workspaces.slice(0, 5)) {
         const viewsRes = await axios.get(
           `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`,
-          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          { headers }
         );
         const views = (viewsRes.data.data?.views || []).map(v => ({
           workspace: ws.workspaceName,
@@ -230,22 +317,27 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
         allViews.push(...views);
       }
       return res.status(404).json({
-        error:           'J1 Placement Report not found',
-        availableViews:  allViews
+        error:          'J1 Placement Report not found',
+        availableViews: allViews
       });
     }
 
-    // 3. Fetch actual data
     const dataRes = await axios.get(
       `${ZOHO_ANALYTICS}/workspaces/${foundWs.workspaceId}/views/${foundView.viewId}/data`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      { headers }
     );
+
+    // Zoho returns CSV text — parse it into { columns, rows }
+    const rawData    = dataRes.data;
+    const parsedData = typeof rawData === 'string'
+      ? parseCSV(rawData)
+      : (rawData && rawData.columns ? rawData : parseCSV(String(rawData || '')));
 
     res.json({
       source:    'zoho',
       workspace: foundWs.workspaceName,
       view:      foundView.viewName,
-      data:      dataRes.data.data
+      data:      parsedData
     });
 
   } catch (err) {
@@ -258,10 +350,11 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
 // Generic view data fetch by IDs
 app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
   try {
-    const token    = await ensureValidToken();
+    const token   = await ensureValidToken();
+    const headers = await zohoHeaders(token);
     const response = await axios.get(
       `${ZOHO_ANALYTICS}/workspaces/${req.params.wsId}/views/${req.params.viewId}/data`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      { headers }
     );
     res.json(response.data);
   } catch (err) {

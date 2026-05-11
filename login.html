@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — CTI Group</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23B01A18'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='14' font-family='serif' font-style='italic' font-weight='bold'>CTi</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:    #B01A18;
+      --red-dk: #8c1412;
+      --navy:   #1B3A6B;
+      --text:   #1A1A1A;
+      --muted:  #6B7280;
+      --border: #E5E7EB;
+      --bg:     #F3F4F6;
+      --card:   #FFFFFF;
+      --shadow: 0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 20%, rgba(176,26,24,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 80%, rgba(27,58,107,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: 24px 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── LOGO CARD ───────────────────────────────── */
+    .logo-card {
+      background: var(--card);
+      border-radius: 20px 20px 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      padding: 36px 40px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* Actual image logo — shown when logo.png is present */
+    .logo-img-wrap {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .logo-img-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    /* Hide img and show CSS logo when image fails */
+    .logo-img-wrap img.errored { display: none; }
+    .logo-css { display: none; }
+    .logo-img-wrap img.errored ~ .logo-css { display: flex; }
+
+    /* CSS brand mark fallback */
+    .logo-css {
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .logo-oval {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid #1A1A1A;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+    .logo-oval::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      right: -12px;
+      width: 3px;
+      height: 100px;
+      background: var(--red);
+      transform: rotate(20deg);
+      border-radius: 2px;
+    }
+    .logo-cti {
+      font-size: 36px;
+      font-weight: 900;
+      font-style: italic;
+      color: var(--red);
+      font-family: Georgia, serif;
+      line-height: 1;
+      letter-spacing: -1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Brand text below oval */
+    .logo-brand {
+      text-align: center;
+      margin-top: 10px;
+    }
+    .logo-brand-name {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--red);
+      letter-spacing: -0.5px;
+      font-family: Georgia, serif;
+      font-style: italic;
+      line-height: 1;
+    }
+    .logo-brand-hr {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin: 7px auto 6px;
+      width: 180px;
+    }
+    .logo-brand-hr span:first-child {
+      flex: 1; height: 2px; background: #1A1A1A;
+    }
+    .logo-brand-hr span:last-child {
+      flex: 1; height: 1px; background: var(--red); margin-top: 3px;
+    }
+    .logo-brand-sub {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #1A1A1A;
+      text-transform: uppercase;
+    }
+
+    /* ── FORM CARD ───────────────────────────────── */
+    .form-card {
+      background: var(--card);
+      border-radius: 0 0 20px 20px;
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 28px 40px 36px;
+      box-shadow: var(--shadow);
+    }
+
+    .form-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .form-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #FAFAFA;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: var(--red);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(176,26,24,0.1);
+    }
+    .form-group input::placeholder { color: #BCC0C8; }
+
+    .error-msg {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 14px;
+      background: rgba(176,26,24,0.07);
+      border: 1px solid rgba(176,26,24,0.2);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--red);
+    }
+    .error-msg.visible { display: flex; }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      background: var(--red);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 4px 14px rgba(176,26,24,0.35);
+      letter-spacing: 0.02em;
+      margin-top: 4px;
+    }
+    .btn-login:hover:not(:disabled) {
+      background: var(--red-dk);
+      box-shadow: 0 6px 20px rgba(176,26,24,0.45);
+    }
+    .btn-login:active:not(:disabled) { transform: scale(0.99); }
+    .btn-login:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .btn-spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer-note {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Dark-mode toggle respect */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text:   #F1F1F1;
+        --muted:  #9CA3AF;
+        --border: #2A2A2A;
+        --bg:     #111111;
+        --card:   #1A1A1A;
+      }
+      .form-group input { background: #222; color: #F1F1F1; border-color: #333; }
+      .form-group input:focus { background: #252525; }
+      .logo-oval { border-color: #eee; }
+      .logo-brand-hr span:first-child { background: #eee; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="logo-card">
+
+      <!-- Real logo image: save logo.png to project root and it auto-appears -->
+      <div class="logo-img-wrap" id="logoImgWrap">
+        <img src="logo.png" alt="CTI Group" id="logoImg" onerror="this.classList.add('errored')">
+
+        <!-- CSS fallback when image not found -->
+        <div class="logo-css">
+          <div class="logo-oval">
+            <span class="logo-cti">CTi</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="logo-brand">
+        <div class="logo-brand-name">Group</div>
+        <div class="logo-brand-hr"><span></span><span></span></div>
+        <div class="logo-brand-sub">Worldwide Services, Inc.</div>
+      </div>
+
+    </div>
+
+    <div class="form-card">
+      <div class="form-title">Welcome back</div>
+      <div class="form-subtitle">Sign in to the CTI Group Command Center</div>
+
+      <div class="error-msg" id="errorMsg">
+        <span>⚠</span>
+        <span id="errorText">Invalid username or password.</span>
+      </div>
+
+      <form id="loginForm" autocomplete="on" novalidate>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username"
+            placeholder="Enter your username"
+            autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password"
+            placeholder="••••••••"
+            autocomplete="current-password" required>
+        </div>
+
+        <button type="submit" class="btn-login" id="loginBtn">
+          Sign In
+        </button>
+      </form>
+
+      <div class="footer-note">
+        © 2026 CTI Group Worldwide Services, Inc.<br>
+        Authorised personnel only.
+      </div>
+    </div>
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    // If already logged in, skip to app
+    if (CTIAuth.getSession()) {
+      window.location.replace('index.html');
+    }
+
+    const form    = document.getElementById('loginForm');
+    const btnEl   = document.getElementById('loginBtn');
+    const errBox  = document.getElementById('errorMsg');
+    const errText = document.getElementById('errorText');
+
+    function showError(msg) {
+      errText.textContent = msg;
+      errBox.classList.add('visible');
+    }
+    function clearError() {
+      errBox.classList.remove('visible');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+
+      if (!u || !p) {
+        showError('Please enter both username and password.');
+        return;
+      }
+
+      // Show loading state
+      btnEl.disabled = true;
+      btnEl.innerHTML = '<span class="btn-spinner"></span> Signing in…';
+
+      try {
+        const role = await CTIAuth.login(u, p);
+        if (role) {
+          window.location.replace('index.html');
+        } else {
+          showError('Invalid username or password. Please try again.');
+          btnEl.disabled = false;
+          btnEl.textContent = 'Sign In';
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      } catch (err) {
+        showError('An error occurred. Please refresh and try again.');
+        btnEl.disabled = false;
+        btnEl.textContent = 'Sign In';
+      }
+    });
+
+    // Clear error on input
+    ['username','password'].forEach(id => {
+      document.getElementById(id).addEventListener('input', clearError);
+    });
+  </script>
+</body>
+</html>

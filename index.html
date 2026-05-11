@@ -4,14 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — CTI Group</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23B01A18'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23B01A18'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='13' font-family='serif' font-style='italic' font-weight='bold'>CTi</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
   <link rel="stylesheet" href="style.css">
+  <!-- Auth must load before app.js -->
+  <script src="auth.js"></script>
   <script src="data.js"></script>
 </head>
 <body>
+
+  <!-- Auth guard — redirect to login if not signed in -->
+  <script>
+    if (!CTIAuth.requireAuth()) { document.body.innerHTML = ''; }
+  </script>
+
   <div class="app-shell">
 
     <!-- Sidebar Overlay (mobile) -->
@@ -19,34 +29,61 @@
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
+
+      <!-- Logo / Brand -->
       <div class="sidebar-header">
-        <div class="logo-mark"><em>CTi</em><span class="logo-group">Group</span></div>
-        <div class="logo-sub">WORLDWIDE SERVICES</div>
+        <!-- Real logo image: place logo.png in project root to activate -->
+        <img src="logo.png" alt="CTI Group" class="sidebar-logo-img"
+             id="sidebarLogoImg"
+             onerror="this.style.display='none';document.getElementById('sidebarLogoText').style.display='flex';">
+        <!-- Text fallback -->
+        <div class="sidebar-logo-text" id="sidebarLogoText" style="display:none;">
+          <div class="logo-mark"><em>CTi</em><span class="logo-group">Group</span></div>
+          <div class="logo-sub">WORLDWIDE SERVICES</div>
+        </div>
       </div>
 
       <nav class="sidebar-nav">
         <div class="nav-section">
           <div class="nav-label">OVERVIEW</div>
-          <a href="#" class="nav-link active" data-page="dashboard">Dashboard</a>
-          <a href="#" class="nav-link" data-page="analytics">Analytics</a>
+          <a href="#" class="nav-link" data-page="dashboard" data-locked="true">Dashboard</a>
+          <a href="#" class="nav-link" data-page="analytics" data-locked="true">Analytics</a>
         </div>
 
         <div class="nav-section">
           <div class="nav-label">DIVISIONS</div>
-          <a href="#" class="nav-link" data-page="cruise">Cruise Line</a>
+          <a href="#" class="nav-link" data-page="cruise" data-locked="true">Cruise Line</a>
           <a href="#" class="nav-link" data-page="j1">J1 Cultural Exchange</a>
-          <a href="#" class="nav-link" data-page="marine">Marine Travel</a>
-          <a href="#" class="nav-link" data-page="visa">Visa Services</a>
+          <a href="#" class="nav-link" data-page="marine" data-locked="true">Marine Travel</a>
+          <a href="#" class="nav-link" data-page="visa" data-locked="true">Visa Services</a>
         </div>
 
         <div class="nav-section">
           <div class="nav-label">MANAGEMENT</div>
-          <a href="#" class="nav-link" data-page="candidates">Candidates</a>
           <a href="#" class="nav-link" data-page="clients">Clients</a>
           <a href="#" class="nav-link" data-page="reports">Reports</a>
           <a href="#" class="nav-link" data-page="settings">Settings</a>
         </div>
       </nav>
+
+      <!-- Sidebar footer: user + logout -->
+      <div class="sidebar-user-footer" id="sidebarUserFooter">
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-avatar" id="userAvatarSidebar">AD</div>
+          <div class="sidebar-user-details">
+            <div class="sidebar-user-name" id="usernameSidebar">Admin</div>
+            <div class="sidebar-user-role" id="userRoleSidebar">Administrator</div>
+          </div>
+        </div>
+        <button class="sidebar-logout-btn" id="logoutBtn" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
     </aside>
 
     <!-- Main Wrapper -->
@@ -71,7 +108,11 @@
             <span class="theme-toggle-light">Light</span>
             <span class="theme-toggle-dark">Dark</span>
           </button>
-          <div class="user-avatar" title="Admin User">AD</div>
+          <!-- User chip in topbar -->
+          <div class="user-chip" id="userChip">
+            <div class="user-avatar" id="topbarAvatar" title="Signed in">AD</div>
+            <span class="user-chip-name" id="topbarUsername">Admin</span>
+          </div>
         </div>
       </header>
 
@@ -99,21 +140,21 @@
     </div>
   </div>
 
-  <!-- Candidate Side Panel -->
+  <!-- Side Panel (participant profile) -->
   <div class="side-panel" id="sidePanel">
     <div class="side-panel-header">
-      <h3 id="panelTitle">Candidate Profile</h3>
+      <h3 id="panelTitle">Profile</h3>
       <button class="panel-close" id="panelClose">✕</button>
     </div>
     <div class="side-panel-body" id="panelBody"></div>
   </div>
   <div class="panel-overlay" id="panelOverlay"></div>
 
-  <!-- Client Modal -->
+  <!-- Client / Form Modal -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" id="clientModal">
       <div class="modal-header">
-        <h3 id="modalTitle">Client Details</h3>
+        <h3 id="modalTitle">Details</h3>
         <button class="modal-close" id="modalClose">✕</button>
       </div>
       <div class="modal-body" id="modalBody"></div>
@@ -124,5 +165,26 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script src="app.js"></script>
+  <script>
+    // Populate user info from session
+    (function () {
+      const s = CTIAuth.getSession();
+      if (!s) return;
+      const name = s.user.charAt(0).toUpperCase() + s.user.slice(1);
+      const ini  = name.charAt(0).toUpperCase();
+      const role = s.role === 'admin' ? 'Administrator' : 'Guest';
+
+      document.getElementById('usernameSidebar').textContent    = name;
+      document.getElementById('userRoleSidebar').textContent    = role;
+      document.getElementById('userAvatarSidebar').textContent  = ini;
+      document.getElementById('topbarAvatar').textContent       = ini;
+      document.getElementById('topbarAvatar').title             = `${name} (${role})`;
+      document.getElementById('topbarUsername').textContent     = name;
+    }());
+
+    document.getElementById('logoutBtn')?.addEventListener('click', () => {
+      CTIAuth.logout();
+    });
+  </script>
 </body>
 </html>
