@@ -2681,14 +2681,14 @@ pages.settings = async function () {
         <div class="settings-field"><label>Company Name</label>
           <input value="CTI Group Worldwide Services, Inc."></div>
         <div class="settings-field"><label>Phone</label>
-          <input value="+1 (800) 284-4653"></div>
+          <input value="+1 954-568-5900"></div>
         <div class="settings-field"><label>Email</label>
-          <input value="info@ctigroup.com"></div>
+          <input value="info@cti-usa.com"></div>
         <div class="settings-field"><label>Website</label>
           <input value="www.cti-usa.com"></div>
       </div>
       <div class="settings-field"><label>Address</label>
-        <input value="600 S. Magnolia Ave., Suite 300, Tampa, FL 33606"></div>
+        <input value="6600 NW 16th St, Suite 8, Plantation, FL 33313, USA"></div>
       <div style="margin-top:12px;">
         <button class="btn btn-primary" onclick="showToast('Company info saved.')">Save Changes</button>
       </div>
