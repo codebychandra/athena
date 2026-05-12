@@ -1063,6 +1063,12 @@ pages.j1 = async function () {
     }
   }
 
+  // ── Offline snapshot fallback (baked Zoho data for public/static hosting) ─
+  if (!rows && Array.isArray(window.J1_OFFLINE_DATA) && window.J1_OFFLINE_DATA.length) {
+    rows = window.J1_OFFLINE_DATA;
+    state.dataCache['j1-zoho-rows'] = rows;
+  }
+
   // ── LIVE DATA PATH ───────────────────────────────────────────
   if (rows) {
     const total       = rows.length;
