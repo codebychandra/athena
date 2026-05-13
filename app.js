@@ -3034,30 +3034,61 @@ pages.j1visa = async function () {
   const C       = DIVISION_COLORS.j1;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+  // 7 milestone stages — counts are INDEPENDENT (a person can count in multiple)
   const STAGES = [
-    { key:'registered',  label:'Registered',         icon:'📋', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)' },
-    { key:'ds',          label:'DS Processed',        icon:'📄', color:'#2D7A55', bg:'rgba(45,122,85,0.10)' },
+    { key:'registered',  label:'Registered',          icon:'📋', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
+    { key:'paid',        label:'Paid',                icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)' },
+    { key:'ds',          label:'DS-160 Processed',    icon:'📄', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)' },
     { key:'waiting',     label:'Waiting Appointment', icon:'⏳', color:'#B87A14', bg:'rgba(184,122,20,0.10)' },
-    { key:'appointment', label:'Has Appointment',     icon:'📅', color:'#6B47DC', bg:'rgba(107,71,220,0.10)' },
+    { key:'appointment', label:'Has Appointment',     icon:'📅', color:'#2D7A55', bg:'rgba(45,122,85,0.10)' },
     { key:'approved',    label:'Approved',            icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)' },
     { key:'rejected',    label:'Rejected',            icon:'❌', color:'#B01A18', bg:'rgba(176,26,24,0.10)' },
   ];
 
-  function stageOf(val) {
-    const v = (val || '').toLowerCase();
-    if (/reject|denied|refuse/.test(v))                                      return 'rejected';
-    if (/approv|issued|granted|visa received/.test(v))                       return 'approved';
-    if (/appointment|scheduled|interview date|booked|has appt/.test(v))      return 'appointment';
-    if (/wait|pending appt|await|no appointment/.test(v))                    return 'waiting';
-    if (/\bds\b|document|processed|ready|completed|prep/.test(v))           return 'ds';
-    return 'registered';
+  // Compute milestone counts + per-participant current stage
+  function computeCounts(columns, rows) {
+    const payIdx  = columns.findIndex(c => /payment status/i.test(c));
+    const visIdx  = columns.findIndex(c => /^visa status$/i.test(c));
+    const apptIdx = columns.findIndex(c => /appointment date/i.test(c));
+    const nameIdx = columns.findIndex(c => /^name$/i.test(c));
+    const natIdx  = columns.findIndex(c => /nationality/i.test(c));
+
+    const counts = Object.fromEntries(STAGES.map(s => [s.key, 0]));
+    const people = [];
+
+    rows.forEach(row => {
+      const pay  = String(payIdx  >= 0 ? row[payIdx]  || '' : '');
+      const vis  = String(visIdx  >= 0 ? row[visIdx]  || '' : '');
+      const appt = String(apptIdx >= 0 ? row[apptIdx] || '' : '').trim();
+
+      counts.registered++;
+      if (/paid/i.test(pay))                                             counts.paid++;
+      if (/visa application processed/i.test(vis))                      counts.ds++;
+      if (/visa payment processed/i.test(vis) && !appt)                 counts.waiting++;
+      if (/visa payment processed/i.test(vis) && appt)                  counts.appointment++;
+      if (/approv|issued|granted/i.test(vis))                           counts.approved++;
+      if (/reject|denied|refused/i.test(vis))                           counts.rejected++;
+
+      // Highest current stage (for table display)
+      let stage;
+      if (/reject|denied|refused/i.test(vis))                           stage = 'rejected';
+      else if (/approv|issued|granted/i.test(vis))                      stage = 'approved';
+      else if (/visa payment processed/i.test(vis) && appt)             stage = 'appointment';
+      else if (/visa payment processed/i.test(vis))                     stage = 'waiting';
+      else if (/visa application processed/i.test(vis))                 stage = 'ds';
+      else if (/paid/i.test(pay))                                       stage = 'paid';
+      else                                                               stage = 'registered';
+
+      people.push({
+        name:        String(nameIdx >= 0 ? row[nameIdx] || '' : ''),
+        nationality: String(natIdx  >= 0 ? row[natIdx]  || '' : ''),
+        stage, appt
+      });
+    });
+    return { counts, people };
   }
 
-  let counts   = Object.fromEntries(STAGES.map(s => [s.key, 0]));
-  let rawBreak = {};
-  let total    = 0;
-  let viewName = '';
-  let errorMsg = null;
+  let columns = [], rows = [], viewName = '', errorMsg = null;
 
   if (isLocal) {
     try {
@@ -3065,46 +3096,31 @@ pages.j1visa = async function () {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Fetch failed');
       viewName = json.view || '';
-      const { columns = [], rows = [] } = json.data || {};
-      const sIdx = columns.findIndex(c => /status/i.test(c));
-      if (sIdx >= 0) {
-        rows.forEach(row => {
-          const val = (row[sIdx] || '').trim();
-          counts[stageOf(val)]++;
-          rawBreak[val] = (rawBreak[val] || 0) + 1;
-          total++;
-        });
-      } else if (rows.length) {
-        // No status column found — count all rows as registered
-        total = rows.length;
-        counts.registered = total;
-      }
-    } catch (e) {
-      errorMsg = e.message;
-    }
+      columns  = json.data?.columns || [];
+      rows     = json.data?.rows    || [];
+    } catch (e) { errorMsg = e.message; }
   }
 
-  const pct     = n => total > 0 ? Math.round(n / total * 100) : 0;
+  // Offline fallback
+  if (!rows.length && window.J1_VISA_OFFLINE_DATA) {
+    columns  = window.J1_VISA_OFFLINE_DATA.columns;
+    rows     = window.J1_VISA_OFFLINE_DATA.rows;
+    viewName = viewName || 'J1 Visa (offline snapshot)';
+  }
+
+  const { counts, people } = computeCounts(columns, rows);
+  const total   = counts.registered;
   const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Visa Status</h1>
-        <p class="subtitle">J1 visa application pipeline${viewName ? ` · ${viewName}` : ''} · live data from Zoho Analytics</p>
+        <p class="subtitle">J1 visa application pipeline · ${total} participants${viewName ? ' · ' + viewName : ''}</p>
       </div>
     </div>
 
-    ${!isLocal ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(27,58,107,0.07);
-      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:18px;">🔌</span>
-      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
-        Live Zoho data available when running <strong>node server.js</strong> locally · data below shows current snapshot
-      </span>
-    </div>` : ''}
-
-    ${errorMsg ? `
+    ${errorMsg && !rows.length ? `
     <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
       background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
       border-radius:10px;margin-bottom:22px;">
@@ -3115,70 +3131,55 @@ pages.j1visa = async function () {
         </div>
         <div style="font-size:13px;color:var(--text-secondary,#555);">
           ${authErr
-            ? 'Your Zoho session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect Zoho →</a>'
+            ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to reconnect Zoho →</a>'
             : errorMsg}
         </div>
       </div>
     </div>` : ''}
 
-    <!-- Pipeline cards -->
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;">
-      ${STAGES.map(s => `
-        <div style="padding:18px 12px;background:${s.bg};border-radius:12px;
-          border:1px solid ${s.color}33;text-align:center;">
-          <div style="font-size:26px;margin-bottom:8px;line-height:1;">${s.icon}</div>
-          <div style="font-size:30px;font-weight:800;color:${s.color};line-height:1;">${counts[s.key]}</div>
+    <!-- 7-stage milestone pipeline -->
+    <div style="display:flex;align-items:stretch;gap:0;margin-bottom:24px;overflow-x:auto;">
+      ${STAGES.map((s, i) => `
+        ${i > 0 ? `<div style="display:flex;align-items:center;padding:0 2px;color:var(--text-muted,#bbb);font-size:18px;flex-shrink:0;">›</div>` : ''}
+        <div style="flex:1;min-width:90px;padding:16px 10px;text-align:center;
+          background:${s.bg};border:1px solid ${s.color}30;
+          border-radius:${i===0?'12px 0 0 12px':i===STAGES.length-1?'0 12px 12px 0':'0'};
+          border-left:${i>0?'none':'1px solid '+s.color+'30'};">
+          <div style="font-size:22px;line-height:1;margin-bottom:8px;">${s.icon}</div>
+          <div style="font-size:32px;font-weight:800;color:${s.color};line-height:1;">${counts[s.key]}</div>
           <div style="font-size:10px;font-weight:700;color:${s.color};margin-top:6px;
-            line-height:1.35;text-transform:uppercase;letter-spacing:0.05em;">${s.label}</div>
-          <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">${pct(counts[s.key])}%</div>
+            text-transform:uppercase;letter-spacing:0.05em;line-height:1.4;">${s.label}</div>
         </div>`).join('')}
     </div>
 
-    <!-- Progress bar -->
-    <div class="card mb-24" style="padding:16px 20px;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-        color:var(--text-muted,#888);margin-bottom:10px;">Pipeline Overview · ${total} total participants</div>
-      <div style="height:14px;border-radius:7px;overflow:hidden;display:flex;
-        background:var(--bg-subtle,#F3F4F6);">
-        ${total > 0 ? STAGES.filter(s => counts[s.key] > 0).map(s => `
-          <div style="width:${(counts[s.key]/total*100).toFixed(2)}%;background:${s.color};
-            min-width:3px;" title="${s.label}: ${counts[s.key]} (${pct(counts[s.key])}%)"></div>
-        `).join('') : ''}
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;">
-        ${STAGES.map(s => `
-          <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-            <div style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;"></div>
-            <span style="color:var(--text-secondary,#555);">${s.label}</span>
-            <strong style="color:${s.color};">${counts[s.key]}</strong>
-          </div>`).join('')}
-      </div>
-    </div>
-
-    <!-- Raw status breakdown (only if data loaded) -->
-    ${Object.keys(rawBreak).length > 0 ? `
+    <!-- Participants table -->
+    ${people.length > 0 ? `
     <div class="card">
-      <div class="card-title" style="margin-bottom:16px;">Status Breakdown from Zoho</div>
+      <div class="card-title" style="margin-bottom:16px;">👤 Participant Details</div>
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Visa Status</th>
-            <th style="text-align:center;">Count</th>
-            <th style="text-align:center;">Share</th>
-            <th>Stage</th>
+            <th>#</th>
+            <th>Name</th>
+            <th>Nationality</th>
+            <th>Current Stage</th>
+            <th>Appointment Date</th>
           </tr></thead>
           <tbody>
-            ${Object.entries(rawBreak).sort((a,b)=>b[1]-a[1]).map(([val, cnt]) => {
-              const stg = STAGES.find(s => s.key === stageOf(val)) || STAGES[0];
+            ${people.map((p, i) => {
+              const stg = STAGES.find(s => s.key === p.stage) || STAGES[0];
               return `<tr>
-                <td><strong>${val || '(blank)'}</strong></td>
-                <td style="text-align:center;font-weight:700;">${cnt}</td>
-                <td style="text-align:center;">${pct(cnt)}%</td>
+                <td style="color:var(--text-muted,#888);font-size:12px;">${i+1}</td>
+                <td><strong>${p.name || '—'}</strong></td>
+                <td>${p.nationality || '—'}</td>
                 <td>
-                  <span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;
-                    background:${stg.bg};color:${stg.color};">
+                  <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+                    background:${stg.bg};color:${stg.color};white-space:nowrap;">
                     ${stg.icon} ${stg.label}
                   </span>
+                </td>
+                <td style="color:${p.appt ? '#059669' : 'var(--text-muted,#aaa)'};">
+                  ${p.appt || '—'}
                 </td>
               </tr>`;
             }).join('')}
@@ -3234,6 +3235,22 @@ pages.requisition = async function () {
     } catch (e) {
       errorMsg = e.message;
     }
+  }
+
+  // Offline fallback
+  if (!rows.length && window.J1_REQUISITION_OFFLINE_DATA) {
+    columns  = window.J1_REQUISITION_OFFLINE_DATA.columns;
+    rows     = window.J1_REQUISITION_OFFLINE_DATA.rows;
+    viewName = viewName || 'SUM Job Openings J1 Participants by Department (offline snapshot)';
+    // Re-compute after loading offline data
+    METRICS.forEach(m => {
+      const idx = columns.findIndex(c => m.keywords.test(c));
+      if (idx >= 0) metricCols[m.key] = idx;
+    });
+    columns.forEach((col, ci) => {
+      const nums = rows.map(r => parseFloat((r[ci] || '').toString().replace(/,/g,''))).filter(n => !isNaN(n));
+      if (nums.length > 0) totals[ci] = nums.reduce((a,b) => a+b, 0);
+    });
   }
 
   // Identify dept column (first non-numeric col)
