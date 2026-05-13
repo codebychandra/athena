@@ -2780,6 +2780,7 @@ pages.interntainee = async function () {
 // ============================
 pages.socialmedia = async function () {
   const C = DIVISION_COLORS.j1;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
@@ -2788,42 +2789,180 @@ pages.socialmedia = async function () {
       </div>
     </div>
 
-    <div class="card mb-24" style="border-top:4px solid ${C};">
-      <div class="card-title" style="margin-bottom:16px;">📋 What This Form Covers</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
-        ${[
-          ['👤','Personal Social Media Accounts','Declaration of all active social media profiles (Instagram, TikTok, Facebook, LinkedIn, etc.)'],
-          ['🔒','Privacy Settings Acknowledgement','Confirmation that accounts are set to private during the programme period'],
-          ['📸','Content Guidelines','Agreement not to post content that violates programme policies or host employer confidentiality'],
-          ['⚠️','Prohibited Content','Acknowledgement of content that is strictly prohibited (political, discriminatory, confidential business info)'],
-          ['✅','Consent & Agreement','Signed consent that CTI Group may review disclosed accounts for compliance purposes'],
-          ['📅','Duration of Policy','Agreement that the policy applies for the full duration of the J1 programme'],
-        ].map(([icon,title,desc]) => `
-          <div style="display:flex;gap:12px;padding:14px;background:var(--bg-subtle,#F9FAFB);
-            border-radius:10px;border:1px solid var(--border,#E5E7EB);">
-            <span style="font-size:20px;flex-shrink:0;margin-top:2px;">${icon}</span>
-            <div>
-              <div style="font-weight:600;margin-bottom:4px;">${title}</div>
-              <div style="color:var(--text-muted,#888);line-height:1.6;">${desc}</div>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>
+    ${!isLocal ? `<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;
+      background:rgba(184,122,20,0.08);border:1px solid rgba(184,122,20,0.25);border-radius:8px;margin-bottom:20px;">
+      <span>⚠️</span>
+      <span style="font-size:13px;color:#B87A14;font-weight:500;">
+        Form submissions are saved to Excel only when running via the local server (<strong>localhost:3000</strong>).
+      </span></div>` : ''}
 
-    <div class="card">
-      <div class="card-title" style="margin-bottom:4px;">📝 Disclosure Form</div>
-      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
-        Participants complete this form online via Zoho Forms.
-      </div>
-      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;min-height:120px;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        gap:12px;padding:32px;text-align:center;">
-        <span style="font-size:36px;opacity:0.3;">🔗</span>
-        <div style="font-size:13px;color:var(--text-muted,#888);">Zoho form link will be embedded here</div>
-        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
-          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING CONFIGURATION</span>
-      </div>
+    <div class="card mb-24">
+      <div class="card-title" style="margin-bottom:20px;">📝 Social Media Disclosure Form</div>
+
+      <form id="smForm" style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Personal Info -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
+            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
+            Personal Information
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            ${[
+              ['firstName','First Name','text','John','true'],
+              ['lastName','Last Name','text','Doe','true'],
+              ['email','Email Address','email','john@email.com','true'],
+              ['phone','Phone Number','tel','+1 234 567 8900','false'],
+              ['nationality','Nationality','text','Indonesian','false'],
+              ['hostingCompany','Hosting Company','text','e.g. Viking Cruises','true'],
+              ['startDate','Programme Start Date','date','','false'],
+              ['endDate','Programme End Date','date','','false'],
+            ].map(([id,label,type,ph,req]) => `
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
+                  ${label}${req==='true'?' <span style="color:#B01A18;">*</span>':''}
+                </label>
+                <input id="sm_${id}" type="${type}" placeholder="${ph}"
+                  ${req==='true'?'required':''} autocomplete="off"
+                  style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                    border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
+                    color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
+                  onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Social Media Accounts -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
+            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
+            Social Media Accounts <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;">(leave blank if not applicable)</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            ${[
+              ['instagram','📸 Instagram','@username'],
+              ['tiktok','🎵 TikTok','@username'],
+              ['facebook','👤 Facebook','Profile name or URL'],
+              ['twitter','🐦 Twitter / X','@username'],
+              ['linkedin','💼 LinkedIn','Profile URL or name'],
+              ['youtube','▶ YouTube','Channel name or URL'],
+              ['snapchat','👻 Snapchat','Username'],
+            ].map(([id,label,ph]) => `
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">${label}</label>
+                <input id="sm_${id}" type="text" placeholder="${ph}"
+                  style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                    border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
+                    color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
+                  onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
+              </div>`).join('')}
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">🌐 Other Platform</label>
+              <input id="sm_otherPlatform" type="text" placeholder="Platform name"
+                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                  border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
+                  color:var(--text,#1A1A1A);outline:none;margin-bottom:8px;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
+              <input id="sm_otherUsername" type="text" placeholder="Username / URL"
+                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                  border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
+                  color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
+            </div>
+          </div>
+          <div style="margin-top:14px;">
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+              letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
+              🔒 Privacy Settings During Programme <span style="color:#B01A18;">*</span>
+            </label>
+            <select id="sm_privacySetting" required
+              style="width:100%;max-width:320px;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
+                color:var(--text,#1A1A1A);outline:none;">
+              <option value="">Select privacy setting</option>
+              <option value="All accounts set to Private">All accounts set to Private</option>
+              <option value="Most accounts set to Private">Most accounts set to Private</option>
+              <option value="Accounts remain Public">Accounts remain Public</option>
+              <option value="I do not have social media accounts">I do not have social media accounts</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Acknowledgements -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
+            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
+            Acknowledgements <span style="color:#B01A18;">*</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${[
+              ['confirmedAccurate','I confirm that all social media accounts listed above are accurate and complete'],
+              ['noProhibitedContent','I agree not to post prohibited content (confidential, discriminatory, or political) during my programme'],
+              ['monitoringConsent','I consent to CTI Group reviewing my disclosed accounts for compliance purposes'],
+              ['termsAgreed','I have read and agree to the CTI Group Social Media Terms & Agreement'],
+            ].map(([id,label]) => `
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;
+                color:var(--text-secondary,#555);line-height:1.5;">
+                <input id="sm_${id}" type="checkbox" required
+                  style="margin-top:2px;width:15px;height:15px;accent-color:${C};flex-shrink:0;">
+                ${label}
+              </label>`).join('')}
+          </div>
+        </div>
+
+        <!-- Signature -->
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
+            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
+            Signature
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end;">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
+                Full Name (typed signature) <span style="color:#B01A18;">*</span>
+              </label>
+              <input id="sm_signature" type="text" placeholder="Type your full name" required
+                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                  border-radius:8px;font-size:14px;font-family:'Georgia',serif;font-style:italic;
+                  background:var(--bg,#fff);color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
+                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">Date</label>
+              <input type="text" value="${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}"
+                disabled style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+                  border-radius:8px;font-size:13px;background:var(--bg-subtle,#F3F4F6);
+                  color:var(--text-muted,#888);font-family:inherit;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div style="display:flex;gap:12px;align-items:center;padding-top:8px;border-top:1px solid var(--border,#E5E7EB);">
+          <button type="submit" id="smSubmitBtn"
+            style="padding:12px 28px;border:none;border-radius:8px;background:${C};color:#fff;
+              font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;
+              box-shadow:0 4px 14px rgba(27,58,107,0.3);transition:all 0.15s;"
+            onmouseover="this.style.background='#152e56'" onmouseout="this.style.background='${C}'">
+            Submit Disclosure
+          </button>
+          <button type="button" onclick="document.getElementById('smForm').reset();showToast('Form cleared.','info');"
+            style="padding:12px 20px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
+              background:transparent;color:var(--text-muted,#888);font-size:13px;font-weight:600;
+              font-family:inherit;cursor:pointer;">
+            Clear Form
+          </button>
+          <span id="smFormMsg" style="font-size:13px;display:none;"></span>
+        </div>
+
+      </form>
     </div>`;
+};
 };
 
 // ============================
@@ -2831,23 +2970,38 @@ pages.socialmedia = async function () {
 // ============================
 pages.compliance = async function () {
   const C = DIVISION_COLORS.j1;
+  const docs = [
+    { file:'CTI Group_J1_Program_Terms_and_Conditions.pdf',           icon:'📋', label:'J1 Program Terms & Conditions',                   cat:'Agreement' },
+    { file:'CTI-AGG-J1-001_Program_General_Policy.pdf',               icon:'📄', label:'Program General Policy',                          cat:'Policy' },
+    { file:'CTI-AGG-J1-002_Program_Knowledge_Checklist.pdf',          icon:'✅', label:'Program Knowledge Checklist',                     cat:'Checklist' },
+    { file:'CTI-AGG-J1-003_Housing_Agreement_Room_Sharing_Acknowledgment_and_Early_Termination_Policy.pdf', icon:'🏠', label:'Housing Agreement & Early Termination Policy', cat:'Agreement' },
+    { file:'CTI-AGG-J1-004_Parent_and_Student_Commitment_Agreement.docx', icon:'🤝', label:'Parent & Student Commitment Agreement',        cat:'Agreement' },
+    { file:'CTI-GUIDE-J1-INT_Interview_Readiness_Prep_Packet.pdf',    icon:'🎓', label:'Interview Readiness Prep Packet',                 cat:'Guide' },
+    { file:'CTI-SOP-J1-001_Pre-Embassy_Screening_Protocol.docx',      icon:'🏛️', label:'Pre-Embassy Screening Protocol',                  cat:'SOP' },
+    { file:'CTI-SOP-J1-002_Marketing_and_Recruiter_Communications.docx', icon:'📢', label:'Marketing & Recruiter Communications',          cat:'SOP' },
+    { file:'CTI-SOP-J1-003_Active_Participant_Monitoring.docx',       icon:'👁️', label:'Active Participant Monitoring',                   cat:'SOP' },
+    { file:'CTI-SOP-J1-004_Pre-Departure_Orientation_and_Interview_Readiness.docx', icon:'✈️', label:'Pre-Departure Orientation & Interview Readiness', cat:'SOP' },
+  ];
+  const catColor = { SOP:'#1B3A6B', Agreement:'#B01A18', Policy:'#2D7A55', Checklist:'#B87A14', Guide:'#6B47DC' };
+
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Compliance</h1>
-        <p class="subtitle">Social media policy, terms of agreement, and programme compliance documents</p>
+        <p class="subtitle">Social media policy, programme agreements, SOPs, and compliance documents</p>
       </div>
     </div>
 
+    <!-- Social Media T&C -->
     <div class="card mb-24" style="border-top:4px solid ${C};">
       <div class="card-title" style="margin-bottom:4px;">📜 Social Media Terms & Agreement</div>
       <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:20px;">
         All J1 participants must read and acknowledge the following terms before starting the programme.
       </div>
-      <div style="font-size:13px;line-height:1.85;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:14px;">
+      <div style="font-size:13px;line-height:1.85;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:12px;">
         ${[
           ['1. Purpose','CTI Group Worldwide Services, Inc. requires all J1 Exchange Visitors to adhere to responsible social media practices throughout their programme. This policy protects participants, host employers, and the integrity of the J1 programme.'],
-          ['2. Prohibited Content','Participants must not post: photographs or videos of host premises or staff without consent; discriminatory or defamatory content; political statements that compromise the neutrality of the exchange programme; content violating U.S. law or U.S. Department of State regulations; or personal data of other participants.'],
+          ['2. Prohibited Content','Participants must not post: photographs or videos of host premises or staff without consent; discriminatory or defamatory content; political statements that compromise programme neutrality; content violating U.S. law or U.S. Department of State regulations; or personal data of other participants.'],
           ['3. Privacy Requirements','Participants are strongly encouraged to set all personal social media accounts to private for the full duration of their programme. Any public content must comply with host employer policies and applicable law.'],
           ['4. Monitoring & Enforcement','CTI Group reserves the right to review disclosed social media accounts for compliance. Breaches may result in programme termination and notification to the U.S. Department of State sponsor.'],
           ['5. Acknowledgement','By completing the Social Media Disclosure Form, participants confirm they have read, understood, and agree to comply with this policy for the entire duration of their J1 programme.'],
@@ -2859,18 +3013,32 @@ pages.compliance = async function () {
       </div>
     </div>
 
+    <!-- Document library -->
     <div class="card">
-      <div class="card-title" style="margin-bottom:4px;">📁 Compliance Documents</div>
-      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
-        Additional compliance files and programme documents will appear here.
+      <div class="card-title" style="margin-bottom:4px;">📁 Programme Documents</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:18px;">
+        ${docs.length} documents · Click to download
       </div>
-      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;min-height:100px;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        gap:10px;padding:28px;text-align:center;">
-        <span style="font-size:32px;opacity:0.3;">📂</span>
-        <div style="font-size:13px;color:var(--text-muted,#888);">Documents will be added here</div>
-        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
-          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING UPLOAD</span>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${docs.map(d => `
+          <a href="docs/${encodeURIComponent(d.file)}" target="_blank" download="${d.file}"
+            style="display:flex;align-items:center;gap:14px;padding:13px 16px;
+              border:1px solid var(--border,#E5E7EB);border-radius:10px;text-decoration:none;
+              color:var(--text,#1A1A1A);background:var(--bg,#fff);transition:all 0.15s;"
+            onmouseover="this.style.background='var(--bg-subtle,#F9FAFB)';this.style.borderColor='${C}'"
+            onmouseout="this.style.background='var(--bg,#fff)';this.style.borderColor='var(--border,#E5E7EB)'">
+            <span style="font-size:22px;flex-shrink:0;">${d.icon}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.label}</div>
+              <div style="font-size:11px;color:var(--text-muted,#999);margin-top:2px;">${d.file}</div>
+            </div>
+            <span style="font-size:10px;font-weight:700;letter-spacing:0.06em;padding:3px 10px;
+              border-radius:20px;flex-shrink:0;
+              background:${catColor[d.cat] || '#888'}18;color:${catColor[d.cat] || '#888'};">
+              ${d.cat}
+            </span>
+            <span style="font-size:14px;color:var(--text-muted,#aaa);flex-shrink:0;">↓</span>
+          </a>`).join('')}
       </div>
     </div>`;
 };
@@ -2880,35 +3048,73 @@ pages.compliance = async function () {
 // ============================
 pages.marketing = async function () {
   const C = DIVISION_COLORS.j1;
+  const videos = [
+    { id:'4-6OY7-Yr_A', title:'CTI Group — Programme Overview' },
+    { id:'yoahucblnVQ', title:'J1 Cultural Exchange — Participant Stories' },
+    { id:'gOwe92yD7cc', title:'Life on Board — Cruise Line Experience' },
+    { id:'B3dP3R6rcdw', title:'Hospitality Training — Host Employer Spotlight' },
+    { id:'jQrqquyujJk', title:'Pre-Departure Orientation Highlights' },
+    { id:'XXJ5SXZ29Q0', title:'Ambassador Programme — Cultural Exchange' },
+    { id:'oW75EwDxaUY', title:'CTI Group — Recruitment & Placement Process' },
+    { id:'OR6uW8FH2uU', title:'Participant Testimonials 2025' },
+    { id:'_2Zxz1IivG8', title:'Training & Development — J1 Trainee Category' },
+    { id:'xP4_7SKzUbo', title:'CTI Group — Company Introduction' },
+  ];
+  let _activeIdx = 0;
+
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Marketing</h1>
-        <p class="subtitle">CTI Group programme marketing materials and media</p>
+        <p class="subtitle">CTI Group programme marketing videos and media — ${videos.length} videos</p>
       </div>
     </div>
 
+    <!-- Featured player -->
     <div class="card mb-24">
-      <div class="card-title" style="margin-bottom:4px;">🎬 Programme Video</div>
-      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
-        Private YouTube video will be embedded here once the link is provided.
+      <div style="border-radius:10px;overflow:hidden;background:#000;aspect-ratio:16/9;max-width:820px;">
+        <iframe id="mktMainPlayer"
+          src="https://www.youtube-nocookie.com/embed/${videos[0].id}?rel=0&modestbranding=1"
+          style="width:100%;height:100%;border:none;display:block;"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen title="${videos[0].title}">
+        </iframe>
       </div>
-      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;background:var(--bg-subtle,#F9FAFB);
-        aspect-ratio:16/9;max-width:720px;display:flex;flex-direction:column;
-        align-items:center;justify-content:center;gap:14px;text-align:center;padding:32px;">
-        <span style="font-size:48px;opacity:0.25;">▶</span>
-        <div style="font-size:13px;color:var(--text-muted,#888);">YouTube video will appear here</div>
-        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
-          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING LINK</span>
+      <div style="margin-top:12px;">
+        <div id="mktMainTitle" style="font-size:15px;font-weight:700;color:var(--text,#1A1A1A);">${videos[0].title}</div>
+        <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">Video 1 of ${videos.length}</div>
       </div>
     </div>
 
-    <div class="card" style="border-top:4px solid ${C};">
-      <div class="card-title" style="margin-bottom:10px;">📢 Marketing Materials</div>
-      <div style="font-size:13px;color:var(--text-muted,#888);line-height:1.7;">
-        Additional marketing content, brochures, and media assets will be added here.
+    <!-- Playlist grid -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">📋 All Videos</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+        ${videos.map((v,i) => `
+          <div class="mkt-thumb" data-idx="${i}" data-id="${v.id}" data-title="${v.title.replace(/"/g,'&quot;')}"
+            style="cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid ${i===0?C:'var(--border,#E5E7EB)'};
+              transition:all 0.15s;background:var(--bg-subtle,#F9FAFB);"
+            onmouseover="this.style.borderColor='${C}';this.style.transform='translateY(-2px)'"
+            onmouseout="this.style.borderColor=this.dataset.idx==='${0}'?'${C}':'var(--border,#E5E7EB)';this.style.transform=''">
+            <div style="position:relative;aspect-ratio:16/9;background:#111;">
+              <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" alt="${v.title}"
+                style="width:100%;height:100%;object-fit:cover;display:block;opacity:0.9;">
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.65);
+                  display:flex;align-items:center;justify-content:center;">
+                  <span style="color:#fff;font-size:14px;margin-left:3px;">▶</span>
+                </div>
+              </div>
+              <div style="position:absolute;top:6px;left:6px;background:${C};color:#fff;
+                font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">${i+1}</div>
+            </div>
+            <div style="padding:10px;font-size:12px;font-weight:600;line-height:1.4;
+              color:var(--text,#1A1A1A);display:-webkit-box;-webkit-line-clamp:2;
+              -webkit-box-orient:vertical;overflow:hidden;">${v.title}</div>
+          </div>`).join('')}
       </div>
     </div>`;
+};
 };
 
 // ============================
@@ -2994,6 +3200,82 @@ pages.settings = async function () {
 pageEvents.settings = function () {
   document.getElementById('darkModeToggle')?.addEventListener('change', e => {
     applyTheme(e.target.checked ? 'dark' : 'light');
+  });
+};
+
+// ── Social Media Disclosure form submit ───────────────────────
+pageEvents.socialmedia = function () {
+  const form = document.getElementById('smForm');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('smSubmitBtn');
+    const msg = document.getElementById('smFormMsg');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    const val = id => (document.getElementById('sm_' + id)?.value || '').trim();
+    const chk = id => document.getElementById('sm_' + id)?.checked || false;
+
+    const payload = {
+      firstName: val('firstName'), lastName: val('lastName'),
+      email: val('email'), phone: val('phone'),
+      nationality: val('nationality'), hostingCompany: val('hostingCompany'),
+      startDate: val('startDate'), endDate: val('endDate'),
+      instagram: val('instagram'), tiktok: val('tiktok'),
+      facebook: val('facebook'), twitter: val('twitter'),
+      linkedin: val('linkedin'), youtube: val('youtube'),
+      snapchat: val('snapchat'),
+      otherPlatform: val('otherPlatform'), otherUsername: val('otherUsername'),
+      privacySetting: val('privacySetting'),
+      confirmedAccurate: chk('confirmedAccurate'),
+      noProhibitedContent: chk('noProhibitedContent'),
+      monitoringConsent: chk('monitoringConsent'),
+      termsAgreed: chk('termsAgreed'),
+      signature: val('signature')
+    };
+
+    try {
+      const res = await fetch('/api/social-media-disclosure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Disclosure submitted and saved to Excel! ✅', 'success');
+        form.reset();
+        msg.style.display = 'none';
+      } else {
+        msg.textContent = data.error || 'Submission failed.';
+        msg.style.display = 'inline';
+        msg.style.color = '#B01A18';
+      }
+    } catch {
+      msg.textContent = 'Server not available — run node server.js locally to save submissions.';
+      msg.style.display = 'inline';
+      msg.style.color = '#B87A14';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Submit Disclosure';
+  });
+};
+
+// ── Marketing video playlist click ────────────────────────────
+pageEvents.marketing = function () {
+  document.querySelectorAll('.mkt-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      const id    = thumb.dataset.id;
+      const title = thumb.dataset.title;
+      const idx   = thumb.dataset.idx;
+      document.getElementById('mktMainPlayer').src =
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1&autoplay=1`;
+      document.getElementById('mktMainTitle').textContent = title;
+      document.querySelectorAll('.mkt-thumb').forEach(t => {
+        t.style.borderColor = 'var(--border,#E5E7EB)';
+      });
+      thumb.style.borderColor = DIVISION_COLORS.j1;
+    });
   });
 };
 

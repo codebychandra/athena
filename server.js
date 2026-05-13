@@ -364,6 +364,61 @@ app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
 });
 
 // ============================
+// SOCIAL MEDIA DISCLOSURE — save to Excel
+// ============================
+const XLSX       = require('xlsx');
+const EXCEL_FILE = path.join(__dirname, 'social_media_disclosures.xlsx');
+
+function getOrCreateWorkbook() {
+  if (fs.existsSync(EXCEL_FILE)) {
+    return XLSX.readFile(EXCEL_FILE);
+  }
+  const wb = XLSX.utils.book_new();
+  const headers = [
+    'Submitted At','First Name','Last Name','Email','Phone','Nationality',
+    'Hosting Company','Programme Start','Programme End',
+    'Instagram','TikTok','Facebook','Twitter/X','LinkedIn','YouTube','Snapchat',
+    'Other Platform','Other Username',
+    'Privacy Setting','Confirmed Accurate','No Prohibited Content',
+    'Monitoring Consent','Terms Agreed','Typed Signature'
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  ws['!cols'] = headers.map(() => ({ wch: 22 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Disclosures');
+  XLSX.writeFile(wb, EXCEL_FILE);
+  return wb;
+}
+
+app.post('/api/social-media-disclosure', (req, res) => {
+  try {
+    const d   = req.body;
+    const wb  = getOrCreateWorkbook();
+    const ws  = wb.Sheets['Disclosures'];
+    const row = [
+      new Date().toLocaleString(),
+      d.firstName, d.lastName, d.email, d.phone, d.nationality,
+      d.hostingCompany, d.startDate, d.endDate,
+      d.instagram, d.tiktok, d.facebook, d.twitter,
+      d.linkedin, d.youtube, d.snapchat,
+      d.otherPlatform, d.otherUsername,
+      d.privacySetting,
+      d.confirmedAccurate ? 'Yes' : 'No',
+      d.noProhibitedContent ? 'Yes' : 'No',
+      d.monitoringConsent ? 'Yes' : 'No',
+      d.termsAgreed ? 'Yes' : 'No',
+      d.signature
+    ];
+    XLSX.utils.sheet_add_aoa(ws, [row], { origin: -1 });
+    XLSX.writeFile(wb, EXCEL_FILE);
+    console.log(`📋 Social media disclosure saved — ${d.firstName} ${d.lastName}`);
+    res.json({ success: true, message: 'Disclosure submitted successfully.' });
+  } catch (err) {
+    console.error('Disclosure save error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================
 // START SERVER
 // ============================
 app.listen(PORT, () => {
