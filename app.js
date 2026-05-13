@@ -252,7 +252,10 @@ async function loadJSON(file) {
 // ============================
 async function checkZohoStatus() {
   try {
-    const res = await fetch('/api/status');
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res   = await fetch('/api/status', { signal: ctrl.signal });
+    clearTimeout(timer);
     if (!res.ok) throw new Error('no server');
     const data = await res.json();
     state.zoho.connected = data.connected;
@@ -261,6 +264,7 @@ async function checkZohoStatus() {
   } catch {
     state.zoho.connected = false;
     state.zoho.checked   = true;
+    updateZohoBadge();
   }
 }
 
@@ -2963,7 +2967,6 @@ pages.socialmedia = async function () {
       </form>
     </div>`;
 };
-};
 
 // ============================
 // PAGE: COMPLIANCE
@@ -3114,7 +3117,6 @@ pages.marketing = async function () {
           </div>`).join('')}
       </div>
     </div>`;
-};
 };
 
 // ============================
