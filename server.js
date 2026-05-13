@@ -347,6 +347,96 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
   }
 });
 
+// ── Shared helper — find a view by search terms across all workspaces ──────
+async function findZohoView(headers, workspaces, matchFn) {
+  for (const ws of workspaces) {
+    const r = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`, { headers }
+    );
+    const views = r.data?.data?.views || [];
+    const match = views.find(matchFn);
+    if (match) return { ws, view: match };
+  }
+  return null;
+}
+
+async function allViewsList(headers, workspaces) {
+  const list = [];
+  for (const ws of workspaces.slice(0, 6)) {
+    const r = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`, { headers }
+    );
+    (r.data?.data?.views || []).forEach(v =>
+      list.push({ workspace: ws.workspaceName, viewName: v.viewName, viewId: v.viewId })
+    );
+  }
+  return list;
+}
+
+// J1 Visa Status
+app.get('/api/zoho/j1-visa', async (req, res) => {
+  try {
+    const token      = await ensureValidToken();
+    const headers    = await zohoHeaders(token);
+    const workspaces = await getAllWorkspaces(token);
+    if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
+
+    const found = await findZohoView(headers, workspaces, v =>
+      v.viewName === 'J1 Visa' ||
+      v.viewName.toLowerCase().includes('j1 visa')
+    );
+    if (!found) {
+      return res.status(404).json({
+        error: 'J1 Visa view not found',
+        availableViews: await allViewsList(headers, workspaces)
+      });
+    }
+    const dataRes = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${found.ws.workspaceId}/views/${found.view.viewId}/data`,
+      { headers }
+    );
+    const raw  = dataRes.data;
+    const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
+    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('J1 Visa fetch error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// J1 Requisition (SUM Job Openings J1 Participants by Department)
+app.get('/api/zoho/j1-requisition', async (req, res) => {
+  try {
+    const token      = await ensureValidToken();
+    const headers    = await zohoHeaders(token);
+    const workspaces = await getAllWorkspaces(token);
+    if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
+
+    const found = await findZohoView(headers, workspaces, v => {
+      const n = v.viewName.toLowerCase();
+      return n.includes('sum job openings') || n.includes('job openings j1');
+    });
+    if (!found) {
+      return res.status(404).json({
+        error: 'Job Openings requisition view not found',
+        availableViews: await allViewsList(headers, workspaces)
+      });
+    }
+    const dataRes = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${found.ws.workspaceId}/views/${found.view.viewId}/data`,
+      { headers }
+    );
+    const raw  = dataRes.data;
+    const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
+    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('J1 Requisition fetch error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
 // Generic view data fetch by IDs
 app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
   try {

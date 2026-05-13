@@ -30,7 +30,9 @@ const PAGE_TITLES = {
   interntainee: 'Intern v Trainee',
   socialmedia:  'Social Media Disclosure',
   compliance:   'Compliance',
-  marketing:    'Marketing'
+  marketing:    'Marketing',
+  j1visa:       'Visa Status',
+  requisition:  'Requisition'
 };
 
 // Pages that are locked (no live data yet)
@@ -3023,6 +3025,285 @@ pages.compliance = async function () {
           </a>`).join('')}
       </div>
     </div>`;
+};
+
+// ============================
+// PAGE: J1 VISA STATUS
+// ============================
+pages.j1visa = async function () {
+  const C       = DIVISION_COLORS.j1;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  const STAGES = [
+    { key:'registered',  label:'Registered',         icon:'📋', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)' },
+    { key:'ds',          label:'DS Processed',        icon:'📄', color:'#2D7A55', bg:'rgba(45,122,85,0.10)' },
+    { key:'waiting',     label:'Waiting Appointment', icon:'⏳', color:'#B87A14', bg:'rgba(184,122,20,0.10)' },
+    { key:'appointment', label:'Has Appointment',     icon:'📅', color:'#6B47DC', bg:'rgba(107,71,220,0.10)' },
+    { key:'approved',    label:'Approved',            icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)' },
+    { key:'rejected',    label:'Rejected',            icon:'❌', color:'#B01A18', bg:'rgba(176,26,24,0.10)' },
+  ];
+
+  function stageOf(val) {
+    const v = (val || '').toLowerCase();
+    if (/reject|denied|refuse/.test(v))                                      return 'rejected';
+    if (/approv|issued|granted|visa received/.test(v))                       return 'approved';
+    if (/appointment|scheduled|interview date|booked|has appt/.test(v))      return 'appointment';
+    if (/wait|pending appt|await|no appointment/.test(v))                    return 'waiting';
+    if (/\bds\b|document|processed|ready|completed|prep/.test(v))           return 'ds';
+    return 'registered';
+  }
+
+  let counts   = Object.fromEntries(STAGES.map(s => [s.key, 0]));
+  let rawBreak = {};
+  let total    = 0;
+  let viewName = '';
+  let errorMsg = null;
+
+  if (isLocal) {
+    try {
+      const res  = await fetch('/api/zoho/j1-visa');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Fetch failed');
+      viewName = json.view || '';
+      const { columns = [], rows = [] } = json.data || {};
+      const sIdx = columns.findIndex(c => /status/i.test(c));
+      if (sIdx >= 0) {
+        rows.forEach(row => {
+          const val = (row[sIdx] || '').trim();
+          counts[stageOf(val)]++;
+          rawBreak[val] = (rawBreak[val] || 0) + 1;
+          total++;
+        });
+      } else if (rows.length) {
+        // No status column found — count all rows as registered
+        total = rows.length;
+        counts.registered = total;
+      }
+    } catch (e) {
+      errorMsg = e.message;
+    }
+  }
+
+  const pct = n => total > 0 ? Math.round(n / total * 100) : 0;
+
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Visa Status</h1>
+        <p class="subtitle">J1 visa application pipeline${viewName ? ` · ${viewName}` : ''} · live data from Zoho Analytics</p>
+      </div>
+    </div>
+
+    ${!isLocal ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(27,58,107,0.07);
+      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:18px;">🔌</span>
+      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
+        Live Zoho data available when running <strong>node server.js</strong> locally · data below shows current snapshot
+      </span>
+    </div>` : ''}
+
+    ${errorMsg ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(176,26,24,0.07);
+      border:1px solid rgba(176,26,24,0.2);border-radius:10px;margin-bottom:22px;">
+      <span>⚠️</span>
+      <span style="font-size:13px;color:#B01A18;font-weight:500;">Zoho error: ${errorMsg}</span>
+    </div>` : ''}
+
+    <!-- Pipeline cards -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;">
+      ${STAGES.map(s => `
+        <div style="padding:18px 12px;background:${s.bg};border-radius:12px;
+          border:1px solid ${s.color}33;text-align:center;">
+          <div style="font-size:26px;margin-bottom:8px;line-height:1;">${s.icon}</div>
+          <div style="font-size:30px;font-weight:800;color:${s.color};line-height:1;">${counts[s.key]}</div>
+          <div style="font-size:10px;font-weight:700;color:${s.color};margin-top:6px;
+            line-height:1.35;text-transform:uppercase;letter-spacing:0.05em;">${s.label}</div>
+          <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">${pct(counts[s.key])}%</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Progress bar -->
+    <div class="card mb-24" style="padding:16px 20px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+        color:var(--text-muted,#888);margin-bottom:10px;">Pipeline Overview · ${total} total participants</div>
+      <div style="height:14px;border-radius:7px;overflow:hidden;display:flex;
+        background:var(--bg-subtle,#F3F4F6);">
+        ${total > 0 ? STAGES.filter(s => counts[s.key] > 0).map(s => `
+          <div style="width:${(counts[s.key]/total*100).toFixed(2)}%;background:${s.color};
+            min-width:3px;" title="${s.label}: ${counts[s.key]} (${pct(counts[s.key])}%)"></div>
+        `).join('') : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;">
+        ${STAGES.map(s => `
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+            <div style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;"></div>
+            <span style="color:var(--text-secondary,#555);">${s.label}</span>
+            <strong style="color:${s.color};">${counts[s.key]}</strong>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Raw status breakdown (only if data loaded) -->
+    ${Object.keys(rawBreak).length > 0 ? `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">Status Breakdown from Zoho</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Visa Status</th>
+            <th style="text-align:center;">Count</th>
+            <th style="text-align:center;">Share</th>
+            <th>Stage</th>
+          </tr></thead>
+          <tbody>
+            ${Object.entries(rawBreak).sort((a,b)=>b[1]-a[1]).map(([val, cnt]) => {
+              const stg = STAGES.find(s => s.key === stageOf(val)) || STAGES[0];
+              return `<tr>
+                <td><strong>${val || '(blank)'}</strong></td>
+                <td style="text-align:center;font-weight:700;">${cnt}</td>
+                <td style="text-align:center;">${pct(cnt)}%</td>
+                <td>
+                  <span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;
+                    background:${stg.bg};color:${stg.color};">
+                    ${stg.icon} ${stg.label}
+                  </span>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}`;
+};
+
+// ============================
+// PAGE: REQUISITION
+// ============================
+pages.requisition = async function () {
+  const C       = DIVISION_COLORS.j1;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Column keyword matchers for summary cards
+  const METRICS = [
+    { key:'requisition', label:'Active Requisition', icon:'📌', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)',  keywords:/requisition|job opening|opening/i },
+    { key:'pool',        label:'Talent Pool',         icon:'👥', color:'#6B47DC', bg:'rgba(107,71,220,0.10)', keywords:/talent pool|pool|candidate/i },
+    { key:'placement',   label:'Placement',           icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)',  keywords:/placement|placed|hired/i },
+    { key:'remaining',   label:'Remaining Hire',      icon:'🎯', color:'#B87A14', bg:'rgba(184,122,20,0.10)', keywords:/remaining|unfilled|balance|left/i },
+  ];
+
+  let columns    = [];
+  let rows       = [];
+  let totals     = {};
+  let metricCols = {};   // metric key → column index
+  let viewName   = '';
+  let errorMsg   = null;
+
+  if (isLocal) {
+    try {
+      const res  = await fetch('/api/zoho/j1-requisition');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Fetch failed');
+      viewName = json.view || '';
+      columns  = json.data?.columns || [];
+      rows     = json.data?.rows    || [];
+
+      // Map metric keys to column indices
+      METRICS.forEach(m => {
+        const idx = columns.findIndex(c => m.keywords.test(c));
+        if (idx >= 0) metricCols[m.key] = idx;
+      });
+
+      // Compute totals for numeric columns
+      columns.forEach((col, ci) => {
+        const nums = rows.map(r => parseFloat((r[ci] || '').toString().replace(/,/g,''))).filter(n => !isNaN(n));
+        if (nums.length > 0) totals[ci] = nums.reduce((a,b) => a+b, 0);
+      });
+    } catch (e) {
+      errorMsg = e.message;
+    }
+  }
+
+  // Identify dept column (first non-numeric col)
+  const deptIdx = columns.findIndex((_, ci) => totals[ci] === undefined);
+
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Requisition</h1>
+        <p class="subtitle">J1 job openings by department${viewName ? ` · ${viewName}` : ''} · live data from Zoho Analytics</p>
+      </div>
+    </div>
+
+    ${!isLocal ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(27,58,107,0.07);
+      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:18px;">🔌</span>
+      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
+        Live Zoho data available when running <strong>node server.js</strong> locally
+      </span>
+    </div>` : ''}
+
+    ${errorMsg ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(176,26,24,0.07);
+      border:1px solid rgba(176,26,24,0.2);border-radius:10px;margin-bottom:22px;">
+      <span>⚠️</span>
+      <span style="font-size:13px;color:#B01A18;font-weight:500;">Zoho error: ${errorMsg}</span>
+    </div>` : ''}
+
+    <!-- Summary metric cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+      ${METRICS.map(m => {
+        const ci  = metricCols[m.key];
+        const val = ci !== undefined ? (totals[ci] || 0) : '—';
+        return `
+          <div style="padding:20px;background:${m.bg};border-radius:12px;border:1px solid ${m.color}33;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <span style="font-size:22px;">${m.icon}</span>
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+                color:${m.color};">${m.label}</span>
+            </div>
+            <div style="font-size:36px;font-weight:800;color:${m.color};line-height:1;">${val}</div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Department breakdown table -->
+    ${rows.length > 0 ? `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">📊 Breakdown by Department</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            ${columns.map((col, ci) => `
+              <th style="${ci !== deptIdx ? 'text-align:center;' : ''}">${col}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${rows.map(row => `
+              <tr>
+                ${row.map((cell, ci) => `
+                  <td style="${ci !== deptIdx ? 'text-align:center;font-weight:600;' : 'font-weight:500;'}">
+                    ${cell || '—'}
+                  </td>`).join('')}
+              </tr>`).join('')}
+            <!-- Totals row -->
+            <tr style="background:var(--bg-subtle,#F3F4F6);font-weight:700;border-top:2px solid var(--border,#E5E7EB);">
+              ${columns.map((_, ci) => {
+                if (ci === deptIdx) return `<td style="font-weight:700;color:var(--text,#1A1A1A);">TOTAL</td>`;
+                const t = totals[ci];
+                return `<td style="text-align:center;color:${C};font-size:15px;">${t !== undefined ? t.toLocaleString() : '—'}</td>`;
+              }).join('')}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>` : `
+    <div class="card" style="text-align:center;padding:48px 24px;">
+      <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">📊</div>
+      <div style="font-size:14px;color:var(--text-muted,#888);">
+        ${isLocal ? 'No requisition data found — check that the Zoho view name contains "SUM Job Openings".' : 'Start the local server to load live requisition data.'}
+      </div>
+    </div>`}`;
 };
 
 // ============================
