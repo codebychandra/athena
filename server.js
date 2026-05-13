@@ -377,8 +377,7 @@ function getOrCreateWorkbook() {
   const headers = [
     'Submitted At','First Name','Last Name','Email','Phone','Nationality',
     'Hosting Company','Programme Start','Programme End',
-    'Instagram','TikTok','Facebook','Twitter/X','LinkedIn','YouTube','Snapchat',
-    'Other Platform','Other Username',
+    'Platform','Username',
     'Privacy Setting','Confirmed Accurate','No Prohibited Content',
     'Monitoring Consent','Terms Agreed','Typed Signature'
   ];
@@ -398,9 +397,7 @@ app.post('/api/social-media-disclosure', (req, res) => {
       new Date().toLocaleString(),
       d.firstName, d.lastName, d.email, d.phone, d.nationality,
       d.hostingCompany, d.startDate, d.endDate,
-      d.instagram, d.tiktok, d.facebook, d.twitter,
-      d.linkedin, d.youtube, d.snapchat,
-      d.otherPlatform, d.otherUsername,
+      d.platform, d.username,
       d.privacySetting,
       d.confirmedAccurate ? 'Yes' : 'No',
       d.noProhibitedContent ? 'Yes' : 'No',

@@ -2837,40 +2837,41 @@ pages.socialmedia = async function () {
           </div>
         </div>
 
-        <!-- Social Media Accounts -->
+        <!-- Social Media Account -->
         <div>
           <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
             text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
-            Social Media Accounts <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;">(leave blank if not applicable)</span>
+            Social Media Account <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;">(submit your primary account)</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            ${[
-              ['instagram','📸 Instagram','@username'],
-              ['tiktok','🎵 TikTok','@username'],
-              ['facebook','👤 Facebook','Profile name or URL'],
-              ['twitter','🐦 Twitter / X','@username'],
-              ['linkedin','💼 LinkedIn','Profile URL or name'],
-              ['youtube','▶ YouTube','Channel name or URL'],
-              ['snapchat','👻 Snapchat','Username'],
-            ].map(([id,label,ph]) => `
-              <div>
-                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">${label}</label>
-                <input id="sm_${id}" type="text" placeholder="${ph}"
-                  style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                    border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                    color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
-                  onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-              </div>`).join('')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end;">
             <div>
               <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">🌐 Other Platform</label>
-              <input id="sm_otherPlatform" type="text" placeholder="Platform name"
+                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
+                Platform <span style="color:#B01A18;">*</span>
+              </label>
+              <select id="sm_platform" required
                 style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
                   border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                  color:var(--text,#1A1A1A);outline:none;margin-bottom:8px;transition:border-color 0.15s;"
+                  color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;appearance:auto;"
                 onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-              <input id="sm_otherUsername" type="text" placeholder="Username / URL"
+                <option value="">Select platform…</option>
+                <option value="Instagram">📸 Instagram</option>
+                <option value="TikTok">🎵 TikTok</option>
+                <option value="Facebook">👤 Facebook</option>
+                <option value="Twitter / X">🐦 Twitter / X</option>
+                <option value="LinkedIn">💼 LinkedIn</option>
+                <option value="YouTube">▶ YouTube</option>
+                <option value="Snapchat">👻 Snapchat</option>
+                <option value="Other">🌐 Other</option>
+                <option value="None">🚫 I do not have social media</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
+                Username / Profile URL
+              </label>
+              <input id="sm_username" type="text" placeholder="@username or profile URL"
                 style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
                   border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
                   color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
@@ -2880,16 +2881,15 @@ pages.socialmedia = async function () {
           <div style="margin-top:14px;">
             <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
               letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-              🔒 Privacy Settings During Programme <span style="color:#B01A18;">*</span>
+              🔒 Privacy Setting During Programme <span style="color:#B01A18;">*</span>
             </label>
             <select id="sm_privacySetting" required
-              style="width:100%;max-width:320px;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
+              style="width:100%;max-width:360px;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
                 border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                color:var(--text,#1A1A1A);outline:none;">
-              <option value="">Select privacy setting</option>
-              <option value="All accounts set to Private">All accounts set to Private</option>
-              <option value="Most accounts set to Private">Most accounts set to Private</option>
-              <option value="Accounts remain Public">Accounts remain Public</option>
+                color:var(--text,#1A1A1A);outline:none;appearance:auto;">
+              <option value="">Select privacy setting…</option>
+              <option value="Account set to Private">Account set to Private</option>
+              <option value="Account remains Public">Account remains Public</option>
               <option value="I do not have social media accounts">I do not have social media accounts</option>
             </select>
           </div>
@@ -2991,28 +2991,7 @@ pages.compliance = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Compliance</h1>
-        <p class="subtitle">Social media policy, programme agreements, SOPs, and compliance documents</p>
-      </div>
-    </div>
-
-    <!-- Social Media T&C -->
-    <div class="card mb-24" style="border-top:4px solid ${C};">
-      <div class="card-title" style="margin-bottom:4px;">📜 Social Media Terms & Agreement</div>
-      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:20px;">
-        All J1 participants must read and acknowledge the following terms before starting the programme.
-      </div>
-      <div style="font-size:13px;line-height:1.85;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:12px;">
-        ${[
-          ['1. Purpose','CTI Group Worldwide Services, Inc. requires all J1 Exchange Visitors to adhere to responsible social media practices throughout their programme. This policy protects participants, host employers, and the integrity of the J1 programme.'],
-          ['2. Prohibited Content','Participants must not post: photographs or videos of host premises or staff without consent; discriminatory or defamatory content; political statements that compromise programme neutrality; content violating U.S. law or U.S. Department of State regulations; or personal data of other participants.'],
-          ['3. Privacy Requirements','Participants are strongly encouraged to set all personal social media accounts to private for the full duration of their programme. Any public content must comply with host employer policies and applicable law.'],
-          ['4. Monitoring & Enforcement','CTI Group reserves the right to review disclosed social media accounts for compliance. Breaches may result in programme termination and notification to the U.S. Department of State sponsor.'],
-          ['5. Acknowledgement','By completing the Social Media Disclosure Form, participants confirm they have read, understood, and agree to comply with this policy for the entire duration of their J1 programme.'],
-        ].map(([title, body]) => `
-          <div style="padding:14px 16px;background:var(--bg-subtle,#F9FAFB);border-radius:10px;border-left:4px solid ${C};">
-            <div style="font-weight:700;color:var(--text,#1A1A1A);margin-bottom:6px;">${title}</div>
-            <p style="margin:0;">${body}</p>
-          </div>`).join('')}
+        <p class="subtitle">Programme agreements, SOPs, and compliance documents</p>
       </div>
     </div>
 
@@ -3224,11 +3203,7 @@ pageEvents.socialmedia = function () {
       email: val('email'), phone: val('phone'),
       nationality: val('nationality'), hostingCompany: val('hostingCompany'),
       startDate: val('startDate'), endDate: val('endDate'),
-      instagram: val('instagram'), tiktok: val('tiktok'),
-      facebook: val('facebook'), twitter: val('twitter'),
-      linkedin: val('linkedin'), youtube: val('youtube'),
-      snapchat: val('snapchat'),
-      otherPlatform: val('otherPlatform'), otherUsername: val('otherUsername'),
+      platform: val('platform'), username: val('username'),
       privacySetting: val('privacySetting'),
       confirmedAccurate: chk('confirmedAccurate'),
       noProhibitedContent: chk('noProhibitedContent'),
