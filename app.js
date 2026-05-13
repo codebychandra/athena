@@ -18,15 +18,19 @@ const DIVISION_NAMES = {
 };
 
 const PAGE_TITLES = {
-  dashboard: 'Dashboard',
-  analytics: 'Analytics',
-  cruise:    'Cruise Line',
-  j1:        'J1 Cultural Exchange',
-  marine:    'Marine Travel',
-  visa:      'Visa Services',
-  clients:   'Clients',
-  reports:   'Reports',
-  settings:  'Settings'
+  dashboard:    'Dashboard',
+  analytics:    'Analytics',
+  cruise:       'Cruise Line',
+  j1:           'Placement',
+  marine:       'Marine Travel',
+  visa:         'Visa Services',
+  clients:      'Clients',
+  reports:      'Reports',
+  settings:     'Settings',
+  interntainee: 'Intern v Trainee',
+  socialmedia:  'Social Media Disclosure',
+  compliance:   'Compliance',
+  marketing:    'Marketing'
 };
 
 // Pages that are locked (no live data yet)
@@ -1130,8 +1134,8 @@ pages.j1 = async function () {
     return `
       <div class="page-header">
         <div class="division-header" style="border-left-color:${COLOR}">
-          <h1>J1 Cultural Exchange</h1>
-          <p class="subtitle">Exchange visitor program management
+          <h1>Placement Report</h1>
+          <p class="subtitle">J1 Cultural Exchange · participant placement tracking
             <span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;
               padding:2px 10px;border-radius:20px;margin-left:10px;vertical-align:middle;">
               ● Live · Zoho Analytics</span>
@@ -2660,6 +2664,254 @@ pages.reports = async function () {
 };
 
 // ============================
+// PAGE: INTERN v TRAINEE
+// ============================
+pages.interntainee = async function () {
+  const C = DIVISION_COLORS.j1;
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Intern v Trainee</h1>
+        <p class="subtitle">J1 Exchange Visitor Program — category eligibility guide for embassy reporting</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+      <div class="card" style="border-top:4px solid ${C};">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:${C};display:flex;
+            align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;">🎓</div>
+          <div>
+            <div style="font-size:17px;font-weight:700;">Intern</div>
+            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">J1 Intern Category</div>
+          </div>
+        </div>
+        <div style="font-size:13px;line-height:1.75;color:var(--text-secondary,#555);">
+          <p style="margin:0 0 10px;"><strong>Who qualifies:</strong></p>
+          <ul style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+            <li>Currently enrolled full-time in a degree programme at a post-secondary academic institution <em>outside</em> the United States</li>
+            <li>OR graduated within the <strong>past 12 months</strong> from such an institution</li>
+          </ul>
+          <p style="margin:0 0 8px;"><strong>Programme requirements:</strong></p>
+          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+            <li>Internship must be <strong>directly related</strong> to the participant's current field of study</li>
+            <li>Maximum duration: <strong>12 months</strong></li>
+            <li>Requires DS-7002 Training/Internship Placement Plan</li>
+            <li>Must be a structured, supervised programme</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="border-top:4px solid #B01A18;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#B01A18;display:flex;
+            align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;">💼</div>
+          <div>
+            <div style="font-size:17px;font-weight:700;">Trainee</div>
+            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">J1 Trainee Category</div>
+          </div>
+        </div>
+        <div style="font-size:13px;line-height:1.75;color:var(--text-secondary,#555);">
+          <p style="margin:0 0 10px;"><strong>Who qualifies:</strong></p>
+          <ul style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+            <li>Holds a degree or professional certificate AND has at least <strong>1 year</strong> of work experience in their occupational field</li>
+            <li>OR has <strong>5+ years</strong> of work experience in their occupational field (no degree required)</li>
+          </ul>
+          <p style="margin:0 0 8px;"><strong>Programme requirements:</strong></p>
+          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
+            <li>Training must provide skills <strong>not available</strong> in the participant's home country</li>
+            <li>Maximum duration: <strong>18 months</strong></li>
+            <li>Requires DS-7002 Training/Internship Placement Plan</li>
+            <li>Must share knowledge and skills upon return home</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-title" style="margin-bottom:16px;">Side-by-Side Comparison</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:var(--bg-subtle,#F3F4F6);">
+              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);width:30%;">Criteria</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);color:${C};">Intern</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);color:#B01A18;">Trainee</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[
+              ['Education requirement',  'Currently enrolled OR graduated ≤12 months ago','Degree + 1 yr experience, OR 5 yrs experience'],
+              ['Minimum work experience','None required',                                  'At least 1 year in field (or 5 yrs without degree)'],
+              ['Programme link to study','Must relate to current field of study',          'Career development beyond home-country opportunities'],
+              ['Maximum duration',       '12 months',                                      '18 months'],
+              ['Key document',           'DS-7002 Internship Placement Plan',              'DS-7002 Training Placement Plan'],
+              ['Supervision',            'Direct supervisor required',                     'Structured training phases required'],
+              ['Repeat eligibility',     'Once per degree programme',                      'Once per career field'],
+            ].map(([c,i,t]) => `
+              <tr style="border-bottom:1px solid var(--border,#E5E7EB);">
+                <td style="padding:10px 14px;font-weight:600;">${c}</td>
+                <td style="padding:10px 14px;color:var(--text-secondary,#555);">${i}</td>
+                <td style="padding:10px 14px;color:var(--text-secondary,#555);">${t}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="border-left:4px solid #B87A14;background:rgba(184,122,20,0.04);">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <span style="font-size:22px;margin-top:2px;">📋</span>
+        <div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#B87A14;">Embassy Reporting Notes</div>
+          <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:4px;">
+            <li>The correct category <strong>(Intern or Trainee)</strong> must be specified on the DS-2019 Certificate of Eligibility</li>
+            <li>DS-7002 must be signed by the host employer, exchange visitor, and sponsor <em>before</em> the programme begins</li>
+            <li>Misclassification is one of the most common compliance issues flagged during embassy interviews</li>
+            <li>CTI Group verifies category eligibility during the application screening process</li>
+          </ul>
+        </div>
+      </div>
+    </div>`;
+};
+
+// ============================
+// PAGE: SOCIAL MEDIA DISCLOSURE
+// ============================
+pages.socialmedia = async function () {
+  const C = DIVISION_COLORS.j1;
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Social Media Disclosure Form</h1>
+        <p class="subtitle">J1 participants must complete this form prior to programme commencement</p>
+      </div>
+    </div>
+
+    <div class="card mb-24" style="border-top:4px solid ${C};">
+      <div class="card-title" style="margin-bottom:16px;">📋 What This Form Covers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
+        ${[
+          ['👤','Personal Social Media Accounts','Declaration of all active social media profiles (Instagram, TikTok, Facebook, LinkedIn, etc.)'],
+          ['🔒','Privacy Settings Acknowledgement','Confirmation that accounts are set to private during the programme period'],
+          ['📸','Content Guidelines','Agreement not to post content that violates programme policies or host employer confidentiality'],
+          ['⚠️','Prohibited Content','Acknowledgement of content that is strictly prohibited (political, discriminatory, confidential business info)'],
+          ['✅','Consent & Agreement','Signed consent that CTI Group may review disclosed accounts for compliance purposes'],
+          ['📅','Duration of Policy','Agreement that the policy applies for the full duration of the J1 programme'],
+        ].map(([icon,title,desc]) => `
+          <div style="display:flex;gap:12px;padding:14px;background:var(--bg-subtle,#F9FAFB);
+            border-radius:10px;border:1px solid var(--border,#E5E7EB);">
+            <span style="font-size:20px;flex-shrink:0;margin-top:2px;">${icon}</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:4px;">${title}</div>
+              <div style="color:var(--text-muted,#888);line-height:1.6;">${desc}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px;">📝 Disclosure Form</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
+        Participants complete this form online via Zoho Forms.
+      </div>
+      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;min-height:120px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:12px;padding:32px;text-align:center;">
+        <span style="font-size:36px;opacity:0.3;">🔗</span>
+        <div style="font-size:13px;color:var(--text-muted,#888);">Zoho form link will be embedded here</div>
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
+          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING CONFIGURATION</span>
+      </div>
+    </div>`;
+};
+
+// ============================
+// PAGE: COMPLIANCE
+// ============================
+pages.compliance = async function () {
+  const C = DIVISION_COLORS.j1;
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Compliance</h1>
+        <p class="subtitle">Social media policy, terms of agreement, and programme compliance documents</p>
+      </div>
+    </div>
+
+    <div class="card mb-24" style="border-top:4px solid ${C};">
+      <div class="card-title" style="margin-bottom:4px;">📜 Social Media Terms & Agreement</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:20px;">
+        All J1 participants must read and acknowledge the following terms before starting the programme.
+      </div>
+      <div style="font-size:13px;line-height:1.85;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:14px;">
+        ${[
+          ['1. Purpose','CTI Group Worldwide Services, Inc. requires all J1 Exchange Visitors to adhere to responsible social media practices throughout their programme. This policy protects participants, host employers, and the integrity of the J1 programme.'],
+          ['2. Prohibited Content','Participants must not post: photographs or videos of host premises or staff without consent; discriminatory or defamatory content; political statements that compromise the neutrality of the exchange programme; content violating U.S. law or U.S. Department of State regulations; or personal data of other participants.'],
+          ['3. Privacy Requirements','Participants are strongly encouraged to set all personal social media accounts to private for the full duration of their programme. Any public content must comply with host employer policies and applicable law.'],
+          ['4. Monitoring & Enforcement','CTI Group reserves the right to review disclosed social media accounts for compliance. Breaches may result in programme termination and notification to the U.S. Department of State sponsor.'],
+          ['5. Acknowledgement','By completing the Social Media Disclosure Form, participants confirm they have read, understood, and agree to comply with this policy for the entire duration of their J1 programme.'],
+        ].map(([title, body]) => `
+          <div style="padding:14px 16px;background:var(--bg-subtle,#F9FAFB);border-radius:10px;border-left:4px solid ${C};">
+            <div style="font-weight:700;color:var(--text,#1A1A1A);margin-bottom:6px;">${title}</div>
+            <p style="margin:0;">${body}</p>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px;">📁 Compliance Documents</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
+        Additional compliance files and programme documents will appear here.
+      </div>
+      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;min-height:100px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:10px;padding:28px;text-align:center;">
+        <span style="font-size:32px;opacity:0.3;">📂</span>
+        <div style="font-size:13px;color:var(--text-muted,#888);">Documents will be added here</div>
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
+          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING UPLOAD</span>
+      </div>
+    </div>`;
+};
+
+// ============================
+// PAGE: MARKETING
+// ============================
+pages.marketing = async function () {
+  const C = DIVISION_COLORS.j1;
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Marketing</h1>
+        <p class="subtitle">CTI Group programme marketing materials and media</p>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-title" style="margin-bottom:4px;">🎬 Programme Video</div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
+        Private YouTube video will be embedded here once the link is provided.
+      </div>
+      <div style="border:2px dashed var(--border,#E5E7EB);border-radius:12px;background:var(--bg-subtle,#F9FAFB);
+        aspect-ratio:16/9;max-width:720px;display:flex;flex-direction:column;
+        align-items:center;justify-content:center;gap:14px;text-align:center;padding:32px;">
+        <span style="font-size:48px;opacity:0.25;">▶</span>
+        <div style="font-size:13px;color:var(--text-muted,#888);">YouTube video will appear here</div>
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 14px;
+          border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">PENDING LINK</span>
+      </div>
+    </div>
+
+    <div class="card" style="border-top:4px solid ${C};">
+      <div class="card-title" style="margin-bottom:10px;">📢 Marketing Materials</div>
+      <div style="font-size:13px;color:var(--text-muted,#888);line-height:1.7;">
+        Additional marketing content, brochures, and media assets will be added here.
+      </div>
+    </div>`;
+};
+
+// ============================
 // PAGE: SETTINGS
 // ============================
 pages.settings = async function () {
@@ -2833,5 +3085,5 @@ document.addEventListener('DOMContentLoaded', function () {
     history.replaceState({}, '', '/');
   }
 
-  showPage('j1');
+  showPage('interntainee');
 });
