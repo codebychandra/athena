@@ -3084,7 +3084,8 @@ pages.j1visa = async function () {
     }
   }
 
-  const pct = n => total > 0 ? Math.round(n / total * 100) : 0;
+  const pct     = n => total > 0 ? Math.round(n / total * 100) : 0;
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
   return `
     <div class="page-header">
@@ -3104,10 +3105,20 @@ pages.j1visa = async function () {
     </div>` : ''}
 
     ${errorMsg ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(176,26,24,0.07);
-      border:1px solid rgba(176,26,24,0.2);border-radius:10px;margin-bottom:22px;">
-      <span>⚠️</span>
-      <span style="font-size:13px;color:#B01A18;font-weight:500;">Zoho error: ${errorMsg}</span>
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
+      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
+      border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
+          ${authErr ? 'Zoho Analytics not connected' : 'Zoho error'}
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">
+          ${authErr
+            ? 'Your Zoho session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect Zoho →</a>'
+            : errorMsg}
+        </div>
+      </div>
     </div>` : ''}
 
     <!-- Pipeline cards -->
@@ -3225,7 +3236,8 @@ pages.requisition = async function () {
   }
 
   // Identify dept column (first non-numeric col)
-  const deptIdx = columns.findIndex((_, ci) => totals[ci] === undefined);
+  const deptIdx  = columns.findIndex((_, ci) => totals[ci] === undefined);
+  const authErr2 = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
   return `
     <div class="page-header">
@@ -3245,10 +3257,20 @@ pages.requisition = async function () {
     </div>` : ''}
 
     ${errorMsg ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(176,26,24,0.07);
-      border:1px solid rgba(176,26,24,0.2);border-radius:10px;margin-bottom:22px;">
-      <span>⚠️</span>
-      <span style="font-size:13px;color:#B01A18;font-weight:500;">Zoho error: ${errorMsg}</span>
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
+      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
+      border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:22px;">${authErr2 ? '🔑' : '⚠️'}</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
+          ${authErr2 ? 'Zoho Analytics not connected' : 'Zoho error'}
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">
+          ${authErr2
+            ? 'Your Zoho session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect Zoho →</a>'
+            : errorMsg}
+        </div>
+      </div>
     </div>` : ''}
 
     <!-- Summary metric cards -->
