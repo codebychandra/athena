@@ -3196,11 +3196,12 @@ pages.requisition = async function () {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   // Column keyword matchers for summary cards
+  // Column names match the Zoho query: Requisition, Gap Pool Participants, Placement, Remaining
   const METRICS = [
-    { key:'requisition', label:'Active Requisition', icon:'📌', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)',  keywords:/requisition|job opening|opening/i },
-    { key:'pool',        label:'Talent Pool',         icon:'👥', color:'#6B47DC', bg:'rgba(107,71,220,0.10)', keywords:/talent pool|pool|candidate/i },
-    { key:'placement',   label:'Placement',           icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)',  keywords:/placement|placed|hired/i },
-    { key:'remaining',   label:'Remaining Hire',      icon:'🎯', color:'#B87A14', bg:'rgba(184,122,20,0.10)', keywords:/remaining|unfilled|balance|left/i },
+    { key:'requisition', label:'Active Requisition',   icon:'📌', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)',  keywords:/^requisition$/i },
+    { key:'pool',        label:'Gap Pool Participants', icon:'👥', color:'#6B47DC', bg:'rgba(107,71,220,0.10)', keywords:/gap pool/i },
+    { key:'placement',   label:'Placement',            icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)',  keywords:/^placement$/i },
+    { key:'remaining',   label:'Remaining',            icon:'🎯', color:'#B87A14', bg:'rgba(184,122,20,0.10)', keywords:/^remaining$/i },
   ];
 
   let columns    = [];

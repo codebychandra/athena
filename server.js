@@ -137,6 +137,58 @@ async function getAllWorkspaces(token) {
   return [...owned, ...shared];
 }
 
+// Helper — fetch view data, falling back to async export when sync is disallowed
+// (error code 8133 = SYNC_EXPORT_NOT_ALLOWED, e.g. on query/formula tables)
+async function fetchViewData(wsId, viewId, headers) {
+  // 1. Try synchronous export first
+  try {
+    const r = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${wsId}/views/${viewId}/data`,
+      { headers }
+    );
+    return r.data;
+  } catch (syncErr) {
+    const errCode = syncErr.response?.data?.data?.errorCode;
+    if (errCode !== 8133) throw syncErr;       // unexpected error — re-throw
+    console.log(`⚡ View ${viewId}: sync export not allowed, switching to async...`);
+  }
+
+  // 2. Initiate async export (CSV)
+  const initRes = await axios.post(
+    `${ZOHO_ANALYTICS}/workspaces/${wsId}/views/${viewId}/data/export`,
+    null,
+    { headers, params: { exportType: 'CSV' } }
+  );
+  const jobId = initRes.data?.data?.jobId;
+  if (!jobId) {
+    throw new Error(`Async export did not return a jobId. Response: ${JSON.stringify(initRes.data)}`);
+  }
+  console.log(`📤 Async export job started: ${jobId}`);
+
+  // 3. Poll until COMPLETE (max 20 × 3 s = 60 s)
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const poll = await axios.get(
+      `${ZOHO_ANALYTICS}/workspaces/${wsId}/views/${viewId}/data/export/${jobId}`,
+      { headers }
+    );
+    const job = poll.data?.data;
+    console.log(`⏳ Export poll ${i + 1}/20: status = ${job?.status}`);
+
+    if (job?.status === 'COMPLETE') {
+      if (job.downloadUrl) {
+        const dl = await axios.get(job.downloadUrl, { headers });
+        return dl.data;     // CSV text
+      }
+      return poll.data;
+    }
+    if (job?.status === 'FAILED') {
+      throw new Error(`Async export FAILED: ${job.errorMessage || JSON.stringify(job)}`);
+    }
+  }
+  throw new Error('Async export timed out after 60 seconds');
+}
+
 // ============================
 // INIT
 // ============================
@@ -322,13 +374,7 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
       });
     }
 
-    const dataRes = await axios.get(
-      `${ZOHO_ANALYTICS}/workspaces/${foundWs.workspaceId}/views/${foundView.viewId}/data`,
-      { headers }
-    );
-
-    // Zoho returns CSV text — parse it into { columns, rows }
-    const rawData    = dataRes.data;
+    const rawData    = await fetchViewData(foundWs.workspaceId, foundView.viewId, headers);
     const parsedData = typeof rawData === 'string'
       ? parseCSV(rawData)
       : (rawData && rawData.columns ? rawData : parseCSV(String(rawData || '')));
@@ -391,11 +437,7 @@ app.get('/api/zoho/j1-visa', async (req, res) => {
         availableViews: await allViewsList(headers, workspaces)
       });
     }
-    const dataRes = await axios.get(
-      `${ZOHO_ANALYTICS}/workspaces/${found.ws.workspaceId}/views/${found.view.viewId}/data`,
-      { headers }
-    );
-    const raw  = dataRes.data;
+    const raw  = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
     const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
     res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
   } catch (err) {
@@ -423,11 +465,7 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
         availableViews: await allViewsList(headers, workspaces)
       });
     }
-    const dataRes = await axios.get(
-      `${ZOHO_ANALYTICS}/workspaces/${found.ws.workspaceId}/views/${found.view.viewId}/data`,
-      { headers }
-    );
-    const raw  = dataRes.data;
+    const raw  = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
     const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
     res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
   } catch (err) {

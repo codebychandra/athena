@@ -10,10 +10,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260517">
+  <link rel="stylesheet" href="style.css?v=20260518">
   <!-- Auth must load before app.js -->
-  <script src="auth.js?v=20260517"></script>
-  <script src="data.js?v=20260517"></script>
+  <script src="auth.js?v=20260518"></script>
+  <script src="data.js?v=20260518"></script>
 </head>
 <body>
 
@@ -32,14 +32,11 @@
 
       <!-- Logo / Brand -->
       <div class="sidebar-header">
-        <!-- Real logo image: place logo.png in project root to activate -->
-        <img src="logo.png" alt="CTI Group" class="sidebar-logo-img"
-             id="sidebarLogoImg"
-             onerror="this.style.display='none';document.getElementById('sidebarLogoText').style.display='flex';">
-        <!-- Text fallback -->
-        <div class="sidebar-logo-text" id="sidebarLogoText" style="display:none;">
-          <div class="logo-mark"><em>CTi</em><span class="logo-group">Group</span></div>
-          <div class="logo-sub">WORLDWIDE SERVICES</div>
+        <div>
+          <div style="font-size:10px;font-weight:900;letter-spacing:0.13em;
+            color:#B01A18;text-transform:uppercase;margin-bottom:5px;">CTI Group</div>
+          <div style="font-size:14px;font-weight:700;line-height:1.35;
+            color:var(--sidebar-text,#fff);">J-1 Program Portal</div>
         </div>
       </div>
 
@@ -168,7 +165,7 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=20260517"></script>
+  <script src="app.js?v=20260518"></script>
   <script>
     // Populate user info from session
     (function () {
