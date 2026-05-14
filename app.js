@@ -3245,7 +3245,7 @@ pageEvents.j1visa = function () {
           ]
       ).concat([['Current Stage', stg.label]]);
 
-      const isPassport = col => /passport/i.test(col);
+      const isCodeField = col => /passport|sevis|visa.*(application|payment)\s*id|program number/i.test(col);
 
       document.getElementById('panelBody').innerHTML = `
         <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
@@ -3264,7 +3264,7 @@ pageEvents.j1visa = function () {
                 <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
                   color:var(--text-muted,#888);margin-bottom:4px;">${col}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);
-                  font-family:${isPassport(col)?'monospace':'inherit'};">
+                  font-family:${isCodeField(col)?'monospace':'inherit'};">
                   ${val || '—'}
                 </div>
               </div>`).join('')}
