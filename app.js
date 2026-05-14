@@ -2797,9 +2797,8 @@ pages.socialmedia = async function () {
     ${!isLocal ? `<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;
       background:rgba(184,122,20,0.08);border:1px solid rgba(184,122,20,0.25);border-radius:8px;margin-bottom:20px;">
       <span>⚠️</span>
-      <span style="font-size:13px;color:#B87A14;font-weight:500;">
-        Form submissions are saved to Excel only when running via the local server (<strong>localhost:3000</strong>).
-      </span></div>` : ''}
+      <span style="font-size:13px;color:#B87A14;font-weight:500;">Server offline</span>
+    </div>` : ''}
 
     <div class="card mb-24">
       <div class="card-title" style="margin-bottom:20px;">📝 Social Media Disclosure Form</div>
