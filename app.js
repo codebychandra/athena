@@ -2978,7 +2978,6 @@ pages.compliance = async function () {
     { file:'CTI-AGG-J1-002_Program_Knowledge_Checklist.pdf',          icon:'✅', label:'Program Knowledge Checklist',                     cat:'Checklist' },
     { file:'CTI-AGG-J1-003_Housing_Agreement_Room_Sharing_Acknowledgment_and_Early_Termination_Policy.pdf', icon:'🏠', label:'Housing Agreement & Early Termination Policy', cat:'Agreement' },
     { file:'CTI-AGG-J1-004_Parent_and_Student_Commitment_Agreement.docx', icon:'🤝', label:'Parent & Student Commitment Agreement',        cat:'Agreement' },
-    { file:'CTI-GUIDE-J1-INT_Interview_Readiness_Prep_Packet.pdf',    icon:'🎓', label:'Interview Readiness Prep Packet',                 cat:'Guide' },
     { file:'CTI-SOP-J1-001_Pre-Embassy_Screening_Protocol.docx',      icon:'🏛️', label:'Pre-Embassy Screening Protocol',                  cat:'SOP' },
     { file:'CTI-SOP-J1-002_Marketing_and_Recruiter_Communications.docx', icon:'📢', label:'Marketing & Recruiter Communications',          cat:'SOP' },
     { file:'CTI-SOP-J1-003_Active_Participant_Monitoring.docx',       icon:'👁️', label:'Active Participant Monitoring',                   cat:'SOP' },
@@ -3078,13 +3077,17 @@ pages.j1visa = async function () {
       else if (/paid/i.test(pay))                                       stage = 'paid';
       else                                                               stage = 'registered';
 
+      // Store all raw column values for the full panel view
+      const allFields = columns.map((col, i) => [col, String(row[i] ?? '')]);
+
       people.push({
         name:          String(nameIdx >= 0 ? row[nameIdx] || '' : ''),
         nationality:   String(natIdx  >= 0 ? row[natIdx]  || '' : ''),
         passport,
         paymentStatus: pay,
         visaStatus:    vis,
-        stage, appt
+        stage, appt,
+        allFields
       });
     });
     return { counts, people };
@@ -3230,6 +3233,21 @@ pageEvents.j1visa = function () {
       const stg = stagesMap[p.stage] || stagesMap['registered'];
 
       document.getElementById('panelTitle').textContent = p.name || 'Participant';
+
+      // All source columns + derived Current Stage
+      const displayFields = (p.allFields && p.allFields.length
+        ? p.allFields.filter(([col]) => !/^name$/i.test(col))  // name already in header
+        : [
+            ['Nationality',      p.nationality   || ''],
+            ['Passport Number',  p.passport      || ''],
+            ['Payment Status',   p.paymentStatus || ''],
+            ['Visa Status',      p.visaStatus    || ''],
+            ['Appointment Date', p.appt          || ''],
+          ]
+      ).concat([['Current Stage', stg.label]]);
+
+      const isPassport = col => /passport/i.test(col);
+
       document.getElementById('panelBody').innerHTML = `
         <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
           <div style="display:flex;align-items:center;gap:14px;">
@@ -3242,19 +3260,14 @@ pageEvents.j1visa = function () {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            ${[
-              ['Passport No.',     p.passport      || '—'],
-              ['Nationality',      p.nationality   || '—'],
-              ['Payment Status',   p.paymentStatus || '—'],
-              ['Visa Status',      p.visaStatus    || '—'],
-              ['Appointment Date', p.appt          || '—'],
-              ['Current Stage',    stg.label],
-            ].map(([label, val]) => `
+            ${displayFields.map(([col, val]) => `
               <div style="padding:11px 13px;background:var(--bg-subtle,#F3F4F6);border-radius:8px;">
                 <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-                  color:var(--text-muted,#888);margin-bottom:4px;">${label}</div>
+                  color:var(--text-muted,#888);margin-bottom:4px;">${col}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);
-                  font-family:${label==='Passport No.'?'monospace':'inherit'};">${val}</div>
+                  font-family:${isPassport(col)?'monospace':'inherit'};">
+                  ${val || '—'}
+                </div>
               </div>`).join('')}
           </div>
           <div style="padding:12px 16px;background:${stg.bg};border-radius:8px;
@@ -3443,16 +3456,16 @@ pages.requisition = async function () {
 pages.marketing = async function () {
   const C = DIVISION_COLORS.j1;
   const videos = [
-    { id:'4-6OY7-Yr_A', title:'CTI Group — Program Overview' },
-    { id:'yoahucblnVQ', title:'J1 Cultural Exchange — Participant Stories' },
-    { id:'gOwe92yD7cc', title:'Life on Board — Cruise Line Experience' },
-    { id:'B3dP3R6rcdw', title:'Hospitality Training — Host Employer Spotlight' },
-    { id:'jQrqquyujJk', title:'Pre-Departure Orientation Highlights' },
-    { id:'XXJ5SXZ29Q0', title:'Ambassador Program — Cultural Exchange' },
-    { id:'oW75EwDxaUY', title:'CTI Group — Recruitment & Placement Process' },
-    { id:'OR6uW8FH2uU', title:'Participant Testimonials 2025' },
-    { id:'_2Zxz1IivG8', title:'Training & Development — J1 Trainee Category' },
-    { id:'xP4_7SKzUbo', title:'CTI Group — Company Introduction' },
+    { id:'4-6OY7-Yr_A', title:'J1 Program Introduction Short' },
+    { id:'yoahucblnVQ', title:'J1 Program Introduction' },
+    { id:'gOwe92yD7cc', title:'La Quinta Resort' },
+    { id:'B3dP3R6rcdw', title:'Orlando World Center' },
+    { id:'jQrqquyujJk', title:'Riviera Dining Group' },
+    { id:'XXJ5SXZ29Q0', title:'Wintergreen Resort' },
+    { id:'oW75EwDxaUY', title:'49th State Brewing' },
+    { id:'OR6uW8FH2uU', title:'Beemok Hospitality' },
+    { id:'_2Zxz1IivG8', title:'Elk Avenue Colorado' },
+    { id:'xP4_7SKzUbo', title:'Grand Hyatt Vail' },
   ];
   let _activeIdx = 0;
 
