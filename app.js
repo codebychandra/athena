@@ -1444,7 +1444,10 @@ chartInits.j1 = async function () {
 };
 
 pageEvents.j1 = function () {
-  const allRows = state.dataCache['j1-zoho-rows'];
+  // Use cached rows; fall back to baked offline data if cache was somehow missed
+  const allRows = state.dataCache['j1-zoho-rows']
+    || (Array.isArray(window.J1_OFFLINE_DATA) && window.J1_OFFLINE_DATA.length
+        ? window.J1_OFFLINE_DATA : null);
 
   // ── Audio button ─────────────────────────────────────────────
   const btn      = document.getElementById('j1AudioBtn');
