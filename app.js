@@ -1104,14 +1104,14 @@ pages.j1 = async function () {
     // Executive summary text (for HTML + audio)
     const summaryText = generateJ1Summary(rows);
 
+    // Display-name overrides for column headers (keeps actual Zoho field keys intact)
+    const COL_DISPLAY = { 'Selected Job': 'Role' };
+
     // Table header: sortable columns + Action column
     const tblHead = J1_SHOW_COLS.map(c =>
       `<th data-col="${c}" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">
         ${COL_DISPLAY[c] || c}<span class="sort-icon" style="opacity:0.5;font-size:10px;"> ⇅</span></th>`
     ).join('') + '<th style="width:60px;">Action</th>';
-
-    // Display-name overrides for column headers (keeps actual Zoho field keys intact)
-    const COL_DISPLAY = { 'Selected Job': 'Role' };
 
     // Column filter row — multi-select dropdowns for enum cols, date btn for dates, text for names
     const MULTI_FILTER_COLS = new Set(['Hosting Company','Gender','Selected Job','Processing Sponsor','J1 Application Status']);
