@@ -3365,7 +3365,7 @@ pages.requisition = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition</h1>
-        <p class="subtitle">J1 job openings by department${viewName ? ` · ${viewName}` : ''}</p>
+        <p class="subtitle">J1 program requisition by department${viewName ? ` · ${viewName}` : ''}</p>
       </div>
     </div>
 
@@ -3374,7 +3374,7 @@ pages.requisition = async function () {
       border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
       <span style="font-size:18px;">🔌</span>
       <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
-        Live server data available when running <strong>node server.js</strong> locally
+        Server offline
       </span>
     </div>` : ''}
 
@@ -3445,7 +3445,7 @@ pages.requisition = async function () {
     <div class="card" style="text-align:center;padding:48px 24px;">
       <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">📊</div>
       <div style="font-size:14px;color:var(--text-muted,#888);">
-        ${isLocal ? 'No requisition data found — check that the Zoho view name contains "SUM Job Openings".' : 'Start the local server to load live requisition data.'}
+        ${isLocal ? 'No requisition data found — check that the server view name is configured correctly.' : 'Server offline — no requisition data available.'}
       </div>
     </div>`}`;
 };
