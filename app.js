@@ -723,7 +723,7 @@ function j1BuildFilterBar(allRows) {
           background:var(--surface,#fff);color:var(--text,#333);">
       ${sel('j1FHost',    'All Hosts',    uniq('Hosting Company'))}
       ${sel('j1FGender',  'All Genders',  uniq('Gender'))}
-      ${sel('j1FJob',     'All Jobs',     uniq('Selected Job'))}
+      ${sel('j1FJob',     'All Roles',    uniq('Selected Job'))}
       ${sel('j1FSponsor', 'All Sponsors', uniq('Processing Sponsor'))}
       <button id="j1FClear"
         style="height:32px;padding:0 12px;border:1.5px solid #B01A18;border-radius:6px;
@@ -768,7 +768,7 @@ function j1BuildTableFilterBar(allRows) {
       gap:8px;padding:10px 0 12px;border-bottom:1px solid var(--border,#eee);margin-bottom:10px;">
       ${ms('j1TMHost',    'Host',    uniq('Hosting Company'))}
       ${ms('j1TMGender',  'Gender',  uniq('Gender'))}
-      ${ms('j1TMJob',     'Job',     uniq('Selected Job'))}
+      ${ms('j1TMJob',     'Role',    uniq('Selected Job'))}
       ${ms('j1TMSponsor', 'Sponsor', uniq('Processing Sponsor'))}
       ${ms('j1TMStatus',  'Status',  uniq('J1 Application Status'))}
       <div style="display:flex;align-items:center;gap:4px;
@@ -1107,8 +1107,11 @@ pages.j1 = async function () {
     // Table header: sortable columns + Action column
     const tblHead = J1_SHOW_COLS.map(c =>
       `<th data-col="${c}" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">
-        ${c}<span class="sort-icon" style="opacity:0.5;font-size:10px;"> ⇅</span></th>`
+        ${COL_DISPLAY[c] || c}<span class="sort-icon" style="opacity:0.5;font-size:10px;"> ⇅</span></th>`
     ).join('') + '<th style="width:60px;">Action</th>';
+
+    // Display-name overrides for column headers (keeps actual Zoho field keys intact)
+    const COL_DISPLAY = { 'Selected Job': 'Role' };
 
     // Column filter row — multi-select dropdowns for enum cols, date btn for dates, text for names
     const MULTI_FILTER_COLS = new Set(['Hosting Company','Gender','Selected Job','Processing Sponsor','J1 Application Status']);
@@ -1186,7 +1189,7 @@ pages.j1 = async function () {
 
       <div class="two-col mb-24">
         <div class="card">
-          <div class="card-title">By Selected Job</div>
+          <div class="card-title">By Role</div>
           <div class="card-subtitle">Count shown on bar</div>
           <div class="chart-wrap"><canvas id="chartJ1Job"></canvas></div>
         </div>
