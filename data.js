@@ -217,16 +217,16 @@ window.J1_OFFLINE_DATA = [{"J1 Application Status":"USA Onboard","Hosting Compan
 
 // ── Visa Status offline snapshot ──────────────────────────────
 window.J1_VISA_OFFLINE_DATA = {
-  columns: ["Name","Nationality","Payment Status","Visa Status","Appointment Date"],
+  columns: ["Name","Nationality","Passport Number","Payment Status","Visa Status","Appointment Date"],
   rows: [
-    ["I Komang Satria, Pranata","Indonesia","Paid","Visa Payment Processed","2026-07-02"],
-    ["I Nyoman Nik, Krisnanta","Indonesia","Paid","Visa Payment Processed",""],
-    ["I Made, Lingga Prabawa","Indonesia","Paid","Visa Application Processed",""],
-    ["Adi, Swara","Indonesia","Paid","Visa Application Processed",""],
-    ["Ni Komang Niken, Tari","Indonesia","Paid","Visa Application Processed",""],
-    ["Ni Luh, Widiandini","Indonesia","Paid","Visa Application Processed",""],
-    ["Ni Putu Widya, Pramesti","Indonesia","Paid","Visa Application Processed",""],
-    ["Dinata, I Kadek Evan Arya","Indonesia","","",""]
+    ["I Komang Satria, Pranata","Indonesia","E9690451","Paid","Visa Payment Processed","2026-07-02"],
+    ["I Nyoman Nik, Krisnanta","Indonesia","E5851072","Paid","Visa Payment Processed",""],
+    ["I Made, Lingga Prabawa","Indonesia","X8859332","Paid","Visa Application Processed",""],
+    ["Adi, Swara","Indonesia","E5854149","Paid","Visa Application Processed",""],
+    ["Ni Komang Niken, Tari","Indonesia","E6499124","Paid","Visa Application Processed",""],
+    ["Ni Luh, Widiandini","Indonesia","E9688882","Paid","Visa Application Processed",""],
+    ["Ni Putu Widya, Pramesti","Indonesia","E9687689","Paid","Visa Application Processed",""],
+    ["Dinata, I Kadek Evan Arya","Indonesia","X6848849","","",""]
   ]
 };
 

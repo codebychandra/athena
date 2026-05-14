@@ -274,11 +274,11 @@ function updateZohoBadge() {
   const badge = document.getElementById('zohoBadge');
   if (!badge) return;
   if (state.zoho.connected) {
-    badge.textContent   = 'Zoho Live';
+    badge.textContent   = 'Server Live';
     badge.style.background = 'rgba(45,122,85,0.15)';
     badge.style.color      = '#2D7A55';
   } else {
-    badge.textContent   = 'Connect Zoho';
+    badge.textContent   = 'Server';
     badge.style.background = 'rgba(176,26,24,0.12)';
     badge.style.color      = '#B01A18';
     badge.style.cursor     = 'pointer';
@@ -1787,7 +1787,7 @@ pages.j1participants = async function () {
         </div>
       </div>
       <div class="error-banner">No live data available.
-        <a href="/auth/zoho" style="color:${COLOR};font-weight:600;margin-left:8px;">Connect Zoho →</a>
+        <a href="/auth/zoho" style="color:${COLOR};font-weight:600;margin-left:8px;">Connect Server →</a>
         or visit the <a href="#" data-page="j1" style="color:${COLOR};font-weight:600;">J1 Cultural Exchange</a> page first.
       </div>`;
   }
@@ -2695,15 +2695,15 @@ pages.interntainee = async function () {
         <div style="font-size:13px;line-height:1.75;color:var(--text-secondary,#555);">
           <p style="margin:0 0 10px;"><strong>Who qualifies:</strong></p>
           <ul style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Currently enrolled full-time in a degree programme at a post-secondary academic institution <em>outside</em> the United States</li>
+            <li>Currently enrolled full-time in a degree program at a post-secondary academic institution <em>outside</em> the United States</li>
             <li>OR graduated within the <strong>past 12 months</strong> from such an institution</li>
           </ul>
-          <p style="margin:0 0 8px;"><strong>Programme requirements:</strong></p>
+          <p style="margin:0 0 8px;"><strong>Program requirements:</strong></p>
           <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
             <li>Internship must be <strong>directly related</strong> to the participant's current field of study</li>
             <li>Maximum duration: <strong>12 months</strong></li>
             <li>Requires DS-7002 Training/Internship Placement Plan</li>
-            <li>Must be a structured, supervised programme</li>
+            <li>Must be a structured, supervised program</li>
           </ul>
         </div>
       </div>
@@ -2723,9 +2723,8 @@ pages.interntainee = async function () {
             <li>Holds a degree or professional certificate AND has at least <strong>1 year</strong> of work experience in their occupational field</li>
             <li>OR has <strong>5+ years</strong> of work experience in their occupational field (no degree required)</li>
           </ul>
-          <p style="margin:0 0 8px;"><strong>Programme requirements:</strong></p>
+          <p style="margin:0 0 8px;"><strong>Program requirements:</strong></p>
           <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Training must provide skills <strong>not available</strong> in the participant's home country</li>
             <li>Maximum duration: <strong>18 months</strong></li>
             <li>Requires DS-7002 Training/Internship Placement Plan</li>
             <li>Must share knowledge and skills upon return home</li>
@@ -2749,11 +2748,11 @@ pages.interntainee = async function () {
             ${[
               ['Education requirement',  'Currently enrolled OR graduated ≤12 months ago','Degree + 1 yr experience, OR 5 yrs experience'],
               ['Minimum work experience','None required',                                  'At least 1 year in field (or 5 yrs without degree)'],
-              ['Programme link to study','Must relate to current field of study',          'Career development beyond home-country opportunities'],
+              ['Program link to study','Must relate to current field of study',          'Career development beyond home-country opportunities'],
               ['Maximum duration',       '12 months',                                      '18 months'],
               ['Key document',           'DS-7002 Internship Placement Plan',              'DS-7002 Training Placement Plan'],
               ['Supervision',            'Direct supervisor required',                     'Structured training phases required'],
-              ['Repeat eligibility',     'Once per degree programme',                      'Once per career field'],
+              ['Repeat eligibility',     'Once per degree program',                        'Once per career field'],
             ].map(([c,i,t]) => `
               <tr style="border-bottom:1px solid var(--border,#E5E7EB);">
                 <td style="padding:10px 14px;font-weight:600;">${c}</td>
@@ -2772,7 +2771,7 @@ pages.interntainee = async function () {
           <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#B87A14;">Embassy Reporting Notes</div>
           <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:4px;">
             <li>The correct category <strong>(Intern or Trainee)</strong> must be specified on the DS-2019 Certificate of Eligibility</li>
-            <li>DS-7002 must be signed by the host employer, exchange visitor, and sponsor <em>before</em> the programme begins</li>
+            <li>DS-7002 must be signed by the host employer, exchange visitor, and sponsor <em>before</em> the program begins</li>
             <li>Misclassification is one of the most common compliance issues flagged during embassy interviews</li>
             <li>CTI Group verifies category eligibility during the application screening process</li>
           </ul>
@@ -2791,7 +2790,7 @@ pages.socialmedia = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Social Media Disclosure Form</h1>
-        <p class="subtitle">J1 participants must complete this form prior to programme commencement</p>
+        <p class="subtitle">J1 participants must complete this form prior to program commencement</p>
       </div>
     </div>
 
@@ -2821,8 +2820,8 @@ pages.socialmedia = async function () {
               ['phone','Phone Number','tel','+1 234 567 8900','false'],
               ['nationality','Nationality','text','Indonesian','false'],
               ['hostingCompany','Hosting Company','text','e.g. Viking Cruises','true'],
-              ['startDate','Programme Start Date','date','','false'],
-              ['endDate','Programme End Date','date','','false'],
+              ['startDate','Program Start Date','date','','false'],
+              ['endDate','Program End Date','date','','false'],
             ].map(([id,label,type,ph,req]) => `
               <div>
                 <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
@@ -2865,7 +2864,6 @@ pages.socialmedia = async function () {
                 <option value="YouTube">▶ YouTube</option>
                 <option value="Snapchat">👻 Snapchat</option>
                 <option value="Other">🌐 Other</option>
-                <option value="None">🚫 I do not have social media</option>
               </select>
             </div>
             <div>
@@ -2883,7 +2881,7 @@ pages.socialmedia = async function () {
           <div style="margin-top:14px;">
             <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
               letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-              🔒 Privacy Setting During Programme <span style="color:#B01A18;">*</span>
+              🔒 Privacy Setting During Program <span style="color:#B01A18;">*</span>
             </label>
             <select id="sm_privacySetting" required
               style="width:100%;max-width:360px;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
@@ -2906,8 +2904,7 @@ pages.socialmedia = async function () {
           <div style="display:flex;flex-direction:column;gap:10px;">
             ${[
               ['confirmedAccurate','I confirm that all social media accounts listed above are accurate and complete'],
-              ['noProhibitedContent','I agree not to post prohibited content (confidential, discriminatory, or political) during my programme'],
-              ['monitoringConsent','I consent to CTI Group reviewing my disclosed accounts for compliance purposes'],
+              ['noProhibitedContent','I agree not to post prohibited content (confidential, discriminatory, or political) during my program'],
               ['termsAgreed','I have read and agree to the CTI Group Social Media Terms & Agreement'],
             ].map(([id,label]) => `
               <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;
@@ -2993,13 +2990,13 @@ pages.compliance = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Compliance</h1>
-        <p class="subtitle">Programme agreements, SOPs, and compliance documents</p>
+        <p class="subtitle">Program agreements, SOPs, and compliance documents</p>
       </div>
     </div>
 
     <!-- Document library -->
     <div class="card">
-      <div class="card-title" style="margin-bottom:4px;">📁 Programme Documents</div>
+      <div class="card-title" style="margin-bottom:4px;">📁 Program Documents</div>
       <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:18px;">
         ${docs.length} documents · Click to download
       </div>
@@ -3047,19 +3044,21 @@ pages.j1visa = async function () {
 
   // Compute milestone counts + per-participant current stage
   function computeCounts(columns, rows) {
-    const payIdx  = columns.findIndex(c => /payment status/i.test(c));
-    const visIdx  = columns.findIndex(c => /^visa status$/i.test(c));
-    const apptIdx = columns.findIndex(c => /appointment date/i.test(c));
-    const nameIdx = columns.findIndex(c => /^name$/i.test(c));
-    const natIdx  = columns.findIndex(c => /nationality/i.test(c));
+    const payIdx      = columns.findIndex(c => /payment status/i.test(c));
+    const visIdx      = columns.findIndex(c => /^visa status$/i.test(c));
+    const apptIdx     = columns.findIndex(c => /appointment date/i.test(c));
+    const nameIdx     = columns.findIndex(c => /^name$/i.test(c));
+    const natIdx      = columns.findIndex(c => /nationality/i.test(c));
+    const passportIdx = columns.findIndex(c => /passport/i.test(c));
 
     const counts = Object.fromEntries(STAGES.map(s => [s.key, 0]));
     const people = [];
 
     rows.forEach(row => {
-      const pay  = String(payIdx  >= 0 ? row[payIdx]  || '' : '');
-      const vis  = String(visIdx  >= 0 ? row[visIdx]  || '' : '');
-      const appt = String(apptIdx >= 0 ? row[apptIdx] || '' : '').trim();
+      const pay      = String(payIdx      >= 0 ? row[payIdx]      || '' : '');
+      const vis      = String(visIdx      >= 0 ? row[visIdx]      || '' : '');
+      const appt     = String(apptIdx     >= 0 ? row[apptIdx]     || '' : '').trim();
+      const passport = String(passportIdx >= 0 ? row[passportIdx] || '' : '');
 
       counts.registered++;
       if (/paid/i.test(pay))                                             counts.paid++;
@@ -3080,8 +3079,11 @@ pages.j1visa = async function () {
       else                                                               stage = 'registered';
 
       people.push({
-        name:        String(nameIdx >= 0 ? row[nameIdx] || '' : ''),
-        nationality: String(natIdx  >= 0 ? row[natIdx]  || '' : ''),
+        name:          String(nameIdx >= 0 ? row[nameIdx] || '' : ''),
+        nationality:   String(natIdx  >= 0 ? row[natIdx]  || '' : ''),
+        passport,
+        paymentStatus: pay,
+        visaStatus:    vis,
         stage, appt
       });
     });
@@ -3105,7 +3107,7 @@ pages.j1visa = async function () {
   if (!rows.length && window.J1_VISA_OFFLINE_DATA) {
     columns  = window.J1_VISA_OFFLINE_DATA.columns;
     rows     = window.J1_VISA_OFFLINE_DATA.rows;
-    viewName = viewName || 'J1 Visa (offline snapshot)';
+    viewName = viewName || 'server offline';
   }
 
   const { counts, people } = computeCounts(columns, rows);
@@ -3127,11 +3129,11 @@ pages.j1visa = async function () {
       <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
         <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr ? 'Zoho Analytics not connected' : 'Zoho error'}
+          ${authErr ? 'Server not connected' : 'Server error'}
         </div>
         <div style="font-size:13px;color:var(--text-secondary,#555);">
           ${authErr
-            ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to reconnect Zoho →</a>'
+            ? 'Session expired or server not connected. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to reconnect →</a>'
             : errorMsg}
         </div>
       </div>
@@ -3154,6 +3156,10 @@ pages.j1visa = async function () {
 
     <!-- Participants table -->
     ${people.length > 0 ? `
+    <script type="application/json" id="j1visaData">${JSON.stringify({
+      people,
+      stagesMap: Object.fromEntries(STAGES.map(s => [s.key, s]))
+    })}<\/script>
     <div class="card">
       <div class="card-title" style="margin-bottom:16px;">👤 Participant Details</div>
       <div class="table-wrap">
@@ -3162,8 +3168,12 @@ pages.j1visa = async function () {
             <th>#</th>
             <th>Name</th>
             <th>Nationality</th>
-            <th>Current Stage</th>
+            <th>Passport No.</th>
+            <th>Payment Status</th>
+            <th>Visa Status</th>
             <th>Appointment Date</th>
+            <th>Current Stage</th>
+            <th></th>
           </tr></thead>
           <tbody>
             ${people.map((p, i) => {
@@ -3172,14 +3182,28 @@ pages.j1visa = async function () {
                 <td style="color:var(--text-muted,#888);font-size:12px;">${i+1}</td>
                 <td><strong>${p.name || '—'}</strong></td>
                 <td>${p.nationality || '—'}</td>
+                <td style="font-family:monospace;font-size:12px;letter-spacing:0.03em;">${p.passport || '—'}</td>
+                <td>${p.paymentStatus
+                  ? `<span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;
+                      background:rgba(107,71,220,0.1);color:#6B47DC;">${p.paymentStatus}</span>`
+                  : '<span style="color:var(--text-muted,#aaa);">—</span>'}</td>
+                <td style="font-size:12px;color:var(--text-secondary,#555);">${p.visaStatus || '—'}</td>
+                <td style="color:${p.appt ? '#059669' : 'var(--text-muted,#aaa)'};">${p.appt || '—'}</td>
                 <td>
                   <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
                     background:${stg.bg};color:${stg.color};white-space:nowrap;">
                     ${stg.icon} ${stg.label}
                   </span>
                 </td>
-                <td style="color:${p.appt ? '#059669' : 'var(--text-muted,#aaa)'};">
-                  ${p.appt || '—'}
+                <td>
+                  <button class="j1visa-details-btn" data-idx="${i}"
+                    style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
+                      background:transparent;color:${C};font-size:11px;font-weight:700;
+                      font-family:inherit;cursor:pointer;white-space:nowrap;transition:all 0.15s;"
+                    onmouseover="this.style.background='${C}';this.style.color='#fff'"
+                    onmouseout="this.style.background='transparent';this.style.color='${C}'">
+                    View Details
+                  </button>
                 </td>
               </tr>`;
             }).join('')}
@@ -3187,6 +3211,73 @@ pages.j1visa = async function () {
         </table>
       </div>
     </div>` : ''}`;
+};
+
+// ── J1 Visa side-panel events ──────────────────────────────────
+pageEvents.j1visa = function () {
+  const dataEl = document.getElementById('j1visaData');
+  if (!dataEl) return;
+  let parsed;
+  try { parsed = JSON.parse(dataEl.textContent); } catch { return; }
+  const { people, stagesMap } = parsed;
+  const C = DIVISION_COLORS.j1;
+
+  document.querySelectorAll('.j1visa-details-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const p   = people[idx];
+      if (!p) return;
+      const stg = stagesMap[p.stage] || stagesMap['registered'];
+
+      document.getElementById('panelTitle').textContent = p.name || 'Participant';
+      document.getElementById('panelBody').innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:52px;height:52px;border-radius:50%;background:${stg.bg};
+              border:2px solid ${stg.color};display:flex;align-items:center;justify-content:center;
+              font-size:24px;flex-shrink:0;">${stg.icon}</div>
+            <div>
+              <div style="font-size:16px;font-weight:700;">${p.name || '—'}</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">${p.nationality || '—'}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            ${[
+              ['Passport No.',     p.passport      || '—'],
+              ['Nationality',      p.nationality   || '—'],
+              ['Payment Status',   p.paymentStatus || '—'],
+              ['Visa Status',      p.visaStatus    || '—'],
+              ['Appointment Date', p.appt          || '—'],
+              ['Current Stage',    stg.label],
+            ].map(([label, val]) => `
+              <div style="padding:11px 13px;background:var(--bg-subtle,#F3F4F6);border-radius:8px;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+                  color:var(--text-muted,#888);margin-bottom:4px;">${label}</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);
+                  font-family:${label==='Passport No.'?'monospace':'inherit'};">${val}</div>
+              </div>`).join('')}
+          </div>
+          <div style="padding:12px 16px;background:${stg.bg};border-radius:8px;
+            border:1px solid ${stg.color}40;">
+            <span style="font-size:13px;font-weight:700;color:${stg.color};">
+              ${stg.icon} Current Stage: ${stg.label}
+            </span>
+          </div>
+        </div>`;
+
+      document.getElementById('sidePanel').classList.add('open');
+      document.getElementById('panelOverlay')?.classList.add('active');
+    });
+  });
+
+  document.getElementById('panelClose')?.addEventListener('click', () => {
+    document.getElementById('sidePanel').classList.remove('open');
+    document.getElementById('panelOverlay')?.classList.remove('active');
+  });
+  document.getElementById('panelOverlay')?.addEventListener('click', () => {
+    document.getElementById('sidePanel').classList.remove('open');
+    document.getElementById('panelOverlay')?.classList.remove('active');
+  });
 };
 
 // ============================
@@ -3241,7 +3332,7 @@ pages.requisition = async function () {
   if (!rows.length && window.J1_REQUISITION_OFFLINE_DATA) {
     columns  = window.J1_REQUISITION_OFFLINE_DATA.columns;
     rows     = window.J1_REQUISITION_OFFLINE_DATA.rows;
-    viewName = viewName || 'SUM Job Openings J1 Participants by Department (offline snapshot)';
+    viewName = viewName || 'server offline';
     // Re-compute after loading offline data
     METRICS.forEach(m => {
       const idx = columns.findIndex(c => m.keywords.test(c));
@@ -3261,7 +3352,7 @@ pages.requisition = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition</h1>
-        <p class="subtitle">J1 job openings by department${viewName ? ` · ${viewName}` : ''} · live data from Zoho Analytics</p>
+        <p class="subtitle">J1 job openings by department${viewName ? ` · ${viewName}` : ''}</p>
       </div>
     </div>
 
@@ -3270,7 +3361,7 @@ pages.requisition = async function () {
       border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
       <span style="font-size:18px;">🔌</span>
       <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
-        Live Zoho data available when running <strong>node server.js</strong> locally
+        Live server data available when running <strong>node server.js</strong> locally
       </span>
     </div>` : ''}
 
@@ -3281,11 +3372,11 @@ pages.requisition = async function () {
       <span style="font-size:22px;">${authErr2 ? '🔑' : '⚠️'}</span>
       <div>
         <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr2 ? 'Zoho Analytics not connected' : 'Zoho error'}
+          ${authErr2 ? 'Server not connected' : 'Server error'}
         </div>
         <div style="font-size:13px;color:var(--text-secondary,#555);">
           ${authErr2
-            ? 'Your Zoho session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect Zoho →</a>'
+            ? 'Your server session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect →</a>'
             : errorMsg}
         </div>
       </div>
@@ -3352,12 +3443,12 @@ pages.requisition = async function () {
 pages.marketing = async function () {
   const C = DIVISION_COLORS.j1;
   const videos = [
-    { id:'4-6OY7-Yr_A', title:'CTI Group — Programme Overview' },
+    { id:'4-6OY7-Yr_A', title:'CTI Group — Program Overview' },
     { id:'yoahucblnVQ', title:'J1 Cultural Exchange — Participant Stories' },
     { id:'gOwe92yD7cc', title:'Life on Board — Cruise Line Experience' },
     { id:'B3dP3R6rcdw', title:'Hospitality Training — Host Employer Spotlight' },
     { id:'jQrqquyujJk', title:'Pre-Departure Orientation Highlights' },
-    { id:'XXJ5SXZ29Q0', title:'Ambassador Programme — Cultural Exchange' },
+    { id:'XXJ5SXZ29Q0', title:'Ambassador Program — Cultural Exchange' },
     { id:'oW75EwDxaUY', title:'CTI Group — Recruitment & Placement Process' },
     { id:'OR6uW8FH2uU', title:'Participant Testimonials 2025' },
     { id:'_2Zxz1IivG8', title:'Training & Development — J1 Trainee Category' },
@@ -3369,7 +3460,7 @@ pages.marketing = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Marketing</h1>
-        <p class="subtitle">CTI Group programme marketing videos and media — ${videos.length} videos</p>
+        <p class="subtitle">CTI Group program marketing videos and media — ${videos.length} videos</p>
       </div>
     </div>
 
@@ -3528,7 +3619,6 @@ pageEvents.socialmedia = function () {
       privacySetting: val('privacySetting'),
       confirmedAccurate: chk('confirmedAccurate'),
       noProhibitedContent: chk('noProhibitedContent'),
-      monitoringConsent: chk('monitoringConsent'),
       termsAgreed: chk('termsAgreed'),
       signature: val('signature')
     };

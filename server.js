@@ -504,10 +504,10 @@ function getOrCreateWorkbook() {
   const wb = XLSX.utils.book_new();
   const headers = [
     'Submitted At','First Name','Last Name','Email','Phone','Nationality',
-    'Hosting Company','Programme Start','Programme End',
+    'Hosting Company','Program Start','Program End',
     'Platform','Username',
     'Privacy Setting','Confirmed Accurate','No Prohibited Content',
-    'Monitoring Consent','Terms Agreed','Typed Signature'
+    'Terms Agreed','Typed Signature'
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers]);
   ws['!cols'] = headers.map(() => ({ wch: 22 }));
@@ -529,7 +529,6 @@ app.post('/api/social-media-disclosure', (req, res) => {
       d.privacySetting,
       d.confirmedAccurate ? 'Yes' : 'No',
       d.noProhibitedContent ? 'Yes' : 'No',
-      d.monitoringConsent ? 'Yes' : 'No',
       d.termsAgreed ? 'Yes' : 'No',
       d.signature
     ];
