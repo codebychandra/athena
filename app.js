@@ -3305,72 +3305,82 @@ pages.requisition = async function () {
   const C       = DIVISION_COLORS.j1;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  // Column keyword matchers for summary cards
-  // Column names match the Zoho query: Requisition, Gap Pool Participants, Placement, Remaining
-  const METRICS = [
-    { key:'requisition', label:'Active Requisition',   icon:'📌', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)',  keywords:/^requisition$/i },
-    { key:'pool',        label:'Gap Pool Participants', icon:'👥', color:'#6B47DC', bg:'rgba(107,71,220,0.10)', keywords:/gap pool/i },
-    { key:'placement',   label:'Placement',            icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)',  keywords:/^placement$/i },
-    { key:'remaining',   label:'Remaining',            icon:'🎯', color:'#B87A14', bg:'rgba(184,122,20,0.10)', keywords:/^remaining$/i },
-  ];
+  // Column indices (matches J1_REQ_SHOW_COLS in server.js)
+  const CI = {
+    id:          0,  // Job Opening ID
+    company:     1,  // Hosting Company
+    dept:        2,  // Department
+    position:    3,  // Position Name
+    requisition: 4,  // Requisition (# openings)
+    sponsor:     5,  // Client Name Analytics
+    progType:    6,  // J1 Program Type
+    reqStatus:   7,  // Requisition Status
+    jobStatus:   8,  // Job Opening Status
+    contract:    9,  // Contract Length
+    salary:      10, // Salary
+    city:        11, // City
+    targetDate:  12, // Target Date
+    dateOpened:  13, // Date Opened
+    housing:     14  // Housing Availability
+  };
 
-  let columns    = [];
-  let rows       = [];
-  let totals     = {};
-  let metricCols = {};   // metric key → column index
-  let viewName   = '';
-  let errorMsg   = null;
+  let rows      = [];
+  let errorMsg  = null;
+  let viewName  = '';
 
   if (isLocal) {
     try {
       const res  = await fetch('/api/zoho/j1-requisition');
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Fetch failed');
-      viewName = json.view || '';
-      columns  = json.data?.columns || [];
-      rows     = json.data?.rows    || [];
-
-      // Map metric keys to column indices
-      METRICS.forEach(m => {
-        const idx = columns.findIndex(c => m.keywords.test(c));
-        if (idx >= 0) metricCols[m.key] = idx;
-      });
-
-      // Compute totals for numeric columns
-      columns.forEach((col, ci) => {
-        const nums = rows.map(r => parseFloat((r[ci] || '').toString().replace(/,/g,''))).filter(n => !isNaN(n));
-        if (nums.length > 0) totals[ci] = nums.reduce((a,b) => a+b, 0);
-      });
+      viewName = json.view || 'J1 Requisition';
+      rows     = json.data?.rows || [];
     } catch (e) {
       errorMsg = e.message;
     }
   }
 
-  // Offline fallback
-  if (!rows.length && window.J1_REQUISITION_OFFLINE_DATA) {
-    columns  = window.J1_REQUISITION_OFFLINE_DATA.columns;
-    rows     = window.J1_REQUISITION_OFFLINE_DATA.rows;
-    viewName = viewName || 'server offline';
-    // Re-compute after loading offline data
-    METRICS.forEach(m => {
-      const idx = columns.findIndex(c => m.keywords.test(c));
-      if (idx >= 0) metricCols[m.key] = idx;
-    });
-    columns.forEach((col, ci) => {
-      const nums = rows.map(r => parseFloat((r[ci] || '').toString().replace(/,/g,''))).filter(n => !isNaN(n));
-      if (nums.length > 0) totals[ci] = nums.reduce((a,b) => a+b, 0);
-    });
-  }
+  // Cache for filtering
+  state.dataCache['req-rows'] = rows;
 
-  // Identify dept column (first non-numeric col)
-  const deptIdx  = columns.findIndex((_, ci) => totals[ci] === undefined);
-  const authErr2 = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  // Summary stats
+  const totalOpenings   = rows.length;
+  const totalReq        = rows.reduce((s, r) => s + (parseInt(r[CI.requisition]) || 0), 0);
+  const activeRows      = rows.filter(r => r[CI.reqStatus] === 'Active');
+  const activeReq       = activeRows.reduce((s, r) => s + (parseInt(r[CI.requisition]) || 0), 0);
+  const sponsors        = [...new Set(rows.map(r => r[CI.sponsor]).filter(Boolean))];
+  const depts           = [...new Set(rows.map(r => r[CI.dept]).filter(Boolean))].sort();
+  const statuses        = [...new Set(rows.map(r => r[CI.reqStatus]).filter(Boolean))].sort();
+
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  // Render a subset of rows for the initial table
+  function renderTableRows(subset) {
+    if (!subset.length) return `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
+    return subset.map(r => `
+      <tr>
+        <td><span style="font-size:11px;font-family:monospace;color:var(--text-secondary,#666);background:var(--bg,#F3F4F6);padding:2px 6px;border-radius:4px;">${r[CI.id]||'—'}</span></td>
+        <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.3;">${r[CI.company]||'—'}</td>
+        <td><span style="font-size:12px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[CI.dept]||'—'}</span></td>
+        <td style="font-weight:500;">${r[CI.position]||'—'}</td>
+        <td style="text-align:center;font-size:18px;font-weight:800;color:${C};">${r[CI.requisition]||'0'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[CI.sponsor]||'—'}</td>
+        <td style="font-size:11px;">${(r[CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;white-space:nowrap;">${t}</span>`).join('')||'—'}</td>
+        <td style="text-align:center;"><span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${
+          r[CI.reqStatus]==='Active'   ? 'background:rgba(5,150,105,0.12);color:#059669;' :
+          r[CI.reqStatus]==='Closed'   ? 'background:rgba(176,26,24,0.1);color:#B01A18;' :
+                                          'background:rgba(107,114,128,0.1);color:#6B7280;'
+        }">${r[CI.reqStatus]||'—'}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[CI.contract]||'—'}</td>
+        <td style="font-size:13px;font-weight:600;">${r[CI.salary]||'—'}</td>
+      </tr>`).join('');
+  }
 
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition</h1>
-        <p class="subtitle">J1 program requisition by department${viewName ? ` · ${viewName}` : ''}</p>
+        <p class="subtitle">J1 program job openings${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} records` : ''}</p>
       </div>
     </div>
 
@@ -3378,81 +3388,167 @@ pages.requisition = async function () {
     <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(27,58,107,0.07);
       border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
       <span style="font-size:18px;">🔌</span>
-      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">
-        Server offline
-      </span>
+      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">Server offline — connect to localhost to view live data.</span>
     </div>` : ''}
 
     ${errorMsg ? `
     <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
       background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
       border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:22px;">${authErr2 ? '🔑' : '⚠️'}</span>
+      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
-        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr2 ? 'Server not connected' : 'Server error'}
-        </div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">
-          ${authErr2
-            ? 'Your server session has expired or was never authorised. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to connect →</a>'
-            : errorMsg}
-        </div>
+        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">${authErr ? 'Server not connected' : 'Server error'}</div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">${authErr ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>' : errorMsg}</div>
       </div>
     </div>` : ''}
 
-    <!-- Summary metric cards -->
+    <!-- KPI Summary Cards -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
-      ${METRICS.map(m => {
-        const ci  = metricCols[m.key];
-        const val = ci !== undefined ? (totals[ci] || 0) : '—';
-        return `
-          <div style="padding:20px;background:${m.bg};border-radius:12px;border:1px solid ${m.color}33;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <span style="font-size:22px;">${m.icon}</span>
-              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-                color:${m.color};">${m.label}</span>
-            </div>
-            <div style="font-size:36px;font-weight:800;color:${m.color};line-height:1;">${val}</div>
-          </div>`;
-      }).join('')}
+      <div style="padding:20px;background:rgba(27,58,107,0.08);border-radius:12px;border:1px solid rgba(27,58,107,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:20px;">📋</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1B3A6B;">Job Openings</span>
+        </div>
+        <div style="font-size:36px;font-weight:800;color:#1B3A6B;line-height:1;">${totalOpenings.toLocaleString()}</div>
+      </div>
+      <div style="padding:20px;background:rgba(176,26,24,0.07);border-radius:12px;border:1px solid rgba(176,26,24,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:20px;">🎯</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${C};">Total Slots</span>
+        </div>
+        <div style="font-size:36px;font-weight:800;color:${C};line-height:1;">${totalReq.toLocaleString()}</div>
+      </div>
+      <div style="padding:20px;background:rgba(5,150,105,0.08);border-radius:12px;border:1px solid rgba(5,150,105,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:20px;">✅</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#059669;">Active Slots</span>
+        </div>
+        <div style="font-size:36px;font-weight:800;color:#059669;line-height:1;">${activeReq.toLocaleString()}</div>
+      </div>
+      <div style="padding:20px;background:rgba(107,71,220,0.08);border-radius:12px;border:1px solid rgba(107,71,220,0.2);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:20px;">🤝</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6B47DC;">Sponsors</span>
+        </div>
+        <div style="font-size:36px;font-weight:800;color:#6B47DC;line-height:1;">${sponsors.length}</div>
+      </div>
     </div>
 
-    <!-- Department breakdown table -->
+    <!-- Filter Bar -->
     ${rows.length > 0 ? `
+    <div class="card" style="padding:16px 20px;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <input id="reqSearch" type="text" placeholder="🔍 Search company, position, department…"
+          style="flex:1;min-width:200px;padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);
+          border-radius:8px;font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);outline:none;">
+        <select id="reqDeptFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
+          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
+          <option value="">All Departments</option>
+          ${depts.map(d=>`<option value="${d}">${d}</option>`).join('')}
+        </select>
+        <select id="reqStatusFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
+          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
+          <option value="">All Statuses</option>
+          ${statuses.map(s=>`<option value="${s}">${s}</option>`).join('')}
+        </select>
+        <select id="reqSponsorFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
+          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
+          <option value="">All Sponsors</option>
+          ${sponsors.sort().map(s=>`<option value="${s}">${s}</option>`).join('')}
+        </select>
+        <span id="reqCount" style="font-size:12px;color:var(--text-secondary,#888);white-space:nowrap;margin-left:4px;">${rows.length} records</span>
+      </div>
+    </div>
+
+    <!-- Job Openings Table -->
     <div class="card">
-      <div class="card-title" style="margin-bottom:16px;">📊 Breakdown by Department</div>
       <div class="table-wrap">
-        <table>
-          <thead><tr>
-            ${columns.map((col, ci) => `
-              <th style="${ci !== deptIdx ? 'text-align:center;' : ''}">${col}</th>`).join('')}
-          </tr></thead>
-          <tbody>
-            ${rows.map(row => `
-              <tr>
-                ${row.map((cell, ci) => `
-                  <td style="${ci !== deptIdx ? 'text-align:center;font-weight:600;' : 'font-weight:500;'}">
-                    ${cell || '—'}
-                  </td>`).join('')}
-              </tr>`).join('')}
-            <!-- Totals row -->
-            <tr style="background:var(--bg-subtle,#F3F4F6);font-weight:700;border-top:2px solid var(--border,#E5E7EB);">
-              ${columns.map((_, ci) => {
-                if (ci === deptIdx) return `<td style="font-weight:700;color:var(--text,#1A1A1A);">TOTAL</td>`;
-                const t = totals[ci];
-                return `<td style="text-align:center;color:${C};font-size:15px;">${t !== undefined ? t.toLocaleString() : '—'}</td>`;
-              }).join('')}
+        <table id="reqTable">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Hosting Company</th>
+              <th>Department</th>
+              <th>Position</th>
+              <th style="text-align:center;">Slots</th>
+              <th>Sponsor</th>
+              <th>Program Type</th>
+              <th style="text-align:center;">Status</th>
+              <th>Contract</th>
+              <th>Salary</th>
             </tr>
+          </thead>
+          <tbody id="reqTableBody">
+            ${renderTableRows(rows)}
           </tbody>
         </table>
       </div>
     </div>` : `
     <div class="card" style="text-align:center;padding:48px 24px;">
-      <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">📊</div>
+      <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">📋</div>
       <div style="font-size:14px;color:var(--text-muted,#888);">
-        ${isLocal ? 'No requisition data found — check that the server view name is configured correctly.' : 'Server offline — no requisition data available.'}
+        ${isLocal ? 'No requisition data available.' : 'Server offline — no data available.'}
       </div>
     </div>`}`;
+};
+
+pageEvents.requisition = function () {
+  const CI = {
+    company:   1, dept: 2, position: 3,
+    requisition: 4, sponsor: 5, progType: 6,
+    reqStatus: 7, jobStatus: 8, contract: 9, salary: 10
+  };
+
+  function renderTableRows(subset) {
+    if (!subset.length) return `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
+    const C = DIVISION_COLORS.j1;
+    return subset.map(r => `
+      <tr>
+        <td><span style="font-size:11px;font-family:monospace;color:var(--text-secondary,#666);background:var(--bg,#F3F4F6);padding:2px 6px;border-radius:4px;">${r[0]||'—'}</span></td>
+        <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.3;">${r[CI.company]||'—'}</td>
+        <td><span style="font-size:12px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[CI.dept]||'—'}</span></td>
+        <td style="font-weight:500;">${r[CI.position]||'—'}</td>
+        <td style="text-align:center;font-size:18px;font-weight:800;color:${C};">${r[CI.requisition]||'0'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[CI.sponsor]||'—'}</td>
+        <td style="font-size:11px;">${(r[CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;white-space:nowrap;">${t}</span>`).join('')||'—'}</td>
+        <td style="text-align:center;"><span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${
+          r[CI.reqStatus]==='Active'   ? 'background:rgba(5,150,105,0.12);color:#059669;' :
+          r[CI.reqStatus]==='Closed'   ? 'background:rgba(176,26,24,0.1);color:#B01A18;' :
+                                          'background:rgba(107,114,128,0.1);color:#6B7280;'
+        }">${r[CI.reqStatus]||'—'}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[CI.contract]||'—'}</td>
+        <td style="font-size:13px;font-weight:600;">${r[CI.salary]||'—'}</td>
+      </tr>`).join('');
+  }
+
+  function applyFilters() {
+    const allRows = state.dataCache['req-rows'] || [];
+    const search  = (document.getElementById('reqSearch')?.value || '').toLowerCase().trim();
+    const dept    = document.getElementById('reqDeptFilter')?.value  || '';
+    const status  = document.getElementById('reqStatusFilter')?.value || '';
+    const sponsor = document.getElementById('reqSponsorFilter')?.value || '';
+
+    const filtered = allRows.filter(r => {
+      if (dept   && r[2] !== dept)   return false;
+      if (status && r[7] !== status) return false;
+      if (sponsor && r[5] !== sponsor) return false;
+      if (search) {
+        const hay = [r[1], r[2], r[3], r[5], r[0]].join(' ').toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+
+    const tbody = document.getElementById('reqTableBody');
+    if (tbody) tbody.innerHTML = renderTableRows(filtered);
+    const cnt = document.getElementById('reqCount');
+    if (cnt) cnt.textContent = `${filtered.length} of ${allRows.length} records`;
+  }
+
+  ['reqSearch','reqDeptFilter','reqStatusFilter','reqSponsorFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', applyFilters);
+  });
 };
 
 // ============================

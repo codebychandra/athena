@@ -447,7 +447,18 @@ app.get('/api/zoho/j1-visa', async (req, res) => {
   }
 });
 
-// J1 Requisition (SUM Job Openings J1 Participants by Department)
+// J1 Requisition — fetches the base "Job Openings" table and filters for J1 Program rows.
+// Note: the "J1 Requisition" QueryTable (viewId 3008069000006372243) is a QueryTable type
+// which Zoho Analytics API v2 does not support for export; we replicate it by pulling the
+// underlying Table and applying the same filter (Placement Category = 'J1 Program').
+const JOB_OPENINGS_VIEW_ID = '3008069000000329012';
+const J1_REQ_SHOW_COLS = [
+  'Job Opening ID', 'Hosting Company', 'Department', 'Position Name',
+  'Requisition', 'Client Name Analytics', 'J1 Program Type',
+  'Requisition Status', 'Job Opening Status', 'Contract Length',
+  'Salary', 'City', 'Target Date', 'Date Opened', 'Housing Availability'
+];
+
 app.get('/api/zoho/j1-requisition', async (req, res) => {
   try {
     const token      = await ensureValidToken();
@@ -455,19 +466,27 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
     const workspaces = await getAllWorkspaces(token);
     if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
 
-    const found = await findZohoView(headers, workspaces, v => {
-      const n = v.viewName.toLowerCase();
-      return n.includes('sum job openings') || n.includes('job openings j1');
-    });
-    if (!found) {
-      return res.status(404).json({
-        error: 'Job Openings requisition view not found',
-        availableViews: await allViewsList(headers, workspaces)
-      });
-    }
-    const raw  = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
-    const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
-    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
+    // Find the workspace containing Job Openings (CTI Group Dashboard)
+    const found = await findZohoView(headers, workspaces, v => v.viewId === JOB_OPENINGS_VIEW_ID);
+    if (!found) return res.status(404).json({ error: 'Job Openings table not found in any workspace' });
+
+    // Fetch all Job Openings rows
+    const raw      = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
+    const allData  = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
+    const allCols  = allData.columns || [];
+    const allRows  = allData.rows    || [];
+
+    // Filter: Placement Category = 'J1 Program'
+    const catIdx = allCols.indexOf('Placement Category');
+    const j1Rows = catIdx >= 0 ? allRows.filter(r => r[catIdx] === 'J1 Program') : allRows;
+
+    // Project to only the columns we want to display
+    const showIdx = J1_REQ_SHOW_COLS.map(c => allCols.indexOf(c)).filter(i => i >= 0);
+    const columns = showIdx.map(i => allCols[i]);
+    const rows    = j1Rows.map(r => showIdx.map(i => r[i] ?? ''));
+
+    console.log(`✅ J1 Requisition: ${rows.length} rows, ${columns.length} columns`);
+    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: 'J1 Requisition', data: { columns, rows } });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Requisition fetch error:', err.response?.data || err.message);
@@ -475,16 +494,14 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
   }
 });
 
-// Generic view data fetch by IDs
+// Generic view data fetch by IDs (uses fetchViewData for async-export support)
 app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
   try {
     const token   = await ensureValidToken();
     const headers = await zohoHeaders(token);
-    const response = await axios.get(
-      `${ZOHO_ANALYTICS}/workspaces/${req.params.wsId}/views/${req.params.viewId}/data`,
-      { headers }
-    );
-    res.json(response.data);
+    const raw     = await fetchViewData(req.params.wsId, req.params.viewId, headers);
+    const data    = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
+    res.json({ source: 'zoho', data });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     res.status(status).json({ error: err.message, details: err.response?.data });
