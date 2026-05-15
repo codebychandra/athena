@@ -3318,6 +3318,7 @@ pages.requisition = async function () {
   let rows     = [];
   let errorMsg = null;
   let viewName = '';
+  let isOffline = false;
 
   if (isLocal) {
     try {
@@ -3327,6 +3328,14 @@ pages.requisition = async function () {
       viewName = json.view || 'J1 Requisition';
       rows     = json.data?.rows || [];
     } catch (e) { errorMsg = e.message; }
+  }
+
+  // Fallback to baked offline snapshot (same pattern as J1 Placement)
+  if (!rows.length && window.J1_REQUISITION_OFFLINE_DATA?.rows?.length) {
+    rows      = window.J1_REQUISITION_OFFLINE_DATA.rows;
+    viewName  = 'snapshot · 2026-05-15';
+    isOffline = true;
+    errorMsg  = null; // suppress error banner — offline data covers it
   }
 
   // Cache for pageEvents
@@ -3349,12 +3358,17 @@ pages.requisition = async function () {
       </div>
     </div>
 
-    ${!isLocal ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:rgba(27,58,107,0.07);
-      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:18px;">🔌</span>
-      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">Server offline — connect to localhost to view live data.</span>
-    </div>` : ''}
+    ${isOffline ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(184,122,20,0.08);
+      border:1px solid rgba(184,122,20,0.25);border-radius:10px;margin-bottom:18px;">
+      <span style="font-size:17px;">📦</span>
+      <span style="font-size:13px;color:#92600A;font-weight:500;">Showing cached snapshot (2026-05-15) — start the server to load live data.</span>
+    </div>` : (!isLocal ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(27,58,107,0.07);
+      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:18px;">
+      <span style="font-size:17px;">🔌</span>
+      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">Server offline — connect to localhost to load live data.</span>
+    </div>` : '')}
 
     ${errorMsg ? `
     <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(176,26,24,0.07);
