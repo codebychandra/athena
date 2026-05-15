@@ -3464,18 +3464,18 @@ pages.requisition = async function () {
       </div>
     </div>
 
-    <!-- ── Chart Row 2: Fulfillment + Date line ──────────────── -->
-    <div class="two-col mb-24">
-      <div class="card">
-        <div class="card-title">Fulfillment by Department</div>
-        <div class="card-subtitle">Active (remaining) vs Closed (filled) headcount · all requisitions</div>
-        <div class="chart-wrap" style="height:340px;"><canvas id="reqFulfillChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Requisitions by Start Date</div>
-        <div class="card-subtitle">Monthly count · new active requisitions + cumulative</div>
-        <div class="chart-wrap" style="height:340px;"><canvas id="reqDateChart"></canvas></div>
-      </div>
+    <!-- ── Chart Row 2: Fulfillment (full width) ─────────────── -->
+    <div class="card mb-24">
+      <div class="card-title">Fulfillment by Department</div>
+      <div class="card-subtitle">Remaining (active) vs Filled (closed) headcount · all requisitions</div>
+      <div class="chart-wrap" style="height:360px;"><canvas id="reqFulfillChart"></canvas></div>
+    </div>
+
+    <!-- ── Chart Row 3: Start Date line (full width, tall) ───── -->
+    <div class="card mb-24">
+      <div class="card-title">Requisitions by Start Date</div>
+      <div class="card-subtitle">Monthly count of new active requisitions · with cumulative overlay</div>
+      <div class="chart-wrap" style="height:260px;"><canvas id="reqDateChart"></canvas></div>
     </div>
 
     <!-- ── Sortable + Column-Filtered Table ───────────────────── -->
@@ -3730,19 +3730,25 @@ pageEvents.requisition = function () {
     data: {
       labels: deptSorted.map(([k])=>k),
       datasets: [{ data: deptSorted.map(([,v])=>v),
-        backgroundColor: deptSorted.map((_,i)=>hexToRgba('#1B3A6B', 0.85 - i*0.04)),
+        backgroundColor: deptSorted.map((_,i)=>hexToRgba('#1B3A6B', 0.88 - i*0.04)),
         hoverBackgroundColor:'#1B3A6B', borderRadius:4, borderSkipped:false }]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{ right:44 } },
-      plugins: { legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString()} headcount`}},
-        datalabels:{anchor:'end',align:'end',font:{size:11,weight:'700'},
-          formatter:v=>v.toLocaleString(), color:'var(--text,#1A1A1A)'} },
+      layout:{ padding:{ right:50 } },
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:ctx=>` ${ctx.parsed.x.toLocaleString()} headcount` } },
+        datalabels:{
+          anchor:'end', align:'end',
+          font:{ size:11, weight:'700' },
+          color:'var(--text,#1A1A1A)',
+          formatter: v => v.toLocaleString()
+        }
+      },
       scales: {
-        x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true},
-        y:{grid:{display:false},ticks:{font:{size:12},padding:4}}
+        x:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{font:{size:12}, padding:4} }
       }
     }
   });
@@ -3759,20 +3765,31 @@ pageEvents.requisition = function () {
     data: { labels: spKeys, datasets:[{
       data: spKeys.map(k=>sponsorMap[k]),
       backgroundColor: spKeys.map((_,i)=>spColors[i%spColors.length]),
-      borderWidth:3, borderColor:'var(--card-bg,#fff)', hoverOffset:12
+      borderWidth:3, borderColor:'var(--card-bg,#fff)', hoverOffset:12,
+      pointStyle: 'circle'
     }]},
     options: { responsive:true, maintainAspectRatio:false, cutout:'58%',
       plugins:{
-        legend:{position:'bottom',labels:{font:{size:12},padding:16,usePointStyle:true,pointStyleWidth:10}},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)`}},
-        datalabels:{color:'#fff',font:{size:12,weight:'700'},
-          formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t&&v/t>0.06?Math.round(v/t*100)+'%':''; }}
+        legend:{
+          position:'bottom',
+          labels:{
+            font:{size:12}, padding:16,
+            usePointStyle:true, pointStyle:'circle', pointStyleWidth:12
+          }
+        },
+        tooltip:{ callbacks:{ label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)` } },
+        datalabels:{
+          color:'#fff', font:{size:12,weight:'700'},
+          formatter:(v,ctx)=>{
+            const t=ctx.dataset.data.reduce((a,b)=>a+b,0);
+            return t && v/t>0.06 ? `${Math.round(v/t*100)}%\n${v.toLocaleString()}` : '';
+          }
+        }
       }
     }
   });
 
   // ── Chart 3: Fulfillment by Department (stacked horizontal bar) ─
-  // Active = remaining open headcount; Closed = filled headcount
   const deptActive={}, deptClosed={};
   rawRows.forEach(r => {
     if (!r[REQ_CI.progType]?.trim()) return;
@@ -3791,15 +3808,15 @@ pageEvents.requisition = function () {
       datasets: [
         { label:'Remaining (Active)', data:fulfillDepts.map(d=>deptActive[d]||0),
           backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'f' },
-        { label:'Filled (Closed)', data:fulfillDepts.map(d=>deptClosed[d]||0),
+        { label:'Filled (Closed)',    data:fulfillDepts.map(d=>deptClosed[d]||0),
           backgroundColor:hexToRgba('#059669',0.82), borderRadius:[0,4,4,0], stack:'f' }
       ]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{ right:56 } },
+      layout:{ padding:{ right:52 } },
       plugins:{
-        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
+        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 } },
         tooltip:{ mode:'index', intersect:false,
           callbacks:{
             footer: items => {
@@ -3811,19 +3828,20 @@ pageEvents.requisition = function () {
           }
         },
         datalabels:{
-          display: ctx => {
-            // Show remaining on the Active segment, total at end of Closed segment
-            const v = ctx.dataset.data[ctx.dataIndex] || 0;
-            return v > 0;
-          },
-          anchor: ctx => ctx.datasetIndex === 1 ? 'end' : 'center',
-          align:  ctx => ctx.datasetIndex === 1 ? 'end'  : 'center',
-          offset: ctx => ctx.datasetIndex === 1 ? 6 : 0,
+          // ds0 (Remaining): show value inside bar in white
+          // ds1 (Filled): show value inside bar in white; ALSO show total outside at end
           font:{ size:11, weight:'700' },
-          color: ctx => ctx.datasetIndex === 1 ? 'var(--text,#1A1A1A)' : '#fff',
-          formatter:(v, ctx) => {
-            if (ctx.datasetIndex === 0) return v > 0 ? v.toLocaleString() : '';
-            // On the Closed (filled) segment, show the total
+          display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+          anchor: ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
+          align:  ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
+          offset: ctx => ctx.datasetIndex === 0 ? 0 : 6,
+          color:  ctx => ctx.datasetIndex === 0 ? '#fff' : 'var(--text,#1A1A1A)',
+          formatter: (v, ctx) => {
+            if (ctx.datasetIndex === 0) {
+              // Show remaining count inside the navy bar
+              return v > 0 ? v.toLocaleString() : '';
+            }
+            // Show total (remaining + filled) outside the green bar
             const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
             return total > 0 ? total.toLocaleString() : '';
           }
@@ -3836,7 +3854,7 @@ pageEvents.requisition = function () {
     }
   });
 
-  // ── Chart 5: Requisitions by Start Date (line, monthly) ────────
+  // ── Chart 4: Requisitions by Start Date (full-width line) ──────
   const monthMap={};
   rows.forEach(r => {
     const raw=r[REQ_CI.start]; if(!raw) return;
@@ -3851,22 +3869,30 @@ pageEvents.requisition = function () {
     data: { labels:mLabels, datasets:[
       { label:'New Requisitions', data:sortedM.map(m=>monthMap[m]),
         borderColor:C, backgroundColor:hexToRgba(C,0.08), borderWidth:2.5,
-        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:C, fill:true, tension:0.35, yAxisID:'y' },
+        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:C,
+        fill:true, tension:0.3, yAxisID:'y' },
       { label:'Cumulative', data:mCumul,
         borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:2, borderDash:[5,4],
-        pointRadius:3, pointHoverRadius:6, pointBackgroundColor:'#6B47DC', fill:false, tension:0.35, yAxisID:'y2' }
+        pointRadius:3, pointHoverRadius:6, pointBackgroundColor:'#6B47DC',
+        fill:false, tension:0.3, yAxisID:'y2' }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
-        datalabels:{ display:false }
+        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 } },
+        datalabels:{
+          display: ctx => ctx.datasetIndex === 0,
+          anchor:'end', align:'top', offset:4,
+          font:{ size:10, weight:'700' },
+          color: C,
+          formatter: v => v > 0 ? v : ''
+        }
       },
       scales:{
-        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11},maxRotation:45} },
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11}, maxRotation:45} },
         y:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true,
-            title:{display:true,text:'Monthly',font:{size:10},color:'var(--text-secondary,#888)'} },
+            title:{display:true, text:'Monthly', font:{size:10}, color:'var(--text-secondary,#888)'} },
         y2:{ position:'right', grid:{display:false}, ticks:{font:{size:11}}, beginAtZero:true,
-             title:{display:true,text:'Cumulative',font:{size:10},color:'#6B47DC'} }
+             title:{display:true, text:'Cumulative', font:{size:10}, color:'#6B47DC'} }
       }
     }
   });
