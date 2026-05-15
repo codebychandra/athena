@@ -32,7 +32,8 @@ const PAGE_TITLES = {
   compliance:   'Compliance',
   marketing:    'Marketing',
   j1visa:       'Visa Status',
-  requisition:  'Requisition'
+  requisition:  'Requisition',
+  travel:       'Travel'
 };
 
 // Pages that are locked (no live data yet)
@@ -3301,7 +3302,7 @@ pageEvents.j1visa = function () {
 // ============================
 // PAGE: REQUISITION
 // ============================
-// Column indices — must match J1_REQ_SHOW_COLS in server.js (13 cols, no Job ID or Job Status)
+// Column indices — must match J1_REQ_SHOW_COLS in server.js (13 cols)
 // 0:Hosting Company  1:Department  2:Position Name  3:Requisition  4:Client Name Analytics
 // 5:J1 Program Type  6:Requisition Status  7:Contract Length  8:Salary  9:City
 // 10:Target Date  11:Date Opened("Start Date")  12:Housing Availability
@@ -3311,11 +3312,16 @@ const REQ_CI = {
   salary:    8, city:      9, target:  10, start:   11, housing: 12
 };
 
+// Sort state
+let _reqSortCol = null;
+let _reqSortDir = 'asc';
+let _reqColFilters = {};
+
 pages.requisition = async function () {
   const C       = DIVISION_COLORS.j1;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  let rows     = [];
+  let rawRows  = [];
   let errorMsg = null;
   let viewName = '';
   let isOffline = false;
@@ -3326,152 +3332,189 @@ pages.requisition = async function () {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Fetch failed');
       viewName = json.view || 'J1 Requisition';
-      rows     = json.data?.rows || [];
+      rawRows  = json.data?.rows || [];
     } catch (e) { errorMsg = e.message; }
   }
 
-  // Fallback to baked offline snapshot (same pattern as J1 Placement)
-  if (!rows.length && window.J1_REQUISITION_OFFLINE_DATA?.rows?.length) {
-    rows      = window.J1_REQUISITION_OFFLINE_DATA.rows;
+  // Offline snapshot fallback
+  if (!rawRows.length && window.J1_REQUISITION_OFFLINE_DATA?.rows?.length) {
+    rawRows   = window.J1_REQUISITION_OFFLINE_DATA.rows;
     viewName  = 'snapshot · 2026-05-15';
     isOffline = true;
-    errorMsg  = null; // suppress error banner — offline data covers it
+    errorMsg  = null;
   }
 
-  // Cache for pageEvents
-  state.dataCache['req-rows'] = rows;
+  // Filter: Active status + J1 Program Type filled (server already filters, but offline data needs it)
+  const rows = rawRows.filter(r =>
+    r[REQ_CI.status] === 'Active' && r[REQ_CI.progType]?.trim()
+  );
 
-  // Summary stats
-  const totalSlots  = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
-  const activeRows  = rows.filter(r => r[REQ_CI.status] === 'Active');
-  const activeSlots = activeRows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
-  const sponsors    = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))];
-  const depts       = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
-  const statuses    = [...new Set(rows.map(r=>r[REQ_CI.status]).filter(Boolean))].sort();
-  const authErr     = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  // Cache for pageEvents
+  state.dataCache['req-rows']    = rows;
+  state.dataCache['req-rawrows'] = rawRows; // all rows for fulfillment chart
+
+  // Summary stats (all rows are already Active + filled J1 Program Type)
+  const totalSlots = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
+  const sponsors   = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))].sort();
+  const depts      = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
+  const housings   = [...new Set(rows.map(r=>r[REQ_CI.housing]).filter(Boolean))].sort();
+  const authErr    = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  // ── Column filter input helper ─────────────────────────────────
+  const inpSty = `width:100%;font-size:11px;padding:2px 6px;height:24px;
+    border:1px solid var(--border,#ddd);border-radius:3px;box-sizing:border-box;
+    background:var(--surface,#fff);color:var(--text,#333);`;
+  const selSty = inpSty + 'cursor:pointer;';
+
+  const mkSel = (id, opts) => `<select id="${id}" style="${selSty}">
+    <option value="">All</option>
+    ${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}
+    </select>`;
 
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition Dashboard</h1>
-        <p class="subtitle">J1 program placements${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} records` : ''}</p>
+        <p class="subtitle">J1 Active Placements${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} active requisitions` : ''}
+          ${isOffline||!isLocal ? `<span style="font-size:11px;font-weight:600;background:rgba(107,114,128,0.12);color:#6B7280;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Server offline</span>` : `<span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Analytics</span>`}
+        </p>
       </div>
     </div>
 
-    ${isOffline ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(184,122,20,0.08);
-      border:1px solid rgba(184,122,20,0.25);border-radius:10px;margin-bottom:18px;">
-      <span style="font-size:17px;">📦</span>
-      <span style="font-size:13px;color:#92600A;font-weight:500;">Showing cached snapshot (2026-05-15) — start the server to load live data.</span>
-    </div>` : (!isLocal ? `
-    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(27,58,107,0.07);
-      border:1px solid rgba(27,58,107,0.2);border-radius:10px;margin-bottom:18px;">
-      <span style="font-size:17px;">🔌</span>
-      <span style="font-size:13px;color:var(--text-secondary,#555);font-weight:500;">Server offline — connect to localhost to load live data.</span>
-    </div>` : '')}
-
     ${errorMsg ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(176,26,24,0.07);
-      border:1px solid rgba(176,26,24,0.25);border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(176,26,24,0.07);
+      border:1px solid rgba(176,26,24,0.25);border-radius:10px;margin-bottom:18px;">
+      <span style="font-size:20px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
-        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">${authErr ? 'Server not connected' : 'Server error'}</div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">${authErr
-          ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>'
+        <div style="font-size:13px;font-weight:700;color:#B01A18;">${authErr ? 'Server not connected' : 'Server error'}</div>
+        <div style="font-size:12px;color:var(--text-secondary,#555);margin-top:2px;">${authErr
+          ? '<a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>'
           : errorMsg}</div>
       </div>
     </div>` : ''}
 
     ${rows.length > 0 ? `
-    <!-- ── KPI Cards ─────────────────────────────────────────────── -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
-      <div style="padding:20px 22px;background:rgba(27,58,107,0.07);border-radius:14px;border:1px solid rgba(27,58,107,0.18);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;margin-bottom:8px;">📋 Requisitions</div>
-        <div style="font-size:38px;font-weight:800;color:#1B3A6B;line-height:1;">${rows.length.toLocaleString()}</div>
-        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">placement listings</div>
+    <!-- ── KPI Grid ───────────────────────────────────────────── -->
+    <div class="kpi-grid mb-24">
+      <div class="kpi-card">
+        <span class="kpi-label">Requisitions</span>
+        <span class="kpi-value" style="color:#1B3A6B;" id="reqKpiCount">${rows.length}</span>
       </div>
-      <div style="padding:20px 22px;background:rgba(176,26,24,0.06);border-radius:14px;border:1px solid rgba(176,26,24,0.18);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};margin-bottom:8px;">🎯 Total Slots</div>
-        <div style="font-size:38px;font-weight:800;color:${C};line-height:1;">${totalSlots.toLocaleString()}</div>
-        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">across all requisitions</div>
+      <div class="kpi-card">
+        <span class="kpi-label">Open Slots</span>
+        <span class="kpi-value" style="color:${C};" id="reqKpiSlots">${totalSlots.toLocaleString()}</span>
       </div>
-      <div style="padding:20px 22px;background:rgba(5,150,105,0.07);border-radius:14px;border:1px solid rgba(5,150,105,0.18);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#059669;margin-bottom:8px;">✅ Active Slots</div>
-        <div style="font-size:38px;font-weight:800;color:#059669;line-height:1;">${activeSlots.toLocaleString()}</div>
-        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">${activeRows.length} active requisitions</div>
+      <div class="kpi-card">
+        <span class="kpi-label">Sponsors</span>
+        <span class="kpi-value" style="color:#6B47DC;">${sponsors.length}</span>
       </div>
-      <div style="padding:20px 22px;background:rgba(107,71,220,0.07);border-radius:14px;border:1px solid rgba(107,71,220,0.18);">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6B47DC;margin-bottom:8px;">🤝 Sponsors</div>
-        <div style="font-size:38px;font-weight:800;color:#6B47DC;line-height:1;">${sponsors.length}</div>
-        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">${depts.length} departments</div>
+      <div class="kpi-card">
+        <span class="kpi-label">Departments</span>
+        <span class="kpi-value">${depts.length}</span>
       </div>
     </div>
 
-    <!-- ── Charts Row 1: Dept (wide) + Sponsor (narrow) ─────────── -->
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-bottom:16px;">
-      <div class="card" style="padding:22px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">📊 Slots by Department</div>
-        <div style="position:relative;height:320px;"><canvas id="reqDeptChart"></canvas></div>
+    <!-- ── Chart Row 1: Dept bar + Sponsor donut ──────────────── -->
+    <div class="two-col mb-24">
+      <div class="card">
+        <div class="card-title">Open Slots by Department</div>
+        <div class="card-subtitle">Active J1 requisitions · sorted by volume</div>
+        <div class="chart-wrap"><canvas id="reqDeptChart"></canvas></div>
       </div>
-      <div class="card" style="padding:22px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">🤝 Slots by Sponsor</div>
-        <div style="position:relative;height:320px;"><canvas id="reqSponsorChart"></canvas></div>
-      </div>
-    </div>
-
-    <!-- ── Chart Row 2: By Start Date (full width line) ──────────── -->
-    <div class="card" style="padding:22px;margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">📅 Requisitions by Start Date</div>
-      <div style="position:relative;height:220px;"><canvas id="reqDateChart"></canvas></div>
-    </div>
-
-    <!-- ── Filter Bar ─────────────────────────────────────────────── -->
-    <div class="card" style="padding:14px 18px;margin-bottom:14px;">
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-        <input id="reqSearch" type="text" placeholder="🔍  Search company, position, department…"
-          style="flex:1;min-width:220px;padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);
-          border-radius:8px;font-size:13px;font-family:inherit;background:var(--input-bg,#fff);
-          color:var(--text,#1A1A1A);outline:none;transition:border-color .15s;"
-          onfocus="this.style.borderColor='#B01A18'" onblur="this.style.borderColor=''">
-        <select id="reqDeptFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
-          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
-          <option value="">All Departments</option>
-          ${depts.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">${d}</option>`).join('')}
-        </select>
-        <select id="reqStatusFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
-          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
-          <option value="">All Statuses</option>
-          ${statuses.map(s=>`<option value="${s}">${s}</option>`).join('')}
-        </select>
-        <select id="reqSponsorFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
-          font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
-          <option value="">All Sponsors</option>
-          ${sponsors.sort().map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('')}
-        </select>
-        <button id="reqClearBtn" style="padding:9px 16px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
-          font-size:12px;font-weight:600;font-family:inherit;background:transparent;
-          color:var(--text-secondary,#666);cursor:pointer;">Clear</button>
-        <span id="reqCount" style="font-size:12px;color:var(--text-secondary,#888);white-space:nowrap;margin-left:2px;">${rows.length} records</span>
+      <div class="card">
+        <div class="card-title">Slots by Sponsor</div>
+        <div class="card-subtitle">Share of open placement slots per sponsor</div>
+        <div class="chart-wrap"><canvas id="reqSponsorChart"></canvas></div>
       </div>
     </div>
 
-    <!-- ── Requisitions Table ─────────────────────────────────────── -->
+    <!-- ── Chart Row 2: Req vs Placements + Dept fulfillment ──── -->
+    <div class="two-col mb-24">
+      <div class="card">
+        <div class="card-title">Requisitions vs Placements by Sponsor</div>
+        <div class="card-subtitle">Open slots (active req) compared to current placed participants</div>
+        <div class="chart-wrap"><canvas id="reqVsPlaceChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Fulfillment by Department</div>
+        <div class="card-subtitle">Active (open) vs Closed (filled) slots · all requisitions</div>
+        <div class="chart-wrap"><canvas id="reqFulfillChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 3: Start Date line (full width) ──────────── -->
+    <div class="card mb-24">
+      <div class="card-title">Requisitions Added by Start Date</div>
+      <div class="card-subtitle">Monthly count of new active requisitions by program start month</div>
+      <div class="chart-wrap" style="height:200px;"><canvas id="reqDateChart"></canvas></div>
+    </div>
+
+    <!-- ── Global Filter Bar ──────────────────────────────────── -->
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+      padding:12px 0 16px;border-bottom:1px solid var(--border,#eee);margin-bottom:16px;">
+      <input id="reqSearch" type="search" placeholder="🔍 Search company, position, city…"
+        style="font-size:12px;padding:4px 10px;height:32px;width:210px;
+          border:1px solid var(--border,#ddd);border-radius:6px;
+          background:var(--surface,#fff);color:var(--text,#333);">
+      <select id="reqDeptFilter" style="font-size:12px;padding:4px 8px;height:32px;
+        border:1px solid var(--border,#ddd);border-radius:6px;
+        background:var(--surface,#fff);color:var(--text,#333);max-width:150px;">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
+      </select>
+      <select id="reqSponsorFilter" style="font-size:12px;padding:4px 8px;height:32px;
+        border:1px solid var(--border,#ddd);border-radius:6px;
+        background:var(--surface,#fff);color:var(--text,#333);max-width:175px;">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="reqHousingFilter" style="font-size:12px;padding:4px 8px;height:32px;
+        border:1px solid var(--border,#ddd);border-radius:6px;
+        background:var(--surface,#fff);color:var(--text,#333);max-width:175px;">
+        <option value="">All Housing</option>
+        ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+      </select>
+      <button id="reqClearBtn"
+        style="height:32px;padding:0 12px;border:1.5px solid #B01A18;border-radius:6px;
+          background:transparent;color:#B01A18;font-size:12px;font-weight:600;cursor:pointer;">
+        ✕ Clear</button>
+      <span id="reqCount" style="font-size:12px;font-weight:600;color:#888;margin-left:4px;">
+        ${rows.length} requisitions</span>
+    </div>
+
+    <!-- ── Sortable + Column-Filtered Table ───────────────────── -->
     <div class="card">
       <div class="table-wrap">
-        <table>
+        <table id="reqMainTable">
           <thead>
-            <tr>
-              <th>Hosting Company</th>
-              <th>Department</th>
-              <th>Position</th>
-              <th style="text-align:center;">Slots</th>
-              <th>Sponsor</th>
+            <!-- Sort row -->
+            <tr id="reqSortRow">
+              <th data-rcol="0" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Hosting Company <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="1" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Department <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="2" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Position <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="3" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;text-align:center;">Slots <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="4" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Sponsor <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
               <th>Program Type</th>
-              <th style="text-align:center;">Status</th>
-              <th>Contract</th>
-              <th>Salary</th>
-              <th>City</th>
-              <th>Start Date</th>
+              <th data-rcol="7" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Contract <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="8" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Salary <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="9" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">City <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="11" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Start Date <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="10" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Target Date <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th style="width:56px;"></th>
+            </tr>
+            <!-- Column filter row -->
+            <tr id="reqColFilterRow">
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="0" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;">${mkSel('reqCF1', depts)}</th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="2" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="3" placeholder="#" style="${inpSty}"></th>
+              <th style="padding:3px 4px;">${mkSel('reqCF4', sponsors)}</th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="5" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="7" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="8" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="9" placeholder="Filter…" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="11" placeholder="YYYY-MM" style="${inpSty}"></th>
+              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="10" placeholder="YYYY-MM" style="${inpSty}"></th>
               <th></th>
             </tr>
           </thead>
@@ -3481,46 +3524,47 @@ pages.requisition = async function () {
     </div>` : `
     <div class="card" style="text-align:center;padding:56px 24px;">
       <div style="font-size:48px;margin-bottom:14px;opacity:0.25;">📋</div>
-      <div style="font-size:15px;font-weight:600;color:var(--text-muted,#888);">
-        ${isLocal ? 'No requisition data available.' : 'Server offline — no data available.'}
-      </div>
+      <div style="font-size:15px;font-weight:600;color:var(--text-muted,#888);">No active requisition data available.</div>
     </div>`}`;
 };
 
 pageEvents.requisition = function () {
-  const C    = DIVISION_COLORS.j1;
-  const rows = state.dataCache['req-rows'] || [];
+  const C       = DIVISION_COLORS.j1;
+  const rows    = state.dataCache['req-rows']    || [];
+  const rawRows = state.dataCache['req-rawrows'] || [];
   if (!rows.length) return;
 
-  // ── helpers ────────────────────────────────────────────────────
-  function statusStyle(s) {
-    if (s === 'Active')   return 'background:rgba(5,150,105,0.12);color:#059669;';
-    if (s === 'Closed')   return 'background:rgba(176,26,24,0.10);color:#B01A18;';
-    return 'background:rgba(107,114,128,0.10);color:#6B7280;';
+  // ── prog type tags ─────────────────────────────────────────────
+  function progTags(val) {
+    return (val||'').split(';').map(t=>t.trim()).filter(Boolean)
+      .map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;
+        background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;font-size:11px;white-space:nowrap;">${escH(t)}</span>`)
+      .join('') || '—';
   }
 
+  // ── table render ───────────────────────────────────────────────
+  let _currentRows = [...rows];
+
   function renderRows(subset) {
-    if (!subset.length) return `<tr><td colspan="12" style="text-align:center;padding:36px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
+    if (!subset.length) return `<tr><td colspan="12" style="text-align:center;padding:36px;color:var(--text-muted,#888);">No matching records.</td></tr>`;
     return subset.map((r,i) => `
       <tr>
-        <td style="font-weight:500;max-width:180px;white-space:normal;line-height:1.35;">${r[REQ_CI.company]||'—'}</td>
-        <td><span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.09);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[REQ_CI.dept]||'—'}</span></td>
-        <td style="font-weight:500;">${r[REQ_CI.position]||'—'}</td>
-        <td style="text-align:center;font-size:17px;font-weight:800;color:${C};">${r[REQ_CI.slots]||'0'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[REQ_CI.sponsor]||'—'}</td>
-        <td style="font-size:11px;">${(r[REQ_CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>
-          `<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;font-size:11px;white-space:nowrap;">${t}</span>`
-        ).join('')||'—'}</td>
-        <td style="text-align:center;"><span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;${statusStyle(r[REQ_CI.status])}">${r[REQ_CI.status]||'—'}</span></td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[REQ_CI.contract]||'—'}</td>
-        <td style="font-size:13px;font-weight:600;">${r[REQ_CI.salary]||'—'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[REQ_CI.city]||'—'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[REQ_CI.start]||'—'}</td>
+        <td style="font-weight:500;max-width:170px;white-space:normal;line-height:1.3;">${escH(r[REQ_CI.company]||'—')}</td>
+        <td><span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.09);color:#1B3A6B;font-weight:600;white-space:nowrap;">${escH(r[REQ_CI.dept]||'—')}</span></td>
+        <td style="font-weight:500;">${escH(r[REQ_CI.position]||'—')}</td>
+        <td style="text-align:center;font-size:16px;font-weight:800;color:${C};">${r[REQ_CI.slots]||'0'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);">${escH(r[REQ_CI.sponsor]||'—')}</td>
+        <td style="font-size:11px;">${progTags(r[REQ_CI.progType])}</td>
+        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.contract]||'—')}</td>
+        <td style="font-size:13px;font-weight:600;">${escH(r[REQ_CI.salary]||'—')}</td>
+        <td style="font-size:12px;">${escH(r[REQ_CI.city]||'—')}</td>
+        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.start]||'—')}</td>
+        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.target]||'—')}</td>
         <td style="text-align:center;">
           <button class="req-detail-btn" data-idx="${rows.indexOf(r)}"
-            style="padding:5px 12px;border:1.5px solid ${C};border-radius:6px;
+            style="padding:4px 10px;border:1.5px solid ${C};border-radius:6px;
             background:transparent;color:${C};font-size:11px;font-weight:700;
-            font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;"
+            font-family:inherit;cursor:pointer;white-space:nowrap;"
             onmouseover="this.style.background='${C}';this.style.color='#fff'"
             onmouseout="this.style.background='transparent';this.style.color='${C}'">
             Details
@@ -3529,60 +3573,143 @@ pageEvents.requisition = function () {
       </tr>`).join('');
   }
 
-  // ── initial render ─────────────────────────────────────────────
-  const tbody = document.getElementById('reqTableBody');
-  if (tbody) tbody.innerHTML = renderRows(rows);
+  function refreshTable() {
+    const tbody = document.getElementById('reqTableBody');
+    if (tbody) tbody.innerHTML = renderRows(_currentRows);
+    const cnt = document.getElementById('reqCount');
+    if (cnt) cnt.textContent = `${_currentRows.length} of ${rows.length} requisitions`;
+    const k = document.getElementById('reqKpiCount');
+    if (k) k.textContent = _currentRows.length;
+    const s = document.getElementById('reqKpiSlots');
+    if (s) s.textContent = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0).toLocaleString();
+  }
+
+  refreshTable();
+
+  // ── column sort ────────────────────────────────────────────────
+  document.getElementById('reqSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-rcol]');
+    if (!th) return;
+    const col = parseInt(th.dataset.rcol);
+    if (_reqSortCol === col) {
+      _reqSortDir = _reqSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      _reqSortCol = col;
+      _reqSortDir = col === 3 ? 'desc' : 'asc'; // slots default desc
+    }
+    // Update icons
+    document.querySelectorAll('#reqSortRow .sort-icon').forEach(el => { el.textContent = ' ⇅'; el.style.opacity='0.4'; });
+    const icon = th.querySelector('.sort-icon');
+    if (icon) { icon.textContent = _reqSortDir === 'asc' ? ' ↑' : ' ↓'; icon.style.opacity='1'; }
+    // Sort
+    _currentRows = [..._currentRows].sort((a, b) => {
+      let av = a[_reqSortCol] || '', bv = b[_reqSortCol] || '';
+      if (_reqSortCol === 3) { av = parseInt(av)||0; bv = parseInt(bv)||0; }
+      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      return _reqSortDir === 'asc' ? cmp : -cmp;
+    });
+    refreshTable();
+  });
+
+  // ── global filters + column filters (unified) ──────────────────
+  function applyAllFilters() {
+    const gSearch  = (document.getElementById('reqSearch')?.value   || '').toLowerCase().trim();
+    const gDept    = document.getElementById('reqDeptFilter')?.value    || '';
+    const gSponsor = document.getElementById('reqSponsorFilter')?.value || '';
+    const gHousing = document.getElementById('reqHousingFilter')?.value || '';
+
+    // Column filters
+    const colFilters = {};
+    document.querySelectorAll('.req-col-f').forEach(el => {
+      const v = el.value.trim();
+      if (v) colFilters[parseInt(el.dataset.rcol)] = v.toLowerCase();
+    });
+    // Select-based column filters
+    const cf1 = document.getElementById('reqCF1')?.value || '';
+    const cf4 = document.getElementById('reqCF4')?.value || '';
+
+    _currentRows = rows.filter(r => {
+      if (gDept    && r[REQ_CI.dept]    !== gDept)    return false;
+      if (gSponsor && r[REQ_CI.sponsor] !== gSponsor) return false;
+      if (gHousing && r[REQ_CI.housing] !== gHousing) return false;
+      if (gSearch) {
+        const hay = [r[REQ_CI.company],r[REQ_CI.dept],r[REQ_CI.position],r[REQ_CI.city]].join(' ').toLowerCase();
+        if (!hay.includes(gSearch)) return false;
+      }
+      if (cf1 && r[REQ_CI.dept]    !== cf1) return false;
+      if (cf4 && r[REQ_CI.sponsor] !== cf4) return false;
+      for (const [ci, fv] of Object.entries(colFilters)) {
+        if (!String(r[ci]||'').toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+
+    // Re-apply sort if active
+    if (_reqSortCol !== null) {
+      _currentRows = [..._currentRows].sort((a,b) => {
+        let av = a[_reqSortCol]||'', bv = b[_reqSortCol]||'';
+        if (_reqSortCol===3) { av=parseInt(av)||0; bv=parseInt(bv)||0; }
+        const cmp = typeof av==='number' ? av-bv : String(av).localeCompare(String(bv));
+        return _reqSortDir==='asc' ? cmp : -cmp;
+      });
+    }
+    refreshTable();
+  }
+
+  ['reqSearch','reqDeptFilter','reqSponsorFilter','reqHousingFilter','reqCF1','reqCF4'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', applyAllFilters);
+  });
+  document.querySelectorAll('.req-col-f').forEach(el => el.addEventListener('input', applyAllFilters));
+
+  document.getElementById('reqClearBtn')?.addEventListener('click', () => {
+    ['reqSearch','reqDeptFilter','reqSponsorFilter','reqHousingFilter','reqCF1','reqCF4'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.querySelectorAll('.req-col-f').forEach(el => { el.value = ''; });
+    _reqSortCol = null; _reqSortDir = 'asc';
+    document.querySelectorAll('#reqSortRow .sort-icon').forEach(el => { el.textContent=' ⇅'; el.style.opacity='0.4'; });
+    _currentRows = [...rows];
+    refreshTable();
+  });
 
   // ── details modal ──────────────────────────────────────────────
   function openDetails(idx) {
     const r = rows[idx];
     if (!r) return;
-    const field = (label, val, full) => val
-      ? `<div style="${full ? 'grid-column:1/-1;' : ''}margin-bottom:14px;">
-           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary,#888);margin-bottom:4px;">${label}</div>
-           <div style="font-size:13px;font-weight:500;color:var(--text,#1A1A1A);">${val}</div>
-         </div>`
-      : '';
-
-    const progTags = (r[REQ_CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean)
-      .map(t=>`<span style="padding:4px 10px;border-radius:20px;background:rgba(176,26,24,0.09);color:#B01A18;font-size:12px;font-weight:600;">${t}</span>`)
-      .join(' ');
+    const fld = (label, val, full) => val
+      ? `<div style="${full?'grid-column:1/-1;':''}margin-bottom:14px;">
+           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary,#888);margin-bottom:3px;">${label}</div>
+           <div style="font-size:13px;font-weight:500;">${escH(val)}</div>
+         </div>` : '';
 
     document.getElementById('modalTitle').textContent = r[REQ_CI.company] || 'Requisition Details';
     document.getElementById('modalBody').innerHTML = `
-      <div style="padding:4px 0 16px;">
-        <!-- Header pill row -->
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
-          <span style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;${statusStyle(r[REQ_CI.status])}">${r[REQ_CI.status]||'—'}</span>
-          ${progTags}
-          <span style="padding:5px 14px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-size:12px;font-weight:700;">${r[REQ_CI.dept]||''}</span>
+      <div style="padding:4px 0 12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
+          ${progTags(r[REQ_CI.progType])}
+          <span style="padding:4px 12px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-size:12px;font-weight:700;">${escH(r[REQ_CI.dept]||'')}</span>
         </div>
-
-        <!-- Slot count highlight -->
-        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:rgba(176,26,24,0.06);
-          border-radius:12px;border:1px solid rgba(176,26,24,0.15);margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:18px;padding:14px 18px;background:rgba(176,26,24,0.06);
+          border-radius:12px;border:1px solid rgba(176,26,24,0.14);margin-bottom:18px;">
           <div>
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Available Slots</div>
-            <div style="font-size:42px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Open Slots</div>
+            <div style="font-size:40px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
           </div>
-          <div style="border-left:1px solid rgba(176,26,24,0.2);padding-left:16px;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-secondary,#888);">Position</div>
-            <div style="font-size:17px;font-weight:700;color:var(--text,#1A1A1A);margin-top:3px;">${r[REQ_CI.position]||'—'}</div>
+          <div style="border-left:1px solid rgba(176,26,24,0.18);padding-left:18px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-secondary,#888);">Position</div>
+            <div style="font-size:16px;font-weight:700;margin-top:4px;">${escH(r[REQ_CI.position]||'—')}</div>
           </div>
         </div>
-
-        <!-- Detail grid -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;">
-          ${field('Sponsor / Program', r[REQ_CI.sponsor])}
-          ${field('Contract Length', r[REQ_CI.contract])}
-          ${field('Salary', r[REQ_CI.salary])}
-          ${field('City', r[REQ_CI.city])}
-          ${field('Start Date', r[REQ_CI.start])}
-          ${field('Target Date', r[REQ_CI.target])}
-          ${field('Housing Availability', r[REQ_CI.housing], true)}
+          ${fld('Sponsor', r[REQ_CI.sponsor])}
+          ${fld('Contract Length', r[REQ_CI.contract])}
+          ${fld('Salary', r[REQ_CI.salary])}
+          ${fld('City', r[REQ_CI.city])}
+          ${fld('Start Date', r[REQ_CI.start])}
+          ${fld('Target Date', r[REQ_CI.target])}
+          ${fld('Housing', r[REQ_CI.housing], true)}
         </div>
       </div>`;
-
     document.getElementById('modalOverlay').classList.add('active');
   }
 
@@ -3590,182 +3717,148 @@ pageEvents.requisition = function () {
     const btn = e.target.closest('.req-detail-btn');
     if (btn) openDetails(parseInt(btn.dataset.idx));
   });
-  document.getElementById('modalClose')?.addEventListener('click', () => {
-    document.getElementById('modalOverlay')?.classList.remove('active');
-  });
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
   document.getElementById('modalOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay').classList.remove('active');
   });
 
-  // ── filter logic ───────────────────────────────────────────────
-  let filteredRows = [...rows];
-
-  function applyFilters() {
-    const search  = (document.getElementById('reqSearch')?.value || '').toLowerCase().trim();
-    const dept    = document.getElementById('reqDeptFilter')?.value    || '';
-    const status  = document.getElementById('reqStatusFilter')?.value  || '';
-    const sponsor = document.getElementById('reqSponsorFilter')?.value || '';
-
-    filteredRows = rows.filter(r => {
-      if (dept   && r[REQ_CI.dept]   !== dept)   return false;
-      if (status && r[REQ_CI.status] !== status) return false;
-      if (sponsor && r[REQ_CI.sponsor] !== sponsor) return false;
-      if (search) {
-        const hay = [r[REQ_CI.company], r[REQ_CI.dept], r[REQ_CI.position], r[REQ_CI.sponsor], r[REQ_CI.city]].join(' ').toLowerCase();
-        if (!hay.includes(search)) return false;
-      }
-      return true;
-    });
-
-    const tbody = document.getElementById('reqTableBody');
-    if (tbody) tbody.innerHTML = renderRows(filteredRows);
-    const cnt = document.getElementById('reqCount');
-    if (cnt) cnt.textContent = `${filteredRows.length} of ${rows.length} records`;
-  }
-
-  ['reqSearch','reqDeptFilter','reqStatusFilter','reqSponsorFilter'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', applyFilters);
-  });
-  document.getElementById('reqClearBtn')?.addEventListener('click', () => {
-    ['reqSearch','reqDeptFilter','reqStatusFilter','reqSponsorFilter'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    applyFilters();
-  });
-
-  // ── Chart 1: Slots by Department (horizontal bar) ──────────────
+  // ── Chart 1: Open Slots by Department (horizontal bar) ─────────
   const deptMap = {};
-  rows.forEach(r => {
-    const d = r[REQ_CI.dept] || 'Unknown';
-    deptMap[d] = (deptMap[d]||0) + (parseInt(r[REQ_CI.slots])||0);
-  });
-  const deptSorted = Object.entries(deptMap).sort((a,b) => b[1]-a[1]);
-  const deptLabels = deptSorted.map(([k])=>k);
-  const deptVals   = deptSorted.map(([,v])=>v);
+  rows.forEach(r => { const d=r[REQ_CI.dept]||'Unknown'; deptMap[d]=(deptMap[d]||0)+(parseInt(r[REQ_CI.slots])||0); });
+  const deptSorted = Object.entries(deptMap).sort((a,b)=>b[1]-a[1]);
 
   createChart('reqDeptChart', {
     type: 'bar',
     data: {
-      labels: deptLabels,
-      datasets: [{
-        data:            deptVals,
-        backgroundColor: hexToRgba('#1B3A6B', 0.75),
-        hoverBackgroundColor: '#1B3A6B',
-        borderRadius:    4,
-        borderSkipped:   false
-      }]
+      labels: deptSorted.map(([k])=>k),
+      datasets: [{ data: deptSorted.map(([,v])=>v), backgroundColor: hexToRgba('#1B3A6B',0.78),
+        hoverBackgroundColor:'#1B3A6B', borderRadius:4, borderSkipped:false }]
     },
     options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} slots` } },
-        datalabels: {
-          anchor: 'end', align: 'end',
-          color: 'var(--text, #1A1A1A)',
-          font: { size: 11, weight: '700' },
-          formatter: v => v
-        }
-      },
-      scales: {
-        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } },
-        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
-      }
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} slots`}},
+        datalabels:{anchor:'end',align:'end',font:{size:11,weight:'700'},formatter:v=>v,
+          color:'var(--text,#1A1A1A)'} },
+      scales: { x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}}},
+                y:{grid:{display:false},ticks:{font:{size:11}}} }
     }
   });
 
-  // ── Chart 2: Slots by Sponsor (doughnut) ──────────────────────
+  // ── Chart 2: Slots by Sponsor (doughnut) ───────────────────────
   const sponsorMap = {};
-  rows.forEach(r => {
-    const s = r[REQ_CI.sponsor] || 'Unknown';
-    sponsorMap[s] = (sponsorMap[s]||0) + (parseInt(r[REQ_CI.slots])||0);
-  });
-  const sponsorColors = ['#B01A18','#1B3A6B','#059669','#6B47DC','#D97706','#0891B2'];
+  rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
+  const spColors = ['#B01A18','#1B3A6B','#059669','#6B47DC','#D97706'];
 
   createChart('reqSponsorChart', {
     type: 'doughnut',
+    data: { labels:Object.keys(sponsorMap), datasets:[{
+      data:Object.values(sponsorMap),
+      backgroundColor:Object.keys(sponsorMap).map((_,i)=>spColors[i%spColors.length]),
+      borderWidth:2, borderColor:'var(--card-bg,#fff)', hoverOffset:8
+    }]},
+    options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins:{ legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} slots`}},
+        datalabels:{color:'#fff',font:{size:11,weight:'700'},
+          formatter:(v,ctx)=>{const t=ctx.dataset.data.reduce((a,b)=>a+b,0);return t?Math.round(v/t*100)+'%':'';}} }}
+  });
+
+  // ── Chart 3: Req vs Placements by Sponsor (grouped bar) ────────
+  // Active req slots from requisition data; placements from J1_OFFLINE_DATA
+  const reqBySponsor = {};
+  rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; reqBySponsor[s]=(reqBySponsor[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
+  const placementBySponsor = {};
+  const placements = Array.isArray(window.J1_OFFLINE_DATA) ? window.J1_OFFLINE_DATA : [];
+  placements.forEach(p => { const s=p['Processing Sponsor']||'?'; placementBySponsor[s]=(placementBySponsor[s]||0)+1; });
+
+  const allSponsors = [...new Set([...Object.keys(reqBySponsor), ...Object.keys(placementBySponsor)])].sort();
+  createChart('reqVsPlaceChart', {
+    type: 'bar',
     data: {
-      labels:   Object.keys(sponsorMap),
-      datasets: [{
-        data:            Object.values(sponsorMap),
-        backgroundColor: Object.keys(sponsorMap).map((_,i) => sponsorColors[i % sponsorColors.length]),
-        borderWidth:     2,
-        borderColor:     'var(--card-bg, #fff)',
-        hoverOffset:     8
-      }]
+      labels: allSponsors,
+      datasets: [
+        { label:'Open Slots (Req)', data:allSponsors.map(s=>reqBySponsor[s]||0),
+          backgroundColor:hexToRgba('#1B3A6B',0.75), borderRadius:4, borderSkipped:false },
+        { label:'Placements', data:allSponsors.map(s=>placementBySponsor[s]||0),
+          backgroundColor:hexToRgba('#059669',0.75), borderRadius:4, borderSkipped:false }
+      ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '62%',
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, usePointStyle: true } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} slots` } },
-        datalabels: {
-          color: '#fff',
-          font: { size: 11, weight: '700' },
-          formatter: (v, ctx) => {
-            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-            return total ? Math.round(v/total*100)+'%' : '';
-          }
-        }
-      }
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
+        tooltip:{mode:'index',intersect:false},
+        datalabels:{anchor:'end',align:'end',font:{size:10,weight:'700'},formatter:v=>v||'',
+          color:'var(--text,#1A1A1A)'} },
+      scales:{ x:{grid:{display:false},ticks:{font:{size:11}}},
+               y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true} }
     }
   });
 
-  // ── Chart 3: Requisitions by Start Date (line, monthly) ────────
-  const monthMap = {};
+  // ── Chart 4: Fulfillment by Department (stacked bar) ───────────
+  // Uses rawRows (all statuses) to show Active (open) vs Closed (filled)
+  const deptActive={}, deptClosed={};
+  rawRows.forEach(r => {
+    if (!r[REQ_CI.progType]?.trim()) return; // J1 program type must be filled
+    const d=r[REQ_CI.dept]||'Unknown', v=parseInt(r[REQ_CI.slots])||0;
+    if (r[REQ_CI.status]==='Active') deptActive[d]=(deptActive[d]||0)+v;
+    else if (r[REQ_CI.status]==='Closed') deptClosed[d]=(deptClosed[d]||0)+v;
+  });
+  const fulfillDepts = [...new Set([...Object.keys(deptActive),...Object.keys(deptClosed)])].sort((a,b)=>{
+    const ta=(deptActive[a]||0)+(deptClosed[a]||0), tb=(deptActive[b]||0)+(deptClosed[b]||0);
+    return tb-ta;
+  });
+
+  createChart('reqFulfillChart', {
+    type: 'bar',
+    data: {
+      labels: fulfillDepts,
+      datasets: [
+        { label:'Active (Open)', data:fulfillDepts.map(d=>deptActive[d]||0),
+          backgroundColor:hexToRgba('#1B3A6B',0.75), borderRadius:[4,4,0,0] },
+        { label:'Closed (Filled)', data:fulfillDepts.map(d=>deptClosed[d]||0),
+          backgroundColor:hexToRgba('#059669',0.75), borderRadius:[4,4,0,0] }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          footer:items=>`Filled rate: ${Math.round((items[1]?.parsed.y||0)/((items[0]?.parsed.y||0)+(items[1]?.parsed.y||0))*100)||0}%`
+        }},
+        datalabels:{display:false} },
+      scales:{ x:{grid:{display:false},ticks:{font:{size:11}}},
+               y:{stacked:false,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true} }
+    }
+  });
+
+  // ── Chart 5: Requisitions by Start Date (line, monthly count) ──
+  const monthMap={};
   rows.forEach(r => {
-    const raw = r[REQ_CI.start];
-    if (!raw) return;
-    const m = raw.substring(0, 7); // "YYYY-MM"
-    monthMap[m] = (monthMap[m]||0) + 1;
+    const raw=r[REQ_CI.start]; if(!raw) return;
+    const m=raw.substring(0,7); monthMap[m]=(monthMap[m]||0)+1;
   });
-  const sortedMonths = Object.keys(monthMap).sort();
-  const monthLabels  = sortedMonths.map(m => {
-    const [y, mo] = m.split('-');
-    return new Date(parseInt(y), parseInt(mo)-1).toLocaleString('default', { month:'short', year:'2-digit' });
-  });
-  const monthVals = sortedMonths.map(m => monthMap[m]);
+  const sortedM  = Object.keys(monthMap).sort();
+  const mLabels  = sortedM.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
+  const mCumul   = sortedM.map((_,i)=>sortedM.slice(0,i+1).reduce((t,k)=>t+(monthMap[k]||0),0));
 
   createChart('reqDateChart', {
     type: 'line',
-    data: {
-      labels: monthLabels,
-      datasets: [{
-        label:           'Requisitions Added',
-        data:            monthVals,
-        borderColor:     C,
-        backgroundColor: hexToRgba(C, 0.08),
-        borderWidth:     2.5,
-        pointRadius:     4,
-        pointHoverRadius:6,
-        pointBackgroundColor: C,
-        fill:            true,
-        tension:         0.35
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} requisitions` } },
-        datalabels: {
-          display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
-          anchor: 'top', align: 'top',
-          color: C,
-          font: { size: 10, weight: '700' },
-          formatter: v => v
-        }
-      },
-      scales: {
-        x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 } } },
-        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, stepSize: 1 }, beginAtZero: true }
+    data: { labels:mLabels, datasets:[
+      { label:'New Requisitions', data:sortedM.map(m=>monthMap[m]),
+        borderColor:C, backgroundColor:hexToRgba(C,0.07), borderWidth:2.5,
+        pointRadius:4, pointHoverRadius:6, pointBackgroundColor:C, fill:true, tension:0.35, yAxisID:'y' },
+      { label:'Cumulative', data:mCumul,
+        borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3],
+        pointRadius:2, pointHoverRadius:4, fill:false, tension:0.35, yAxisID:'y2' }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
+        datalabels:{display:false} },
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:11}}},
+        y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true,title:{display:true,text:'Monthly',font:{size:10}}},
+        y2:{position:'right',grid:{display:false},ticks:{font:{size:11}},beginAtZero:true,title:{display:true,text:'Cumulative',font:{size:10}}}
       }
     }
   });
@@ -3843,6 +3936,38 @@ pages.marketing = async function () {
       </div>
     </div>`;
 };
+
+// ============================
+// ============================
+// PAGE: TRAVEL
+// ============================
+pages.travel = async function () {
+  return `
+    <div class="page-header">
+      <h1>Travel</h1>
+      <p class="subtitle">Travel management and booking overview</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:52vh;gap:20px;text-align:center;padding:40px 20px;">
+      <div style="font-size:52px;line-height:1;opacity:0.4;">✈️</div>
+      <div>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 10px;">Travel Dashboard</h2>
+        <p style="font-size:13px;color:var(--text-muted,#888);max-width:380px;
+          line-height:1.65;margin:0 auto;">
+          Travel data integration is currently being configured.
+          This section will display booking summaries, itineraries, and travel
+          compliance status for program participants.
+        </p>
+      </div>
+      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 18px;
+        border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">
+        COMING SOON
+      </span>
+    </div>`;
+};
+
+pageEvents.travel = function () {};
 
 // ============================
 // PAGE: SETTINGS

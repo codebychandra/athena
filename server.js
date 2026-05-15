@@ -476,9 +476,16 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
     const allCols  = allData.columns || [];
     const allRows  = allData.rows    || [];
 
-    // Filter: Placement Category = 'J1 Program'
-    const catIdx = allCols.indexOf('Placement Category');
-    const j1Rows = catIdx >= 0 ? allRows.filter(r => r[catIdx] === 'J1 Program') : allRows;
+    // Filter: Placement Category = 'J1 Program', Requisition Status = 'Active', J1 Program Type filled
+    const catIdx  = allCols.indexOf('Placement Category');
+    const statIdx = allCols.indexOf('Requisition Status');
+    const progIdx = allCols.indexOf('J1 Program Type');
+    const j1Rows  = allRows.filter(r => {
+      if (catIdx  >= 0 && r[catIdx]  !== 'J1 Program') return false;
+      if (statIdx >= 0 && r[statIdx] !== 'Active')     return false;
+      if (progIdx >= 0 && !r[progIdx]?.trim())         return false;
+      return true;
+    });
 
     // Project to only the columns we want to display
     const showIdx = J1_REQ_SHOW_COLS.map(c => allCols.indexOf(c)).filter(i => i >= 0);
