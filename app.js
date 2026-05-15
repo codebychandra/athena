@@ -3301,32 +3301,23 @@ pageEvents.j1visa = function () {
 // ============================
 // PAGE: REQUISITION
 // ============================
+// Column indices — must match J1_REQ_SHOW_COLS in server.js (13 cols, no Job ID or Job Status)
+// 0:Hosting Company  1:Department  2:Position Name  3:Requisition  4:Client Name Analytics
+// 5:J1 Program Type  6:Requisition Status  7:Contract Length  8:Salary  9:City
+// 10:Target Date  11:Date Opened("Start Date")  12:Housing Availability
+const REQ_CI = {
+  company:   0, dept:      1, position: 2, slots:    3,
+  sponsor:   4, progType:  5, status:   6, contract: 7,
+  salary:    8, city:      9, target:  10, start:   11, housing: 12
+};
+
 pages.requisition = async function () {
   const C       = DIVISION_COLORS.j1;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  // Column indices (matches J1_REQ_SHOW_COLS in server.js)
-  const CI = {
-    id:          0,  // Job Opening ID
-    company:     1,  // Hosting Company
-    dept:        2,  // Department
-    position:    3,  // Position Name
-    requisition: 4,  // Requisition (# openings)
-    sponsor:     5,  // Client Name Analytics
-    progType:    6,  // J1 Program Type
-    reqStatus:   7,  // Requisition Status
-    jobStatus:   8,  // Job Opening Status
-    contract:    9,  // Contract Length
-    salary:      10, // Salary
-    city:        11, // City
-    targetDate:  12, // Target Date
-    dateOpened:  13, // Date Opened
-    housing:     14  // Housing Availability
-  };
-
-  let rows      = [];
-  let errorMsg  = null;
-  let viewName  = '';
+  let rows     = [];
+  let errorMsg = null;
+  let viewName = '';
 
   if (isLocal) {
     try {
@@ -3335,52 +3326,26 @@ pages.requisition = async function () {
       if (!res.ok) throw new Error(json.error || 'Fetch failed');
       viewName = json.view || 'J1 Requisition';
       rows     = json.data?.rows || [];
-    } catch (e) {
-      errorMsg = e.message;
-    }
+    } catch (e) { errorMsg = e.message; }
   }
 
-  // Cache for filtering
+  // Cache for pageEvents
   state.dataCache['req-rows'] = rows;
 
   // Summary stats
-  const totalOpenings   = rows.length;
-  const totalReq        = rows.reduce((s, r) => s + (parseInt(r[CI.requisition]) || 0), 0);
-  const activeRows      = rows.filter(r => r[CI.reqStatus] === 'Active');
-  const activeReq       = activeRows.reduce((s, r) => s + (parseInt(r[CI.requisition]) || 0), 0);
-  const sponsors        = [...new Set(rows.map(r => r[CI.sponsor]).filter(Boolean))];
-  const depts           = [...new Set(rows.map(r => r[CI.dept]).filter(Boolean))].sort();
-  const statuses        = [...new Set(rows.map(r => r[CI.reqStatus]).filter(Boolean))].sort();
-
-  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
-
-  // Render a subset of rows for the initial table
-  function renderTableRows(subset) {
-    if (!subset.length) return `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
-    return subset.map(r => `
-      <tr>
-        <td><span style="font-size:11px;font-family:monospace;color:var(--text-secondary,#666);background:var(--bg,#F3F4F6);padding:2px 6px;border-radius:4px;">${r[CI.id]||'—'}</span></td>
-        <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.3;">${r[CI.company]||'—'}</td>
-        <td><span style="font-size:12px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[CI.dept]||'—'}</span></td>
-        <td style="font-weight:500;">${r[CI.position]||'—'}</td>
-        <td style="text-align:center;font-size:18px;font-weight:800;color:${C};">${r[CI.requisition]||'0'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[CI.sponsor]||'—'}</td>
-        <td style="font-size:11px;">${(r[CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;white-space:nowrap;">${t}</span>`).join('')||'—'}</td>
-        <td style="text-align:center;"><span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${
-          r[CI.reqStatus]==='Active'   ? 'background:rgba(5,150,105,0.12);color:#059669;' :
-          r[CI.reqStatus]==='Closed'   ? 'background:rgba(176,26,24,0.1);color:#B01A18;' :
-                                          'background:rgba(107,114,128,0.1);color:#6B7280;'
-        }">${r[CI.reqStatus]||'—'}</span></td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[CI.contract]||'—'}</td>
-        <td style="font-size:13px;font-weight:600;">${r[CI.salary]||'—'}</td>
-      </tr>`).join('');
-  }
+  const totalSlots  = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
+  const activeRows  = rows.filter(r => r[REQ_CI.status] === 'Active');
+  const activeSlots = activeRows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
+  const sponsors    = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))];
+  const depts       = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
+  const statuses    = [...new Set(rows.map(r=>r[REQ_CI.status]).filter(Boolean))].sort();
+  const authErr     = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
-        <h1>Requisition</h1>
-        <p class="subtitle">J1 program job openings${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} records` : ''}</p>
+        <h1>Requisition Dashboard</h1>
+        <p class="subtitle">J1 program placements${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} records` : ''}</p>
       </div>
     </div>
 
@@ -3392,59 +3357,72 @@ pages.requisition = async function () {
     </div>` : ''}
 
     ${errorMsg ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
-      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
-      border-radius:10px;margin-bottom:22px;">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;background:rgba(176,26,24,0.07);
+      border:1px solid rgba(176,26,24,0.25);border-radius:10px;margin-bottom:22px;">
       <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
         <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">${authErr ? 'Server not connected' : 'Server error'}</div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">${authErr ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>' : errorMsg}</div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">${authErr
+          ? 'Session expired. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>'
+          : errorMsg}</div>
       </div>
     </div>` : ''}
 
-    <!-- KPI Summary Cards -->
+    ${rows.length > 0 ? `
+    <!-- ── KPI Cards ─────────────────────────────────────────────── -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
-      <div style="padding:20px;background:rgba(27,58,107,0.08);border-radius:12px;border:1px solid rgba(27,58,107,0.2);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:20px;">📋</span>
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#1B3A6B;">Job Openings</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#1B3A6B;line-height:1;">${totalOpenings.toLocaleString()}</div>
+      <div style="padding:20px 22px;background:rgba(27,58,107,0.07);border-radius:14px;border:1px solid rgba(27,58,107,0.18);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;margin-bottom:8px;">📋 Requisitions</div>
+        <div style="font-size:38px;font-weight:800;color:#1B3A6B;line-height:1;">${rows.length.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">placement listings</div>
       </div>
-      <div style="padding:20px;background:rgba(176,26,24,0.07);border-radius:12px;border:1px solid rgba(176,26,24,0.2);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:20px;">🎯</span>
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${C};">Total Slots</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:${C};line-height:1;">${totalReq.toLocaleString()}</div>
+      <div style="padding:20px 22px;background:rgba(176,26,24,0.06);border-radius:14px;border:1px solid rgba(176,26,24,0.18);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};margin-bottom:8px;">🎯 Total Slots</div>
+        <div style="font-size:38px;font-weight:800;color:${C};line-height:1;">${totalSlots.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">across all requisitions</div>
       </div>
-      <div style="padding:20px;background:rgba(5,150,105,0.08);border-radius:12px;border:1px solid rgba(5,150,105,0.2);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:20px;">✅</span>
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#059669;">Active Slots</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#059669;line-height:1;">${activeReq.toLocaleString()}</div>
+      <div style="padding:20px 22px;background:rgba(5,150,105,0.07);border-radius:14px;border:1px solid rgba(5,150,105,0.18);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#059669;margin-bottom:8px;">✅ Active Slots</div>
+        <div style="font-size:38px;font-weight:800;color:#059669;line-height:1;">${activeSlots.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">${activeRows.length} active requisitions</div>
       </div>
-      <div style="padding:20px;background:rgba(107,71,220,0.08);border-radius:12px;border:1px solid rgba(107,71,220,0.2);">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:20px;">🤝</span>
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6B47DC;">Sponsors</span>
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#6B47DC;line-height:1;">${sponsors.length}</div>
+      <div style="padding:20px 22px;background:rgba(107,71,220,0.07);border-radius:14px;border:1px solid rgba(107,71,220,0.18);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6B47DC;margin-bottom:8px;">🤝 Sponsors</div>
+        <div style="font-size:38px;font-weight:800;color:#6B47DC;line-height:1;">${sponsors.length}</div>
+        <div style="font-size:11px;color:var(--text-secondary,#888);margin-top:5px;">${depts.length} departments</div>
       </div>
     </div>
 
-    <!-- Filter Bar -->
-    ${rows.length > 0 ? `
-    <div class="card" style="padding:16px 20px;margin-bottom:16px;">
+    <!-- ── Charts Row 1: Dept (wide) + Sponsor (narrow) ─────────── -->
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-bottom:16px;">
+      <div class="card" style="padding:22px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">📊 Slots by Department</div>
+        <div style="position:relative;height:320px;"><canvas id="reqDeptChart"></canvas></div>
+      </div>
+      <div class="card" style="padding:22px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">🤝 Slots by Sponsor</div>
+        <div style="position:relative;height:320px;"><canvas id="reqSponsorChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 2: By Start Date (full width line) ──────────── -->
+    <div class="card" style="padding:22px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:16px;">📅 Requisitions by Start Date</div>
+      <div style="position:relative;height:220px;"><canvas id="reqDateChart"></canvas></div>
+    </div>
+
+    <!-- ── Filter Bar ─────────────────────────────────────────────── -->
+    <div class="card" style="padding:14px 18px;margin-bottom:14px;">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-        <input id="reqSearch" type="text" placeholder="🔍 Search company, position, department…"
-          style="flex:1;min-width:200px;padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);
-          border-radius:8px;font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);outline:none;">
+        <input id="reqSearch" type="text" placeholder="🔍  Search company, position, department…"
+          style="flex:1;min-width:220px;padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);
+          border-radius:8px;font-size:13px;font-family:inherit;background:var(--input-bg,#fff);
+          color:var(--text,#1A1A1A);outline:none;transition:border-color .15s;"
+          onfocus="this.style.borderColor='#B01A18'" onblur="this.style.borderColor=''">
         <select id="reqDeptFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
           font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
           <option value="">All Departments</option>
-          ${depts.map(d=>`<option value="${d}">${d}</option>`).join('')}
+          ${depts.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">${d}</option>`).join('')}
         </select>
         <select id="reqStatusFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
           font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
@@ -3454,19 +3432,21 @@ pages.requisition = async function () {
         <select id="reqSponsorFilter" style="padding:9px 14px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
           font-size:13px;font-family:inherit;background:var(--input-bg,#fff);color:var(--text,#1A1A1A);cursor:pointer;">
           <option value="">All Sponsors</option>
-          ${sponsors.sort().map(s=>`<option value="${s}">${s}</option>`).join('')}
+          ${sponsors.sort().map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('')}
         </select>
-        <span id="reqCount" style="font-size:12px;color:var(--text-secondary,#888);white-space:nowrap;margin-left:4px;">${rows.length} records</span>
+        <button id="reqClearBtn" style="padding:9px 16px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
+          font-size:12px;font-weight:600;font-family:inherit;background:transparent;
+          color:var(--text-secondary,#666);cursor:pointer;">Clear</button>
+        <span id="reqCount" style="font-size:12px;color:var(--text-secondary,#888);white-space:nowrap;margin-left:2px;">${rows.length} records</span>
       </div>
     </div>
 
-    <!-- Job Openings Table -->
+    <!-- ── Requisitions Table ─────────────────────────────────────── -->
     <div class="card">
       <div class="table-wrap">
-        <table id="reqTable">
+        <table>
           <thead>
             <tr>
-              <th>Job ID</th>
               <th>Hosting Company</th>
               <th>Department</th>
               <th>Position</th>
@@ -3476,78 +3456,304 @@ pages.requisition = async function () {
               <th style="text-align:center;">Status</th>
               <th>Contract</th>
               <th>Salary</th>
+              <th>City</th>
+              <th>Start Date</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody id="reqTableBody">
-            ${renderTableRows(rows)}
-          </tbody>
+          <tbody id="reqTableBody"></tbody>
         </table>
       </div>
     </div>` : `
-    <div class="card" style="text-align:center;padding:48px 24px;">
-      <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">📋</div>
-      <div style="font-size:14px;color:var(--text-muted,#888);">
+    <div class="card" style="text-align:center;padding:56px 24px;">
+      <div style="font-size:48px;margin-bottom:14px;opacity:0.25;">📋</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text-muted,#888);">
         ${isLocal ? 'No requisition data available.' : 'Server offline — no data available.'}
       </div>
     </div>`}`;
 };
 
 pageEvents.requisition = function () {
-  const CI = {
-    company:   1, dept: 2, position: 3,
-    requisition: 4, sponsor: 5, progType: 6,
-    reqStatus: 7, jobStatus: 8, contract: 9, salary: 10
-  };
+  const C    = DIVISION_COLORS.j1;
+  const rows = state.dataCache['req-rows'] || [];
+  if (!rows.length) return;
 
-  function renderTableRows(subset) {
-    if (!subset.length) return `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
-    const C = DIVISION_COLORS.j1;
-    return subset.map(r => `
+  // ── helpers ────────────────────────────────────────────────────
+  function statusStyle(s) {
+    if (s === 'Active')   return 'background:rgba(5,150,105,0.12);color:#059669;';
+    if (s === 'Closed')   return 'background:rgba(176,26,24,0.10);color:#B01A18;';
+    return 'background:rgba(107,114,128,0.10);color:#6B7280;';
+  }
+
+  function renderRows(subset) {
+    if (!subset.length) return `<tr><td colspan="12" style="text-align:center;padding:36px;color:var(--text-muted,#888);">No matching records found.</td></tr>`;
+    return subset.map((r,i) => `
       <tr>
-        <td><span style="font-size:11px;font-family:monospace;color:var(--text-secondary,#666);background:var(--bg,#F3F4F6);padding:2px 6px;border-radius:4px;">${r[0]||'—'}</span></td>
-        <td style="font-weight:500;max-width:200px;white-space:normal;line-height:1.3;">${r[CI.company]||'—'}</td>
-        <td><span style="font-size:12px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[CI.dept]||'—'}</span></td>
-        <td style="font-weight:500;">${r[CI.position]||'—'}</td>
-        <td style="text-align:center;font-size:18px;font-weight:800;color:${C};">${r[CI.requisition]||'0'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[CI.sponsor]||'—'}</td>
-        <td style="font-size:11px;">${(r[CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;white-space:nowrap;">${t}</span>`).join('')||'—'}</td>
-        <td style="text-align:center;"><span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${
-          r[CI.reqStatus]==='Active'   ? 'background:rgba(5,150,105,0.12);color:#059669;' :
-          r[CI.reqStatus]==='Closed'   ? 'background:rgba(176,26,24,0.1);color:#B01A18;' :
-                                          'background:rgba(107,114,128,0.1);color:#6B7280;'
-        }">${r[CI.reqStatus]||'—'}</span></td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[CI.contract]||'—'}</td>
-        <td style="font-size:13px;font-weight:600;">${r[CI.salary]||'—'}</td>
+        <td style="font-weight:500;max-width:180px;white-space:normal;line-height:1.35;">${r[REQ_CI.company]||'—'}</td>
+        <td><span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.09);color:#1B3A6B;font-weight:600;white-space:nowrap;">${r[REQ_CI.dept]||'—'}</span></td>
+        <td style="font-weight:500;">${r[REQ_CI.position]||'—'}</td>
+        <td style="text-align:center;font-size:17px;font-weight:800;color:${C};">${r[REQ_CI.slots]||'0'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[REQ_CI.sponsor]||'—'}</td>
+        <td style="font-size:11px;">${(r[REQ_CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>
+          `<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;font-size:11px;white-space:nowrap;">${t}</span>`
+        ).join('')||'—'}</td>
+        <td style="text-align:center;"><span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;${statusStyle(r[REQ_CI.status])}">${r[REQ_CI.status]||'—'}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[REQ_CI.contract]||'—'}</td>
+        <td style="font-size:13px;font-weight:600;">${r[REQ_CI.salary]||'—'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);">${r[REQ_CI.city]||'—'}</td>
+        <td style="font-size:12px;color:var(--text-secondary,#666);white-space:nowrap;">${r[REQ_CI.start]||'—'}</td>
+        <td style="text-align:center;">
+          <button class="req-detail-btn" data-idx="${rows.indexOf(r)}"
+            style="padding:5px 12px;border:1.5px solid ${C};border-radius:6px;
+            background:transparent;color:${C};font-size:11px;font-weight:700;
+            font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;"
+            onmouseover="this.style.background='${C}';this.style.color='#fff'"
+            onmouseout="this.style.background='transparent';this.style.color='${C}'">
+            Details
+          </button>
+        </td>
       </tr>`).join('');
   }
 
+  // ── initial render ─────────────────────────────────────────────
+  const tbody = document.getElementById('reqTableBody');
+  if (tbody) tbody.innerHTML = renderRows(rows);
+
+  // ── details modal ──────────────────────────────────────────────
+  function openDetails(idx) {
+    const r = rows[idx];
+    if (!r) return;
+    const field = (label, val, full) => val
+      ? `<div style="${full ? 'grid-column:1/-1;' : ''}margin-bottom:14px;">
+           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary,#888);margin-bottom:4px;">${label}</div>
+           <div style="font-size:13px;font-weight:500;color:var(--text,#1A1A1A);">${val}</div>
+         </div>`
+      : '';
+
+    const progTags = (r[REQ_CI.progType]||'').split(';').map(t=>t.trim()).filter(Boolean)
+      .map(t=>`<span style="padding:4px 10px;border-radius:20px;background:rgba(176,26,24,0.09);color:#B01A18;font-size:12px;font-weight:600;">${t}</span>`)
+      .join(' ');
+
+    document.getElementById('modalTitle').textContent = r[REQ_CI.company] || 'Requisition Details';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 16px;">
+        <!-- Header pill row -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">
+          <span style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;${statusStyle(r[REQ_CI.status])}">${r[REQ_CI.status]||'—'}</span>
+          ${progTags}
+          <span style="padding:5px 14px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-size:12px;font-weight:700;">${r[REQ_CI.dept]||''}</span>
+        </div>
+
+        <!-- Slot count highlight -->
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:rgba(176,26,24,0.06);
+          border-radius:12px;border:1px solid rgba(176,26,24,0.15);margin-bottom:20px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Available Slots</div>
+            <div style="font-size:42px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
+          </div>
+          <div style="border-left:1px solid rgba(176,26,24,0.2);padding-left:16px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-secondary,#888);">Position</div>
+            <div style="font-size:17px;font-weight:700;color:var(--text,#1A1A1A);margin-top:3px;">${r[REQ_CI.position]||'—'}</div>
+          </div>
+        </div>
+
+        <!-- Detail grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;">
+          ${field('Sponsor / Program', r[REQ_CI.sponsor])}
+          ${field('Contract Length', r[REQ_CI.contract])}
+          ${field('Salary', r[REQ_CI.salary])}
+          ${field('City', r[REQ_CI.city])}
+          ${field('Start Date', r[REQ_CI.start])}
+          ${field('Target Date', r[REQ_CI.target])}
+          ${field('Housing Availability', r[REQ_CI.housing], true)}
+        </div>
+      </div>`;
+
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  document.getElementById('reqTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.req-detail-btn');
+    if (btn) openDetails(parseInt(btn.dataset.idx));
+  });
+  document.getElementById('modalClose')?.addEventListener('click', () => {
+    document.getElementById('modalOverlay')?.classList.remove('active');
+  });
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay').classList.remove('active');
+  });
+
+  // ── filter logic ───────────────────────────────────────────────
+  let filteredRows = [...rows];
+
   function applyFilters() {
-    const allRows = state.dataCache['req-rows'] || [];
     const search  = (document.getElementById('reqSearch')?.value || '').toLowerCase().trim();
-    const dept    = document.getElementById('reqDeptFilter')?.value  || '';
-    const status  = document.getElementById('reqStatusFilter')?.value || '';
+    const dept    = document.getElementById('reqDeptFilter')?.value    || '';
+    const status  = document.getElementById('reqStatusFilter')?.value  || '';
     const sponsor = document.getElementById('reqSponsorFilter')?.value || '';
 
-    const filtered = allRows.filter(r => {
-      if (dept   && r[2] !== dept)   return false;
-      if (status && r[7] !== status) return false;
-      if (sponsor && r[5] !== sponsor) return false;
+    filteredRows = rows.filter(r => {
+      if (dept   && r[REQ_CI.dept]   !== dept)   return false;
+      if (status && r[REQ_CI.status] !== status) return false;
+      if (sponsor && r[REQ_CI.sponsor] !== sponsor) return false;
       if (search) {
-        const hay = [r[1], r[2], r[3], r[5], r[0]].join(' ').toLowerCase();
+        const hay = [r[REQ_CI.company], r[REQ_CI.dept], r[REQ_CI.position], r[REQ_CI.sponsor], r[REQ_CI.city]].join(' ').toLowerCase();
         if (!hay.includes(search)) return false;
       }
       return true;
     });
 
     const tbody = document.getElementById('reqTableBody');
-    if (tbody) tbody.innerHTML = renderTableRows(filtered);
+    if (tbody) tbody.innerHTML = renderRows(filteredRows);
     const cnt = document.getElementById('reqCount');
-    if (cnt) cnt.textContent = `${filtered.length} of ${allRows.length} records`;
+    if (cnt) cnt.textContent = `${filteredRows.length} of ${rows.length} records`;
   }
 
   ['reqSearch','reqDeptFilter','reqStatusFilter','reqSponsorFilter'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', applyFilters);
+    document.getElementById(id)?.addEventListener('input', applyFilters);
+  });
+  document.getElementById('reqClearBtn')?.addEventListener('click', () => {
+    ['reqSearch','reqDeptFilter','reqStatusFilter','reqSponsorFilter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    applyFilters();
+  });
+
+  // ── Chart 1: Slots by Department (horizontal bar) ──────────────
+  const deptMap = {};
+  rows.forEach(r => {
+    const d = r[REQ_CI.dept] || 'Unknown';
+    deptMap[d] = (deptMap[d]||0) + (parseInt(r[REQ_CI.slots])||0);
+  });
+  const deptSorted = Object.entries(deptMap).sort((a,b) => b[1]-a[1]);
+  const deptLabels = deptSorted.map(([k])=>k);
+  const deptVals   = deptSorted.map(([,v])=>v);
+
+  createChart('reqDeptChart', {
+    type: 'bar',
+    data: {
+      labels: deptLabels,
+      datasets: [{
+        data:            deptVals,
+        backgroundColor: hexToRgba('#1B3A6B', 0.75),
+        hoverBackgroundColor: '#1B3A6B',
+        borderRadius:    4,
+        borderSkipped:   false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} slots` } },
+        datalabels: {
+          anchor: 'end', align: 'end',
+          color: 'var(--text, #1A1A1A)',
+          font: { size: 11, weight: '700' },
+          formatter: v => v
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ── Chart 2: Slots by Sponsor (doughnut) ──────────────────────
+  const sponsorMap = {};
+  rows.forEach(r => {
+    const s = r[REQ_CI.sponsor] || 'Unknown';
+    sponsorMap[s] = (sponsorMap[s]||0) + (parseInt(r[REQ_CI.slots])||0);
+  });
+  const sponsorColors = ['#B01A18','#1B3A6B','#059669','#6B47DC','#D97706','#0891B2'];
+
+  createChart('reqSponsorChart', {
+    type: 'doughnut',
+    data: {
+      labels:   Object.keys(sponsorMap),
+      datasets: [{
+        data:            Object.values(sponsorMap),
+        backgroundColor: Object.keys(sponsorMap).map((_,i) => sponsorColors[i % sponsorColors.length]),
+        borderWidth:     2,
+        borderColor:     'var(--card-bg, #fff)',
+        hoverOffset:     8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, usePointStyle: true } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} slots` } },
+        datalabels: {
+          color: '#fff',
+          font: { size: 11, weight: '700' },
+          formatter: (v, ctx) => {
+            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            return total ? Math.round(v/total*100)+'%' : '';
+          }
+        }
+      }
+    }
+  });
+
+  // ── Chart 3: Requisitions by Start Date (line, monthly) ────────
+  const monthMap = {};
+  rows.forEach(r => {
+    const raw = r[REQ_CI.start];
+    if (!raw) return;
+    const m = raw.substring(0, 7); // "YYYY-MM"
+    monthMap[m] = (monthMap[m]||0) + 1;
+  });
+  const sortedMonths = Object.keys(monthMap).sort();
+  const monthLabels  = sortedMonths.map(m => {
+    const [y, mo] = m.split('-');
+    return new Date(parseInt(y), parseInt(mo)-1).toLocaleString('default', { month:'short', year:'2-digit' });
+  });
+  const monthVals = sortedMonths.map(m => monthMap[m]);
+
+  createChart('reqDateChart', {
+    type: 'line',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label:           'Requisitions Added',
+        data:            monthVals,
+        borderColor:     C,
+        backgroundColor: hexToRgba(C, 0.08),
+        borderWidth:     2.5,
+        pointRadius:     4,
+        pointHoverRadius:6,
+        pointBackgroundColor: C,
+        fill:            true,
+        tension:         0.35
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} requisitions` } },
+        datalabels: {
+          display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          anchor: 'top', align: 'top',
+          color: C,
+          font: { size: 10, weight: '700' },
+          formatter: v => v
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 11 } } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, stepSize: 1 }, beginAtZero: true }
+      }
+    }
   });
 };
 

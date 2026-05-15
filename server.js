@@ -453,9 +453,9 @@ app.get('/api/zoho/j1-visa', async (req, res) => {
 // underlying Table and applying the same filter (Placement Category = 'J1 Program').
 const JOB_OPENINGS_VIEW_ID = '3008069000000329012';
 const J1_REQ_SHOW_COLS = [
-  'Job Opening ID', 'Hosting Company', 'Department', 'Position Name',
+  'Hosting Company', 'Department', 'Position Name',
   'Requisition', 'Client Name Analytics', 'J1 Program Type',
-  'Requisition Status', 'Job Opening Status', 'Contract Length',
+  'Requisition Status', 'Contract Length',
   'Salary', 'City', 'Target Date', 'Date Opened', 'Housing Availability'
 ];
 
