@@ -2982,11 +2982,11 @@ pages.compliance = async function () {
     { file:'CTI-AGG-J1-001_Program_General_Policy.pdf',               icon:'📄', label:'Program General Policy',                          cat:'Policy' },
     { file:'CTI-AGG-J1-002_Program_Knowledge_Checklist.pdf',          icon:'✅', label:'Program Knowledge Checklist',                     cat:'Checklist' },
     { file:'CTI-AGG-J1-003_Housing_Agreement_Room_Sharing_Acknowledgment_and_Early_Termination_Policy.pdf', icon:'🏠', label:'Housing Agreement & Early Termination Policy', cat:'Agreement' },
-    { file:'CTI-AGG-J1-004_Parent_and_Student_Commitment_Agreement.docx', icon:'🤝', label:'Parent & Student Commitment Agreement',        cat:'Agreement' },
-    { file:'CTI-SOP-J1-001_Pre-Embassy_Screening_Protocol.docx',      icon:'🏛️', label:'Pre-Embassy Screening Protocol',                  cat:'SOP' },
-    { file:'CTI-SOP-J1-002_Marketing_and_Recruiter_Communications.docx', icon:'📢', label:'Marketing & Recruiter Communications',          cat:'SOP' },
-    { file:'CTI-SOP-J1-003_Active_Participant_Monitoring.docx',       icon:'👁️', label:'Active Participant Monitoring',                   cat:'SOP' },
-    { file:'CTI-SOP-J1-004_Pre-Departure_Orientation_and_Interview_Readiness.docx', icon:'✈️', label:'Pre-Departure Orientation & Interview Readiness', cat:'SOP' },
+    { file:'CTI-AGG-J1-004_Parent_and_Student_Commitment_Agreement.pdf', icon:'🤝', label:'Parent & Student Commitment Agreement',        cat:'Agreement' },
+    { file:'CTI-SOP-J1-001_Pre-Embassy_Screening_Protocol.pdf',      icon:'🏛️', label:'Pre-Embassy Screening Protocol',                  cat:'SOP' },
+    { file:'CTI-SOP-J1-002_Marketing_and_Recruiter_Communications.pdf', icon:'📢', label:'Marketing & Recruiter Communications',          cat:'SOP' },
+    { file:'CTI-SOP-J1-003_Active_Participant_Monitoring.pdf',       icon:'👁️', label:'Active Participant Monitoring',                   cat:'SOP' },
+    { file:'CTI-SOP-J1-004_Pre-Departure_Orientation_and_Interview_Readiness.pdf', icon:'✈️', label:'Pre-Departure Orientation & Interview Readiness', cat:'SOP' },
   ];
   const catColor = { SOP:'#1B3A6B', Agreement:'#B01A18', Policy:'#2D7A55', Checklist:'#B87A14', Guide:'#6B47DC' };
 
