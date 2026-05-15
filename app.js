@@ -3419,34 +3419,34 @@ pages.requisition = async function () {
       <div class="card">
         <div class="card-title">Open Slots by Department</div>
         <div class="card-subtitle">Active J1 requisitions · sorted by volume</div>
-        <div class="chart-wrap"><canvas id="reqDeptChart"></canvas></div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="reqDeptChart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-title">Slots by Sponsor</div>
         <div class="card-subtitle">Share of open placement slots per sponsor</div>
-        <div class="chart-wrap"><canvas id="reqSponsorChart"></canvas></div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="reqSponsorChart"></canvas></div>
       </div>
     </div>
 
-    <!-- ── Chart Row 2: Req vs Placements + Dept fulfillment ──── -->
+    <!-- ── Chart Row 2: Req vs Placements (stacked, full width) ─ -->
+    <div class="card mb-24">
+      <div class="card-title">Requisitions vs Placements by Sponsor</div>
+      <div class="card-subtitle">Stacked view — open req slots vs current placed participants · by sponsor</div>
+      <div class="chart-wrap" style="height:300px;"><canvas id="reqVsPlaceChart"></canvas></div>
+    </div>
+
+    <!-- ── Chart Row 3: Fulfillment + Date line ───────────────── -->
     <div class="two-col mb-24">
       <div class="card">
-        <div class="card-title">Requisitions vs Placements by Sponsor</div>
-        <div class="card-subtitle">Open slots (active req) compared to current placed participants</div>
-        <div class="chart-wrap"><canvas id="reqVsPlaceChart"></canvas></div>
+        <div class="card-title">Fulfillment by Department</div>
+        <div class="card-subtitle">Active (open) vs Closed (filled) slots stacked · all requisitions</div>
+        <div class="chart-wrap" style="height:320px;"><canvas id="reqFulfillChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Fulfillment by Department</div>
-        <div class="card-subtitle">Active (open) vs Closed (filled) slots · all requisitions</div>
-        <div class="chart-wrap"><canvas id="reqFulfillChart"></canvas></div>
+        <div class="card-title">Requisitions by Start Date</div>
+        <div class="card-subtitle">Monthly count · new active requisitions + cumulative</div>
+        <div class="chart-wrap" style="height:320px;"><canvas id="reqDateChart"></canvas></div>
       </div>
-    </div>
-
-    <!-- ── Chart Row 3: Start Date line (full width) ──────────── -->
-    <div class="card mb-24">
-      <div class="card-title">Requisitions Added by Start Date</div>
-      <div class="card-subtitle">Monthly count of new active requisitions by program start month</div>
-      <div class="chart-wrap" style="height:200px;"><canvas id="reqDateChart"></canvas></div>
     </div>
 
     <!-- ── Global Filter Bar ──────────────────────────────────── -->
@@ -3733,81 +3733,110 @@ pageEvents.requisition = function () {
     type: 'bar',
     data: {
       labels: deptSorted.map(([k])=>k),
-      datasets: [{ data: deptSorted.map(([,v])=>v), backgroundColor: hexToRgba('#1B3A6B',0.78),
+      datasets: [{ data: deptSorted.map(([,v])=>v),
+        backgroundColor: deptSorted.map((_,i)=>hexToRgba('#1B3A6B', 0.85 - i*0.04)),
         hoverBackgroundColor:'#1B3A6B', borderRadius:4, borderSkipped:false }]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ right:40 } },
       plugins: { legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} slots`}},
-        datalabels:{anchor:'end',align:'end',font:{size:11,weight:'700'},formatter:v=>v,
-          color:'var(--text,#1A1A1A)'} },
-      scales: { x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}}},
-                y:{grid:{display:false},ticks:{font:{size:11}}} }
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString()} slots`}},
+        datalabels:{anchor:'end',align:'end',font:{size:11,weight:'700'},
+          formatter:v=>v.toLocaleString(), color:'var(--text,#1A1A1A)'} },
+      scales: {
+        x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true},
+        y:{grid:{display:false},ticks:{font:{size:12},padding:4}}
+      }
     }
   });
 
   // ── Chart 2: Slots by Sponsor (doughnut) ───────────────────────
   const sponsorMap = {};
   rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
+  const spKeys   = Object.keys(sponsorMap);
+  const spTotal  = Object.values(sponsorMap).reduce((a,b)=>a+b,0);
   const spColors = ['#B01A18','#1B3A6B','#059669','#6B47DC','#D97706'];
 
   createChart('reqSponsorChart', {
     type: 'doughnut',
-    data: { labels:Object.keys(sponsorMap), datasets:[{
-      data:Object.values(sponsorMap),
-      backgroundColor:Object.keys(sponsorMap).map((_,i)=>spColors[i%spColors.length]),
-      borderWidth:2, borderColor:'var(--card-bg,#fff)', hoverOffset:8
+    data: { labels: spKeys, datasets:[{
+      data: spKeys.map(k=>sponsorMap[k]),
+      backgroundColor: spKeys.map((_,i)=>spColors[i%spColors.length]),
+      borderWidth:3, borderColor:'var(--card-bg,#fff)', hoverOffset:12
     }]},
-    options: { responsive:true, maintainAspectRatio:false, cutout:'60%',
-      plugins:{ legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true}},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} slots`}},
-        datalabels:{color:'#fff',font:{size:11,weight:'700'},
-          formatter:(v,ctx)=>{const t=ctx.dataset.data.reduce((a,b)=>a+b,0);return t?Math.round(v/t*100)+'%':'';}} }}
+    options: { responsive:true, maintainAspectRatio:false, cutout:'58%',
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:12},padding:16,usePointStyle:true,pointStyleWidth:10}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} slots (${Math.round(ctx.parsed/spTotal*100)}%)`}},
+        datalabels:{color:'#fff',font:{size:12,weight:'700'},
+          formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t&&v/t>0.06?Math.round(v/t*100)+'%':''; }}
+      }
+    }
   });
 
-  // ── Chart 3: Req vs Placements by Sponsor (grouped bar) ────────
-  // Active req slots from requisition data; placements from J1_OFFLINE_DATA
+  // ── Chart 3: Req vs Placements by Sponsor (stacked bar) ────────
   const reqBySponsor = {};
   rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; reqBySponsor[s]=(reqBySponsor[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
   const placementBySponsor = {};
   const placements = Array.isArray(window.J1_OFFLINE_DATA) ? window.J1_OFFLINE_DATA : [];
   placements.forEach(p => { const s=p['Processing Sponsor']||'?'; placementBySponsor[s]=(placementBySponsor[s]||0)+1; });
 
-  const allSponsors = [...new Set([...Object.keys(reqBySponsor), ...Object.keys(placementBySponsor)])].sort();
+  const allSponsors = [...new Set([...Object.keys(reqBySponsor),...Object.keys(placementBySponsor)])].sort();
   createChart('reqVsPlaceChart', {
     type: 'bar',
     data: {
       labels: allSponsors,
       datasets: [
-        { label:'Open Slots (Req)', data:allSponsors.map(s=>reqBySponsor[s]||0),
-          backgroundColor:hexToRgba('#1B3A6B',0.75), borderRadius:4, borderSkipped:false },
-        { label:'Placements', data:allSponsors.map(s=>placementBySponsor[s]||0),
-          backgroundColor:hexToRgba('#059669',0.75), borderRadius:4, borderSkipped:false }
+        { label:'Open Req Slots', data:allSponsors.map(s=>reqBySponsor[s]||0),
+          backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'s' },
+        { label:'Placed Participants', data:allSponsors.map(s=>placementBySponsor[s]||0),
+          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[4,4,0,0], stack:'s' }
       ]
     },
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
-        tooltip:{mode:'index',intersect:false},
-        datalabels:{anchor:'end',align:'end',font:{size:10,weight:'700'},formatter:v=>v||'',
-          color:'var(--text,#1A1A1A)'} },
-      scales:{ x:{grid:{display:false},ticks:{font:{size:11}}},
-               y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true} }
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
+        tooltip:{ mode:'index', intersect:false,
+          callbacks:{
+            footer: items => {
+              const req   = items.find(i=>i.datasetIndex===0)?.parsed.y || 0;
+              const place = items.find(i=>i.datasetIndex===1)?.parsed.y || 0;
+              const total = req + place;
+              const fill  = total ? Math.round(place/total*100) : 0;
+              return `Total: ${total.toLocaleString()}  ·  Fill rate: ${fill}%`;
+            }
+          }
+        },
+        datalabels:{
+          display: ctx => ctx.datasetIndex === 1,
+          anchor:'end', align:'end', offset:4,
+          font:{ size:12, weight:'700' },
+          color:'var(--text,#1A1A1A)',
+          formatter:(v,ctx) => {
+            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
+            return total > 0 ? total.toLocaleString() : '';
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true }
+      }
     }
   });
 
   // ── Chart 4: Fulfillment by Department (stacked bar) ───────────
-  // Uses rawRows (all statuses) to show Active (open) vs Closed (filled)
   const deptActive={}, deptClosed={};
   rawRows.forEach(r => {
-    if (!r[REQ_CI.progType]?.trim()) return; // J1 program type must be filled
+    if (!r[REQ_CI.progType]?.trim()) return;
     const d=r[REQ_CI.dept]||'Unknown', v=parseInt(r[REQ_CI.slots])||0;
-    if (r[REQ_CI.status]==='Active') deptActive[d]=(deptActive[d]||0)+v;
+    if (r[REQ_CI.status]==='Active')      deptActive[d]=(deptActive[d]||0)+v;
     else if (r[REQ_CI.status]==='Closed') deptClosed[d]=(deptClosed[d]||0)+v;
   });
   const fulfillDepts = [...new Set([...Object.keys(deptActive),...Object.keys(deptClosed)])].sort((a,b)=>{
-    const ta=(deptActive[a]||0)+(deptClosed[a]||0), tb=(deptActive[b]||0)+(deptClosed[b]||0);
-    return tb-ta;
+    return ((deptActive[b]||0)+(deptClosed[b]||0)) - ((deptActive[a]||0)+(deptClosed[a]||0));
   });
 
   createChart('reqFulfillChart', {
@@ -3816,49 +3845,74 @@ pageEvents.requisition = function () {
       labels: fulfillDepts,
       datasets: [
         { label:'Active (Open)', data:fulfillDepts.map(d=>deptActive[d]||0),
-          backgroundColor:hexToRgba('#1B3A6B',0.75), borderRadius:[4,4,0,0] },
+          backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'f' },
         { label:'Closed (Filled)', data:fulfillDepts.map(d=>deptClosed[d]||0),
-          backgroundColor:hexToRgba('#059669',0.75), borderRadius:[4,4,0,0] }
+          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[4,4,0,0], stack:'f' }
       ]
     },
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
-        tooltip:{mode:'index',intersect:false,callbacks:{
-          footer:items=>`Filled rate: ${Math.round((items[1]?.parsed.y||0)/((items[0]?.parsed.y||0)+(items[1]?.parsed.y||0))*100)||0}%`
-        }},
-        datalabels:{display:false} },
-      scales:{ x:{grid:{display:false},ticks:{font:{size:11}}},
-               y:{stacked:false,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true} }
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
+        tooltip:{ mode:'index', intersect:false,
+          callbacks:{
+            footer: items => {
+              const active = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
+              const closed = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
+              const total  = active + closed;
+              return total ? `Fill rate: ${Math.round(closed/total*100)}%` : '';
+            }
+          }
+        },
+        datalabels:{
+          display: ctx => ctx.datasetIndex === 1,
+          anchor:'end', align:'end', offset:6,
+          font:{ size:11, weight:'700' },
+          color:'var(--text,#1A1A1A)',
+          formatter:(v,ctx) => {
+            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
+            return total > 0 ? total.toLocaleString() : '';
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
+        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
+      }
     }
   });
 
-  // ── Chart 5: Requisitions by Start Date (line, monthly count) ──
+  // ── Chart 5: Requisitions by Start Date (line, monthly) ────────
   const monthMap={};
   rows.forEach(r => {
     const raw=r[REQ_CI.start]; if(!raw) return;
     const m=raw.substring(0,7); monthMap[m]=(monthMap[m]||0)+1;
   });
-  const sortedM  = Object.keys(monthMap).sort();
-  const mLabels  = sortedM.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
-  const mCumul   = sortedM.map((_,i)=>sortedM.slice(0,i+1).reduce((t,k)=>t+(monthMap[k]||0),0));
+  const sortedM = Object.keys(monthMap).sort();
+  const mLabels = sortedM.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
+  const mCumul  = sortedM.map((_,i)=>sortedM.slice(0,i+1).reduce((t,k)=>t+(monthMap[k]||0),0));
 
   createChart('reqDateChart', {
     type: 'line',
     data: { labels:mLabels, datasets:[
       { label:'New Requisitions', data:sortedM.map(m=>monthMap[m]),
-        borderColor:C, backgroundColor:hexToRgba(C,0.07), borderWidth:2.5,
-        pointRadius:4, pointHoverRadius:6, pointBackgroundColor:C, fill:true, tension:0.35, yAxisID:'y' },
+        borderColor:C, backgroundColor:hexToRgba(C,0.08), borderWidth:2.5,
+        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:C, fill:true, tension:0.35, yAxisID:'y' },
       { label:'Cumulative', data:mCumul,
-        borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3],
-        pointRadius:2, pointHoverRadius:4, fill:false, tension:0.35, yAxisID:'y2' }
+        borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:2, borderDash:[5,4],
+        pointRadius:3, pointHoverRadius:6, pointBackgroundColor:'#6B47DC', fill:false, tension:0.35, yAxisID:'y2' }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:'top',labels:{font:{size:11},usePointStyle:true,padding:12}},
-        datalabels:{display:false} },
+      plugins:{
+        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
+        datalabels:{ display:false }
+      },
       scales:{
-        x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:11}}},
-        y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11}},beginAtZero:true,title:{display:true,text:'Monthly',font:{size:10}}},
-        y2:{position:'right',grid:{display:false},ticks:{font:{size:11}},beginAtZero:true,title:{display:true,text:'Cumulative',font:{size:10}}}
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11},maxRotation:45} },
+        y:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true,
+            title:{display:true,text:'Monthly',font:{size:10},color:'var(--text-secondary,#888)'} },
+        y2:{ position:'right', grid:{display:false}, ticks:{font:{size:11}}, beginAtZero:true,
+             title:{display:true,text:'Cumulative',font:{size:10},color:'#6B47DC'} }
       }
     }
   });
