@@ -3450,25 +3450,24 @@ pages.requisition = async function () {
       </div>
     </div>
 
-    <!-- ── Chart Row 1: Dept bar + Sponsor donut ──────────────── -->
+    <!-- ── Chart Row 1: Sponsor donut (centred square) ─────────── -->
     <div class="two-col mb-24">
-      <div class="card">
-        <div class="card-title">Headcount by Department</div>
-        <div class="card-subtitle">Active J1 requisitions · sorted by volume</div>
-        <div class="chart-wrap" style="height:340px;"><canvas id="reqDeptChart"></canvas></div>
-      </div>
       <div class="card">
         <div class="card-title">Headcount by Sponsor</div>
         <div class="card-subtitle">Share of open headcount per sponsor</div>
-        <div class="chart-wrap" style="height:340px;"><canvas id="reqSponsorChart"></canvas></div>
+        <div style="display:flex;justify-content:center;align-items:center;height:320px;padding:8px 0;">
+          <div style="position:relative;width:300px;height:300px;">
+            <canvas id="reqSponsorChart"></canvas>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- ── Chart Row 2: Fulfillment (full width) ─────────────── -->
-    <div class="card mb-24">
-      <div class="card-title">Fulfillment by Department</div>
-      <div class="card-subtitle">Remaining (active) vs Filled (closed) headcount · all requisitions</div>
-      <div class="chart-wrap" style="height:360px;"><canvas id="reqFulfillChart"></canvas></div>
+      <!-- ── Chart Row 1b: Fulfillment summary (right col) ──── -->
+      <div class="card">
+        <div class="card-title">Fulfillment by Department</div>
+        <div class="card-subtitle">Total · Filled · Remaining headcount per department</div>
+        <div class="chart-wrap" style="height:320px;"><canvas id="reqFulfillChart"></canvas></div>
+      </div>
     </div>
 
     <!-- ── Chart Row 3: Start Date line (full width, tall) ───── -->
@@ -3720,40 +3719,7 @@ pageEvents.requisition = function () {
       document.getElementById('modalOverlay').classList.remove('active');
   });
 
-  // ── Chart 1: Headcount by Department (horizontal bar) ──────────
-  const deptMap = {};
-  rows.forEach(r => { const d=r[REQ_CI.dept]||'Unknown'; deptMap[d]=(deptMap[d]||0)+(parseInt(r[REQ_CI.slots])||0); });
-  const deptSorted = Object.entries(deptMap).sort((a,b)=>b[1]-a[1]);
-
-  createChart('reqDeptChart', {
-    type: 'bar',
-    data: {
-      labels: deptSorted.map(([k])=>k),
-      datasets: [{ data: deptSorted.map(([,v])=>v),
-        backgroundColor: deptSorted.map((_,i)=>hexToRgba('#1B3A6B', 0.88 - i*0.04)),
-        hoverBackgroundColor:'#1B3A6B', borderRadius:4, borderSkipped:false }]
-    },
-    options: {
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{ right:50 } },
-      plugins: {
-        legend:{ display:false },
-        tooltip:{ callbacks:{ label:ctx=>` ${ctx.parsed.x.toLocaleString()} headcount` } },
-        datalabels:{
-          anchor:'end', align:'end',
-          font:{ size:11, weight:'700' },
-          color:'var(--text,#1A1A1A)',
-          formatter: v => v.toLocaleString()
-        }
-      },
-      scales: {
-        x:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
-        y:{ grid:{display:false}, ticks:{font:{size:12}, padding:4} }
-      }
-    }
-  });
-
-  // ── Chart 2: Headcount by Sponsor (doughnut) ───────────────────
+  // ── Chart 1: Headcount by Sponsor (doughnut — square container in HTML) ─
   const sponsorMap = {};
   rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
   const spKeys   = Object.keys(sponsorMap);
@@ -3765,31 +3731,52 @@ pageEvents.requisition = function () {
     data: { labels: spKeys, datasets:[{
       data: spKeys.map(k=>sponsorMap[k]),
       backgroundColor: spKeys.map((_,i)=>spColors[i%spColors.length]),
-      borderWidth:3, borderColor:'var(--card-bg,#fff)', hoverOffset:12,
-      pointStyle: 'circle'
+      borderWidth: 3,
+      borderColor: 'var(--card-bg,#fff)',
+      hoverOffset: 10
     }]},
-    options: { responsive:true, maintainAspectRatio:false, cutout:'58%',
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '56%',
       plugins:{
         legend:{
-          position:'bottom',
+          position: 'bottom',
           labels:{
-            font:{size:12}, padding:16,
-            usePointStyle:true, pointStyle:'circle', pointStyleWidth:12
+            font:{ size:12 }, padding:14,
+            usePointStyle: true,
+            pointStyle: 'circle',
+            pointStyleWidth: 10,
+            generateLabels: chart => {
+              const ds = chart.data.datasets[0];
+              return chart.data.labels.map((lbl, i) => ({
+                text: `${lbl}  ${ds.data[i].toLocaleString()}`,
+                fillStyle: ds.backgroundColor[i],
+                strokeStyle: ds.backgroundColor[i],
+                pointStyle: 'circle',
+                hidden: false,
+                index: i
+              }));
+            }
           }
         },
-        tooltip:{ callbacks:{ label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)` } },
+        tooltip:{ callbacks:{
+          label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)`
+        }},
         datalabels:{
-          color:'#fff', font:{size:12,weight:'700'},
+          color: '#fff',
+          font:{ size:11, weight:'700' },
           formatter:(v,ctx)=>{
-            const t=ctx.dataset.data.reduce((a,b)=>a+b,0);
-            return t && v/t>0.06 ? `${Math.round(v/t*100)}%\n${v.toLocaleString()}` : '';
+            const t = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            if (!t || v/t < 0.06) return '';
+            return `${Math.round(v/t*100)}%\n${v.toLocaleString()}`;
           }
         }
       }
     }
   });
 
-  // ── Chart 3: Fulfillment by Department (stacked horizontal bar) ─
+  // ── Chart 2: Fulfillment by Department (grouped bar: Total/Filled/Remaining) ─
   const deptActive={}, deptClosed={};
   rawRows.forEach(r => {
     if (!r[REQ_CI.progType]?.trim()) return;
@@ -3798,7 +3785,8 @@ pageEvents.requisition = function () {
     else if (r[REQ_CI.status]==='Closed') deptClosed[d]=(deptClosed[d]||0)+v;
   });
   const fulfillDepts = [...new Set([...Object.keys(deptActive),...Object.keys(deptClosed)])].sort((a,b)=>{
-    return ((deptActive[b]||0)+(deptClosed[b]||0)) - ((deptActive[a]||0)+(deptClosed[a]||0));
+    const ta=(deptActive[a]||0)+(deptClosed[a]||0), tb=(deptActive[b]||0)+(deptClosed[b]||0);
+    return tb - ta;
   });
 
   createChart('reqFulfillChart', {
@@ -3806,50 +3794,52 @@ pageEvents.requisition = function () {
     data: {
       labels: fulfillDepts,
       datasets: [
-        { label:'Remaining (Active)', data:fulfillDepts.map(d=>deptActive[d]||0),
-          backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'f' },
-        { label:'Filled (Closed)',    data:fulfillDepts.map(d=>deptClosed[d]||0),
-          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[0,4,4,0], stack:'f' }
+        { label: 'Total',
+          data: fulfillDepts.map(d=>(deptActive[d]||0)+(deptClosed[d]||0)),
+          backgroundColor: hexToRgba('#1B3A6B',0.80),
+          borderRadius: 4, borderSkipped: false },
+        { label: 'Filled',
+          data: fulfillDepts.map(d=>deptClosed[d]||0),
+          backgroundColor: hexToRgba('#059669',0.82),
+          borderRadius: 4, borderSkipped: false },
+        { label: 'Remaining',
+          data: fulfillDepts.map(d=>deptActive[d]||0),
+          backgroundColor: hexToRgba('#D97706',0.85),
+          borderRadius: 4, borderSkipped: false }
       ]
     },
     options: {
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{ right:52 } },
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout:{ padding:{ right: 52 } },
       plugins:{
-        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 } },
+        legend:{
+          position: 'top',
+          labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 }
+        },
         tooltip:{ mode:'index', intersect:false,
           callbacks:{
             footer: items => {
-              const rem    = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
-              const filled = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
-              const total  = rem + filled;
-              return total ? `Total: ${total.toLocaleString()}  ·  Fill rate: ${Math.round(filled/total*100)}%` : '';
+              const total     = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
+              const filled    = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
+              return total ? `Fill rate: ${Math.round(filled/total*100)}%` : '';
             }
           }
         },
         datalabels:{
-          // ds0 (Remaining): show value inside bar in white
-          // ds1 (Filled): show value inside bar in white; ALSO show total outside at end
-          font:{ size:11, weight:'700' },
+          anchor: 'end',
+          align: 'end',
+          offset: 4,
+          font:{ size:10, weight:'700' },
+          color: 'var(--text,#1A1A1A)',
           display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
-          anchor: ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
-          align:  ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
-          offset: ctx => ctx.datasetIndex === 0 ? 0 : 6,
-          color:  ctx => ctx.datasetIndex === 0 ? '#fff' : 'var(--text,#1A1A1A)',
-          formatter: (v, ctx) => {
-            if (ctx.datasetIndex === 0) {
-              // Show remaining count inside the navy bar
-              return v > 0 ? v.toLocaleString() : '';
-            }
-            // Show total (remaining + filled) outside the green bar
-            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
-            return total > 0 ? total.toLocaleString() : '';
-          }
+          formatter: v => v > 0 ? v.toLocaleString() : ''
         }
       },
       scales:{
-        x:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
-        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
+        x:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{font:{size:11}} }
       }
     }
   });
