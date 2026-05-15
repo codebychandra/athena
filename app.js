@@ -3354,11 +3354,11 @@ pages.requisition = async function () {
   state.dataCache['req-rawrows'] = rawRows; // all rows for fulfillment chart
 
   // Summary stats (all rows are already Active + filled J1 Program Type)
-  const totalSlots = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
-  const sponsors   = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))].sort();
-  const depts      = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
-  const housings   = [...new Set(rows.map(r=>r[REQ_CI.housing]).filter(Boolean))].sort();
-  const authErr    = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  const totalHeadcount = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
+  const sponsors       = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))].sort();
+  const depts          = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
+  const housings       = [...new Set(rows.map(r=>r[REQ_CI.housing]).filter(Boolean))].sort();
+  const authErr        = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
   // ── Column filter input helper ─────────────────────────────────
   const inpSty = `width:100%;font-size:11px;padding:2px 6px;height:24px;
@@ -3375,8 +3375,10 @@ pages.requisition = async function () {
     <div class="page-header">
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition Dashboard</h1>
-        <p class="subtitle">J1 Active Placements${viewName ? ` · ${viewName}` : ''}${rows.length ? ` · ${rows.length} active requisitions` : ''}
-          ${isOffline||!isLocal ? `<span style="font-size:11px;font-weight:600;background:rgba(107,114,128,0.12);color:#6B7280;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Server offline</span>` : `<span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Analytics</span>`}
+        <p class="subtitle">J1 Requisition
+          ${isOffline||!isLocal
+            ? `<span style="font-size:11px;font-weight:600;background:rgba(107,114,128,0.12);color:#6B7280;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Server offline</span>`
+            : `<span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Analytics</span>`}
         </p>
       </div>
     </div>
@@ -3394,6 +3396,40 @@ pages.requisition = async function () {
     </div>` : ''}
 
     ${rows.length > 0 ? `
+    <!-- ── Global Filter Bar (top) ──────────────────────────────── -->
+    <div class="card mb-24" style="padding:14px 18px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+        <input id="reqSearch" type="search" placeholder="🔍 Search company, position, city…"
+          style="font-size:12px;padding:4px 10px;height:32px;min-width:220px;flex:1 1 220px;
+            border:1px solid var(--border,#ddd);border-radius:6px;
+            background:var(--surface,#fff);color:var(--text,#333);">
+        <select id="reqDeptFilter" style="font-size:12px;padding:4px 8px;height:32px;
+          border:1px solid var(--border,#ddd);border-radius:6px;
+          background:var(--surface,#fff);color:var(--text,#333);min-width:140px;flex:1 1 140px;">
+          <option value="">All Departments</option>
+          ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
+        </select>
+        <select id="reqSponsorFilter" style="font-size:12px;padding:4px 8px;height:32px;
+          border:1px solid var(--border,#ddd);border-radius:6px;
+          background:var(--surface,#fff);color:var(--text,#333);min-width:160px;flex:1 1 160px;">
+          <option value="">All Sponsors</option>
+          ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+        </select>
+        <select id="reqHousingFilter" style="font-size:12px;padding:4px 8px;height:32px;
+          border:1px solid var(--border,#ddd);border-radius:6px;
+          background:var(--surface,#fff);color:var(--text,#333);min-width:140px;flex:1 1 140px;">
+          <option value="">All Housing</option>
+          ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+        </select>
+        <button id="reqClearBtn"
+          style="height:32px;padding:0 14px;border:1.5px solid #B01A18;border-radius:6px;
+            background:transparent;color:#B01A18;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+          ✕ Clear</button>
+        <span id="reqCount" style="font-size:12px;font-weight:600;color:#888;white-space:nowrap;">
+          ${rows.length} requisitions</span>
+      </div>
+    </div>
+
     <!-- ── KPI Grid ───────────────────────────────────────────── -->
     <div class="kpi-grid mb-24">
       <div class="kpi-card">
@@ -3401,8 +3437,8 @@ pages.requisition = async function () {
         <span class="kpi-value" style="color:#1B3A6B;" id="reqKpiCount">${rows.length}</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Open Slots</span>
-        <span class="kpi-value" style="color:${C};" id="reqKpiSlots">${totalSlots.toLocaleString()}</span>
+        <span class="kpi-label">Total Headcount</span>
+        <span class="kpi-value" style="color:${C};" id="reqKpiSlots">${totalHeadcount.toLocaleString()}</span>
       </div>
       <div class="kpi-card">
         <span class="kpi-label">Sponsors</span>
@@ -3417,69 +3453,29 @@ pages.requisition = async function () {
     <!-- ── Chart Row 1: Dept bar + Sponsor donut ──────────────── -->
     <div class="two-col mb-24">
       <div class="card">
-        <div class="card-title">Open Slots by Department</div>
+        <div class="card-title">Headcount by Department</div>
         <div class="card-subtitle">Active J1 requisitions · sorted by volume</div>
         <div class="chart-wrap" style="height:340px;"><canvas id="reqDeptChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Slots by Sponsor</div>
-        <div class="card-subtitle">Share of open placement slots per sponsor</div>
+        <div class="card-title">Headcount by Sponsor</div>
+        <div class="card-subtitle">Share of open headcount per sponsor</div>
         <div class="chart-wrap" style="height:340px;"><canvas id="reqSponsorChart"></canvas></div>
       </div>
     </div>
 
-    <!-- ── Chart Row 2: Req vs Placements (stacked, full width) ─ -->
-    <div class="card mb-24">
-      <div class="card-title">Requisitions vs Placements by Sponsor</div>
-      <div class="card-subtitle">Stacked view — open req slots vs current placed participants · by sponsor</div>
-      <div class="chart-wrap" style="height:300px;"><canvas id="reqVsPlaceChart"></canvas></div>
-    </div>
-
-    <!-- ── Chart Row 3: Fulfillment + Date line ───────────────── -->
+    <!-- ── Chart Row 2: Fulfillment + Date line ──────────────── -->
     <div class="two-col mb-24">
       <div class="card">
         <div class="card-title">Fulfillment by Department</div>
-        <div class="card-subtitle">Active (open) vs Closed (filled) slots stacked · all requisitions</div>
-        <div class="chart-wrap" style="height:320px;"><canvas id="reqFulfillChart"></canvas></div>
+        <div class="card-subtitle">Active (remaining) vs Closed (filled) headcount · all requisitions</div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="reqFulfillChart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-title">Requisitions by Start Date</div>
         <div class="card-subtitle">Monthly count · new active requisitions + cumulative</div>
-        <div class="chart-wrap" style="height:320px;"><canvas id="reqDateChart"></canvas></div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="reqDateChart"></canvas></div>
       </div>
-    </div>
-
-    <!-- ── Global Filter Bar ──────────────────────────────────── -->
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;
-      padding:12px 0 16px;border-bottom:1px solid var(--border,#eee);margin-bottom:16px;">
-      <input id="reqSearch" type="search" placeholder="🔍 Search company, position, city…"
-        style="font-size:12px;padding:4px 10px;height:32px;width:210px;
-          border:1px solid var(--border,#ddd);border-radius:6px;
-          background:var(--surface,#fff);color:var(--text,#333);">
-      <select id="reqDeptFilter" style="font-size:12px;padding:4px 8px;height:32px;
-        border:1px solid var(--border,#ddd);border-radius:6px;
-        background:var(--surface,#fff);color:var(--text,#333);max-width:150px;">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
-      </select>
-      <select id="reqSponsorFilter" style="font-size:12px;padding:4px 8px;height:32px;
-        border:1px solid var(--border,#ddd);border-radius:6px;
-        background:var(--surface,#fff);color:var(--text,#333);max-width:175px;">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="reqHousingFilter" style="font-size:12px;padding:4px 8px;height:32px;
-        border:1px solid var(--border,#ddd);border-radius:6px;
-        background:var(--surface,#fff);color:var(--text,#333);max-width:175px;">
-        <option value="">All Housing</option>
-        ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-      </select>
-      <button id="reqClearBtn"
-        style="height:32px;padding:0 12px;border:1.5px solid #B01A18;border-radius:6px;
-          background:transparent;color:#B01A18;font-size:12px;font-weight:600;cursor:pointer;">
-        ✕ Clear</button>
-      <span id="reqCount" style="font-size:12px;font-weight:600;color:#888;margin-left:4px;">
-        ${rows.length} requisitions</span>
     </div>
 
     <!-- ── Sortable + Column-Filtered Table ───────────────────── -->
@@ -3492,7 +3488,7 @@ pages.requisition = async function () {
               <th data-rcol="0" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Hosting Company <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
               <th data-rcol="1" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Department <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
               <th data-rcol="2" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Position <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="3" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;text-align:center;">Slots <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
+              <th data-rcol="3" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;text-align:center;">Headcount <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
               <th data-rcol="4" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Sponsor <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
               <th>Program Type</th>
               <th data-rcol="7" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Contract <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
@@ -3581,7 +3577,7 @@ pageEvents.requisition = function () {
     const k = document.getElementById('reqKpiCount');
     if (k) k.textContent = _currentRows.length;
     const s = document.getElementById('reqKpiSlots');
-    if (s) s.textContent = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0).toLocaleString();
+    if (s) s.textContent = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0).toLocaleString(); // headcount
   }
 
   refreshTable();
@@ -3724,7 +3720,7 @@ pageEvents.requisition = function () {
       document.getElementById('modalOverlay').classList.remove('active');
   });
 
-  // ── Chart 1: Open Slots by Department (horizontal bar) ─────────
+  // ── Chart 1: Headcount by Department (horizontal bar) ──────────
   const deptMap = {};
   rows.forEach(r => { const d=r[REQ_CI.dept]||'Unknown'; deptMap[d]=(deptMap[d]||0)+(parseInt(r[REQ_CI.slots])||0); });
   const deptSorted = Object.entries(deptMap).sort((a,b)=>b[1]-a[1]);
@@ -3739,9 +3735,9 @@ pageEvents.requisition = function () {
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{ right:40 } },
+      layout:{ padding:{ right:44 } },
       plugins: { legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString()} slots`}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString()} headcount`}},
         datalabels:{anchor:'end',align:'end',font:{size:11,weight:'700'},
           formatter:v=>v.toLocaleString(), color:'var(--text,#1A1A1A)'} },
       scales: {
@@ -3751,7 +3747,7 @@ pageEvents.requisition = function () {
     }
   });
 
-  // ── Chart 2: Slots by Sponsor (doughnut) ───────────────────────
+  // ── Chart 2: Headcount by Sponsor (doughnut) ───────────────────
   const sponsorMap = {};
   rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
   const spKeys   = Object.keys(sponsorMap);
@@ -3768,66 +3764,15 @@ pageEvents.requisition = function () {
     options: { responsive:true, maintainAspectRatio:false, cutout:'58%',
       plugins:{
         legend:{position:'bottom',labels:{font:{size:12},padding:16,usePointStyle:true,pointStyleWidth:10}},
-        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} slots (${Math.round(ctx.parsed/spTotal*100)}%)`}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)`}},
         datalabels:{color:'#fff',font:{size:12,weight:'700'},
           formatter:(v,ctx)=>{ const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return t&&v/t>0.06?Math.round(v/t*100)+'%':''; }}
       }
     }
   });
 
-  // ── Chart 3: Req vs Placements by Sponsor (stacked bar) ────────
-  const reqBySponsor = {};
-  rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; reqBySponsor[s]=(reqBySponsor[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
-  const placementBySponsor = {};
-  const placements = Array.isArray(window.J1_OFFLINE_DATA) ? window.J1_OFFLINE_DATA : [];
-  placements.forEach(p => { const s=p['Processing Sponsor']||'?'; placementBySponsor[s]=(placementBySponsor[s]||0)+1; });
-
-  const allSponsors = [...new Set([...Object.keys(reqBySponsor),...Object.keys(placementBySponsor)])].sort();
-  createChart('reqVsPlaceChart', {
-    type: 'bar',
-    data: {
-      labels: allSponsors,
-      datasets: [
-        { label:'Open Req Slots', data:allSponsors.map(s=>reqBySponsor[s]||0),
-          backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'s' },
-        { label:'Placed Participants', data:allSponsors.map(s=>placementBySponsor[s]||0),
-          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[4,4,0,0], stack:'s' }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
-        tooltip:{ mode:'index', intersect:false,
-          callbacks:{
-            footer: items => {
-              const req   = items.find(i=>i.datasetIndex===0)?.parsed.y || 0;
-              const place = items.find(i=>i.datasetIndex===1)?.parsed.y || 0;
-              const total = req + place;
-              const fill  = total ? Math.round(place/total*100) : 0;
-              return `Total: ${total.toLocaleString()}  ·  Fill rate: ${fill}%`;
-            }
-          }
-        },
-        datalabels:{
-          display: ctx => ctx.datasetIndex === 1,
-          anchor:'end', align:'end', offset:4,
-          font:{ size:12, weight:'700' },
-          color:'var(--text,#1A1A1A)',
-          formatter:(v,ctx) => {
-            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
-            return total > 0 ? total.toLocaleString() : '';
-          }
-        }
-      },
-      scales:{
-        x:{ stacked:true, grid:{display:false}, ticks:{font:{size:12}} },
-        y:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true }
-      }
-    }
-  });
-
-  // ── Chart 4: Fulfillment by Department (stacked bar) ───────────
+  // ── Chart 3: Fulfillment by Department (stacked horizontal bar) ─
+  // Active = remaining open headcount; Closed = filled headcount
   const deptActive={}, deptClosed={};
   rawRows.forEach(r => {
     if (!r[REQ_CI.progType]?.trim()) return;
@@ -3844,32 +3789,41 @@ pageEvents.requisition = function () {
     data: {
       labels: fulfillDepts,
       datasets: [
-        { label:'Active (Open)', data:fulfillDepts.map(d=>deptActive[d]||0),
+        { label:'Remaining (Active)', data:fulfillDepts.map(d=>deptActive[d]||0),
           backgroundColor:hexToRgba('#1B3A6B',0.82), borderRadius:0, stack:'f' },
-        { label:'Closed (Filled)', data:fulfillDepts.map(d=>deptClosed[d]||0),
-          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[4,4,0,0], stack:'f' }
+        { label:'Filled (Closed)', data:fulfillDepts.map(d=>deptClosed[d]||0),
+          backgroundColor:hexToRgba('#059669',0.82), borderRadius:[0,4,4,0], stack:'f' }
       ]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ right:56 } },
       plugins:{
         legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, padding:16 } },
         tooltip:{ mode:'index', intersect:false,
           callbacks:{
             footer: items => {
-              const active = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
-              const closed = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
-              const total  = active + closed;
-              return total ? `Fill rate: ${Math.round(closed/total*100)}%` : '';
+              const rem    = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
+              const filled = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
+              const total  = rem + filled;
+              return total ? `Total: ${total.toLocaleString()}  ·  Fill rate: ${Math.round(filled/total*100)}%` : '';
             }
           }
         },
         datalabels:{
-          display: ctx => ctx.datasetIndex === 1,
-          anchor:'end', align:'end', offset:6,
+          display: ctx => {
+            // Show remaining on the Active segment, total at end of Closed segment
+            const v = ctx.dataset.data[ctx.dataIndex] || 0;
+            return v > 0;
+          },
+          anchor: ctx => ctx.datasetIndex === 1 ? 'end' : 'center',
+          align:  ctx => ctx.datasetIndex === 1 ? 'end'  : 'center',
+          offset: ctx => ctx.datasetIndex === 1 ? 6 : 0,
           font:{ size:11, weight:'700' },
-          color:'var(--text,#1A1A1A)',
-          formatter:(v,ctx) => {
+          color: ctx => ctx.datasetIndex === 1 ? 'var(--text,#1A1A1A)' : '#fff',
+          formatter:(v, ctx) => {
+            if (ctx.datasetIndex === 0) return v > 0 ? v.toLocaleString() : '';
+            // On the Closed (filled) segment, show the total
             const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
             return total > 0 ? total.toLocaleString() : '';
           }
