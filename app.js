@@ -3455,11 +3455,7 @@ pages.requisition = async function () {
       <div class="card">
         <div class="card-title">Headcount by Sponsor</div>
         <div class="card-subtitle">Share of open headcount per sponsor</div>
-        <div style="display:flex;justify-content:center;align-items:center;height:320px;padding:8px 0;">
-          <div style="position:relative;width:300px;height:300px;">
-            <canvas id="reqSponsorChart"></canvas>
-          </div>
-        </div>
+        <div class="chart-wrap"><canvas id="reqSponsorChart"></canvas></div>
       </div>
 
       <!-- ── Chart Row 1b: Fulfillment summary (right col) ──── -->
@@ -3687,7 +3683,7 @@ pageEvents.requisition = function () {
         <div style="display:flex;align-items:center;gap:18px;padding:14px 18px;background:rgba(176,26,24,0.06);
           border-radius:12px;border:1px solid rgba(176,26,24,0.14);margin-bottom:18px;">
           <div>
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Open Slots</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Headcount</div>
             <div style="font-size:40px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
           </div>
           <div style="border-left:1px solid rgba(176,26,24,0.18);padding-left:18px;">
@@ -3719,64 +3715,43 @@ pageEvents.requisition = function () {
       document.getElementById('modalOverlay').classList.remove('active');
   });
 
-  // ── Chart 1: Headcount by Sponsor (doughnut — square container in HTML) ─
+  // ── Chart 1: Headcount by Sponsor (doughnut — Placement style) ─
   const sponsorMap = {};
   rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
-  const spKeys   = Object.keys(sponsorMap);
-  const spTotal  = Object.values(sponsorMap).reduce((a,b)=>a+b,0);
-  const spColors = ['#B01A18','#1B3A6B','#059669','#6B47DC','#D97706'];
+  const spSorted = Object.entries(sponsorMap).sort((a,b)=>b[1]-a[1]);
+  const SP_COLORS = ['#1B3A6B','#B01A18','#059669','#B87A14','#6B47DC','#888888'];
 
   createChart('reqSponsorChart', {
     type: 'doughnut',
-    data: { labels: spKeys, datasets:[{
-      data: spKeys.map(k=>sponsorMap[k]),
-      backgroundColor: spKeys.map((_,i)=>spColors[i%spColors.length]),
-      borderWidth: 3,
-      borderColor: 'var(--card-bg,#fff)',
-      hoverOffset: 10
-    }]},
+    data: {
+      labels: spSorted.map(e=>e[0]),
+      datasets: [{
+        data: spSorted.map(e=>e[1]),
+        backgroundColor: spSorted.map((_,i)=>SP_COLORS[i%SP_COLORS.length]),
+        borderWidth: 2,
+        borderColor: 'var(--card-bg,#fff)'
+      }]
+    },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
-      cutout: '56%',
-      plugins:{
-        legend:{
-          position: 'bottom',
-          labels:{
-            font:{ size:12 }, padding:14,
-            usePointStyle: true,
-            pointStyle: 'circle',
-            pointStyleWidth: 10,
-            generateLabels: chart => {
-              const ds = chart.data.datasets[0];
-              return chart.data.labels.map((lbl, i) => ({
-                text: `${lbl}  ${ds.data[i].toLocaleString()}`,
-                fillStyle: ds.backgroundColor[i],
-                strokeStyle: ds.backgroundColor[i],
-                pointStyle: 'circle',
-                hidden: false,
-                index: i
-              }));
-            }
-          }
-        },
-        tooltip:{ callbacks:{
-          label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} headcount (${Math.round(ctx.parsed/spTotal*100)}%)`
-        }},
-        datalabels:{
+      cutout: '52%',
+      plugins: {
+        legend: { position: 'bottom' },
+        datalabels: {
+          formatter: (v, ctx) => {
+            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            const pct   = Math.round(v / total * 100);
+            return `${ctx.chart.data.labels[ctx.dataIndex]}\n${v.toLocaleString()} (${pct}%)`;
+          },
           color: '#fff',
-          font:{ size:11, weight:'700' },
-          formatter:(v,ctx)=>{
-            const t = ctx.dataset.data.reduce((a,b)=>a+b,0);
-            if (!t || v/t < 0.06) return '';
-            return `${Math.round(v/t*100)}%\n${v.toLocaleString()}`;
-          }
+          font: { size: 11, weight: 'bold' },
+          textAlign: 'center'
         }
       }
     }
   });
 
-  // ── Chart 2: Fulfillment by Department (grouped bar: Total/Filled/Remaining) ─
+  // ── Chart 2: Fulfillment by Department (stacked: Filled green + Remaining orange) ─
   const deptActive={}, deptClosed={};
   rawRows.forEach(r => {
     if (!r[REQ_CI.progType]?.trim()) return;
@@ -3794,25 +3769,21 @@ pageEvents.requisition = function () {
     data: {
       labels: fulfillDepts,
       datasets: [
-        { label: 'Total',
-          data: fulfillDepts.map(d=>(deptActive[d]||0)+(deptClosed[d]||0)),
-          backgroundColor: hexToRgba('#1B3A6B',0.80),
-          borderRadius: 4, borderSkipped: false },
         { label: 'Filled',
           data: fulfillDepts.map(d=>deptClosed[d]||0),
-          backgroundColor: hexToRgba('#059669',0.82),
-          borderRadius: 4, borderSkipped: false },
+          backgroundColor: hexToRgba('#059669',0.85),
+          borderRadius: 0, stack: 'f' },
         { label: 'Remaining',
           data: fulfillDepts.map(d=>deptActive[d]||0),
           backgroundColor: hexToRgba('#D97706',0.85),
-          borderRadius: 4, borderSkipped: false }
+          borderRadius: [0,4,4,0], stack: 'f' }
       ]
     },
     options: {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
-      layout:{ padding:{ right: 52 } },
+      layout:{ padding:{ right: 60 } },
       plugins:{
         legend:{
           position: 'top',
@@ -3821,34 +3792,43 @@ pageEvents.requisition = function () {
         tooltip:{ mode:'index', intersect:false,
           callbacks:{
             footer: items => {
-              const total     = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
-              const filled    = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
-              return total ? `Fill rate: ${Math.round(filled/total*100)}%` : '';
+              const filled    = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
+              const remaining = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
+              const total = filled + remaining;
+              return total ? `Total: ${total.toLocaleString()}  ·  Fill rate: ${Math.round(filled/total*100)}%` : '';
             }
           }
         },
         datalabels:{
-          anchor: 'end',
-          align: 'end',
-          offset: 4,
-          font:{ size:10, weight:'700' },
-          color: 'var(--text,#1A1A1A)',
+          font:{ size:11, weight:'700' },
           display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
-          formatter: v => v > 0 ? v.toLocaleString() : ''
+          // Filled (ds0): value inside segment in white
+          // Remaining (ds1): value inside segment in white + total OUTSIDE at bar end
+          anchor: ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
+          align:  ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
+          offset: ctx => ctx.datasetIndex === 0 ? 0 : 6,
+          color:  ctx => ctx.datasetIndex === 0 ? '#fff' : 'var(--text,#1A1A1A)',
+          formatter: (v, ctx) => {
+            if (ctx.datasetIndex === 0) return v > 0 ? v.toLocaleString() : '';
+            // Outside the Remaining segment — show total
+            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
+            return total > 0 ? total.toLocaleString() : '';
+          }
         }
       },
       scales:{
-        x:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
-        y:{ grid:{display:false}, ticks:{font:{size:11}} }
+        x:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
+        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
       }
     }
   });
 
-  // ── Chart 4: Requisitions by Start Date (full-width line) ──────
+  // ── Chart 3: Headcount by Start Date (full-width line, SUM headcount) ─
   const monthMap={};
   rows.forEach(r => {
     const raw=r[REQ_CI.start]; if(!raw) return;
-    const m=raw.substring(0,7); monthMap[m]=(monthMap[m]||0)+1;
+    const m=raw.substring(0,7);
+    monthMap[m]=(monthMap[m]||0)+(parseInt(r[REQ_CI.slots])||0);
   });
   const sortedM = Object.keys(monthMap).sort();
   const mLabels = sortedM.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
@@ -3857,11 +3837,13 @@ pageEvents.requisition = function () {
   createChart('reqDateChart', {
     type: 'line',
     data: { labels:mLabels, datasets:[
-      { label:'New Requisitions', data:sortedM.map(m=>monthMap[m]),
+      { label:'Headcount',
+        data: sortedM.map(m=>monthMap[m]),
         borderColor:C, backgroundColor:hexToRgba(C,0.08), borderWidth:2.5,
         pointRadius:4, pointHoverRadius:7, pointBackgroundColor:C,
         fill:true, tension:0.3, yAxisID:'y' },
-      { label:'Cumulative', data:mCumul,
+      { label:'Cumulative Headcount',
+        data: mCumul,
         borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:2, borderDash:[5,4],
         pointRadius:3, pointHoverRadius:6, pointBackgroundColor:'#6B47DC',
         fill:false, tension:0.3, yAxisID:'y2' }
@@ -3874,13 +3856,13 @@ pageEvents.requisition = function () {
           anchor:'end', align:'top', offset:4,
           font:{ size:10, weight:'700' },
           color: C,
-          formatter: v => v > 0 ? v : ''
+          formatter: v => v > 0 ? v.toLocaleString() : ''
         }
       },
       scales:{
         x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11}, maxRotation:45} },
         y:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true,
-            title:{display:true, text:'Monthly', font:{size:10}, color:'var(--text-secondary,#888)'} },
+            title:{display:true, text:'Headcount', font:{size:10}, color:'var(--text-secondary,#888)'} },
         y2:{ position:'right', grid:{display:false}, ticks:{font:{size:11}}, beginAtZero:true,
              title:{display:true, text:'Cumulative', font:{size:10}, color:'#6B47DC'} }
       }
