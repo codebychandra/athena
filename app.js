@@ -4047,32 +4047,471 @@ pages.marketing = async function () {
 // PAGE: TRAVEL
 // ============================
 pages.travel = async function () {
+  const C       = DIVISION_COLORS.j1;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Map raw ticket status text → category key
+  function ticketCategory(raw) {
+    const s = (raw || '').toLowerCase().trim();
+    if (!s || s === 'n/a' || s === 'none' || s === 'no ticket' || s === 'not yet' || s === '-' || s === '—') return 'none';
+    if (/paid|payment/.test(s))                                return 'paid';
+    if (/issued|booked|confirmed|ticketed|e.?ticket/.test(s))  return 'issued';
+    if (/departed|checked.?in|in.?transit/.test(s))            return 'departed';
+    if (/cancel|refund/.test(s))                               return 'cancelled';
+    return 'other';
+  }
+
+  const STAGES = [
+    { key:'none',      label:'No Ticket',     icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
+    { key:'paid',      label:'Ticket Paid',   icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
+    { key:'issued',    label:'Ticket Issued', icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
+    { key:'departed',  label:'Departed',      icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
+    { key:'cancelled', label:'Cancelled',     icon:'❌', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
+    { key:'other',     label:'Other',         icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
+  ];
+
+  // Parse columns+rows array into structured objects
+  function parseRows(columns, rows) {
+    const fi = (pats) => {
+      for (const p of pats) {
+        const i = columns.findIndex(c => p.test(c));
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const idx = {
+      firstName:    fi([/^first.?name$/i]),
+      lastName:     fi([/^last.?name$/i]),
+      name:         fi([/^name$/i, /^full.?name$/i, /participant.?name/i]),
+      host:         fi([/hosting.?company/i, /^host$/i, /employer/i]),
+      departure:    fi([/departure.?date/i, /depart.?date/i, /dep.?date/i, /flight.?date/i, /outbound/i, /^departure$/i]),
+      returnDate:   fi([/return.?date/i, /arrival.?date/i, /^return$/i, /inbound/i]),
+      ticketStatus: fi([/ticket.?status/i, /flight.?status/i, /booking.?status/i, /travel.?status/i, /^ticket$/i]),
+      sponsor:      fi([/processing.?sponsor/i, /^sponsor$/i]),
+      airline:      fi([/^airline$/i, /carrier/i]),
+      flightNo:     fi([/flight.?no/i, /flight.?num/i, /^pnr$/i, /confirmation.?no/i]),
+      nationality:  fi([/nationality/i]),
+      passport:     fi([/passport/i]),
+    };
+    const today = new Date(); today.setHours(0,0,0,0);
+    return rows.map((row, i) => {
+      const g = (k) => idx[k] >= 0 ? String(row[idx[k]] ?? '').trim() : '';
+      const first = g('firstName'), last = g('lastName');
+      const fullName = (first || last) ? `${first} ${last}`.trim() : g('name') || `Participant ${i+1}`;
+      const depRaw = g('departure'), retRaw = g('returnDate'), ticketRaw = g('ticketStatus');
+      const category = ticketCategory(ticketRaw);
+      let daysUntil = null;
+      if (depRaw) {
+        const d = new Date(depRaw);
+        if (!isNaN(d)) { d.setHours(0,0,0,0); daysUntil = Math.floor((d - today) / 86400000); }
+      }
+      return {
+        fullName, host: g('host'), departure: depRaw, returnDate: retRaw,
+        ticketRaw, category, sponsor: g('sponsor'), airline: g('airline'),
+        flightNo: g('flightNo'), nationality: g('nationality'), passport: g('passport'),
+        daysUntil,
+        allFields: columns.map((c, ci) => [c, String(row[ci] ?? '')])
+      };
+    });
+  }
+
+  // Departure date cell: date + colour-coded urgency badge
+  function urgencyTag(daysUntil, depRaw) {
+    if (!depRaw) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const color = daysUntil === null ? '#888'
+      : daysUntil < 0   ? '#64748B'
+      : daysUntil <= 7  ? '#B01A18'
+      : daysUntil <= 14 ? '#D97706'
+      : daysUntil <= 30 ? '#B87A14'
+      : '#059669';
+    const label = daysUntil === null   ? ''
+      : daysUntil < 0  ? `${Math.abs(daysUntil)}d ago`
+      : daysUntil === 0 ? 'Today!'
+      : `in ${daysUntil}d`;
+    return `<div style="font-weight:600;font-size:12px;line-height:1.4;">${depRaw}</div>`
+      + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
+  }
+
+  function rowHtml(p, dispIdx, origIdx) {
+    const stg    = STAGES.find(s => s.key === p.category) || STAGES[STAGES.length-1];
+    const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
+    const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
+    return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
+      <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
+      <td>
+        <strong>${p.fullName}</strong>
+        ${p.nationality ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.nationality}</div>` : ''}
+      </td>
+      <td style="font-size:13px;">${p.host || '—'}</td>
+      <td>${urgencyTag(p.daysUntil, p.departure)}</td>
+      <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
+      <td>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+          background:${stg.bg};color:${stg.color};white-space:nowrap;">
+          ${stg.icon} ${p.ticketRaw || stg.label}
+        </span>
+      </td>
+      <td style="font-size:12px;">${p.sponsor || '—'}</td>
+      <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
+      <td>
+        <button class="travel-view-btn" data-idx="${origIdx}"
+          style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
+          font-size:11px;font-weight:700;color:${C};background:transparent;cursor:pointer;">
+          View
+        </button>
+      </td>
+    </tr>`;
+  }
+
+  // ── Fetch from Zoho (local server) ───────────────────────────
+  let columns = [], rows = [], viewName = '', errorMsg = null;
+  if (isLocal) {
+    try {
+      const res  = await fetch('/api/zoho/j1-travel');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Fetch failed');
+      viewName = json.view || 'J1 Travel';
+      columns  = json.data?.columns || [];
+      rows     = json.data?.rows    || [];
+    } catch (e) { errorMsg = e.message; }
+  }
+
+  // Offline snapshot fallback
+  if (!rows.length && window.J1_TRAVEL_OFFLINE_DATA) {
+    columns  = window.J1_TRAVEL_OFFLINE_DATA.columns || [];
+    rows     = window.J1_TRAVEL_OFFLINE_DATA.rows    || [];
+    viewName = viewName || 'offline snapshot';
+  }
+
+  const people   = parseRows(columns, rows);
+  const total    = people.length;
+  const counts   = Object.fromEntries(STAGES.map(s => [s.key, 0]));
+  people.forEach(p => { if (counts[p.category] !== undefined) counts[p.category]++; else counts.other++; });
+  const authErr  = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  const sponsors = [...new Set(people.map(p => p.sponsor).filter(Boolean))].sort();
+
   return `
     <div class="page-header">
-      <h1>Travel</h1>
-      <p class="subtitle">Travel management and booking overview</p>
+      <div class="division-header" style="border-left-color:${C}">
+        <h1>Travel</h1>
+        <p class="subtitle">J1 Travel &nbsp;·&nbsp; ticket status &amp; departure tracker &nbsp;·&nbsp; ${total} participants${viewName ? ' &nbsp;·&nbsp; <em>' + viewName + '</em>' : ''}</p>
+      </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-      min-height:52vh;gap:20px;text-align:center;padding:40px 20px;">
-      <div style="font-size:52px;line-height:1;opacity:0.4;">✈️</div>
+    ${errorMsg && !people.length ? `
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
+      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
+      border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 10px;">Travel Dashboard</h2>
-        <p style="font-size:13px;color:var(--text-muted,#888);max-width:380px;
-          line-height:1.65;margin:0 auto;">
-          Travel data integration is currently being configured.
-          This section will display booking summaries, itineraries, and travel
-          compliance status for program participants.
-        </p>
+        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
+          ${authErr ? 'Server not connected' : 'Travel data unavailable'}
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">
+          ${authErr
+            ? 'Start the Node.js server and <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">reconnect Zoho →</a>'
+            : errorMsg}
+        </div>
       </div>
-      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;padding:4px 18px;
-        border-radius:20px;background:rgba(176,26,24,0.1);color:#B01A18;">
-        COMING SOON
-      </span>
+    </div>` : ''}
+
+    <!-- ── Ticket status pipeline — click any card to filter ── -->
+    <div style="display:flex;align-items:stretch;gap:0;margin-bottom:24px;overflow-x:auto;">
+      ${STAGES.map((s, i) => `
+        ${i > 0 ? '<div style="display:flex;align-items:center;padding:0 2px;color:var(--text-muted,#bbb);font-size:16px;flex-shrink:0;">›</div>' : ''}
+        <div class="travel-stage-card" data-stage="${s.key}"
+          style="flex:1;min-width:105px;padding:16px 10px;text-align:center;cursor:pointer;
+            background:${s.bg};border:1px solid ${s.color}30;transition:opacity 0.2s,box-shadow 0.15s;
+            border-radius:${i===0?'12px 0 0 12px':i===STAGES.length-1?'0 12px 12px 0':'0'};
+            border-left:${i>0?'none':'1px solid '+s.color+'30'};">
+          <div style="font-size:24px;line-height:1;margin-bottom:6px;">${s.icon}</div>
+          <div style="font-size:30px;font-weight:800;color:${s.color};line-height:1.1;">${counts[s.key]}</div>
+          <div style="font-size:10px;font-weight:700;color:${s.color};margin-top:5px;
+            text-transform:uppercase;letter-spacing:0.06em;line-height:1.4;">${s.label}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- ── Filter bar ── -->
+    <div class="card mb-24" style="padding:14px 20px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+        <input id="travelSearch" type="search" placeholder="🔍 Search name or host…"
+          style="flex:1;min-width:180px;max-width:260px;padding:7px 12px;
+            border:1.5px solid var(--border,#ddd);border-radius:8px;
+            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
+        <select id="travelStatusFilter"
+          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
+            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
+          <option value="">All Statuses</option>
+          ${STAGES.map(s => `<option value="${s.key}">${s.icon} ${s.label} (${counts[s.key]})</option>`).join('')}
+        </select>
+        <select id="travelSponsorFilter"
+          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
+            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);
+            ${sponsors.length <= 1 ? 'display:none;' : ''}">
+          <option value="">All Sponsors</option>
+          ${sponsors.map(s => `<option value="${s}">${s}</option>`).join('')}
+        </select>
+        <select id="travelSort"
+          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
+            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
+          <option value="dep_asc">↑ Departure — soonest first</option>
+          <option value="dep_desc">↓ Departure — latest first</option>
+          <option value="name_asc">A–Z Name</option>
+          <option value="urgent">🚨 Urgent — no ticket + soonest</option>
+        </select>
+        <button id="travelClearBtn"
+          style="padding:7px 14px;border:1.5px solid var(--border,#ddd);border-radius:8px;
+            font-size:12px;font-weight:600;cursor:pointer;
+            background:var(--input-bg,#fff);color:var(--text-muted,#888);">✕ Clear</button>
+        <span id="travelCount" style="margin-left:auto;font-size:12px;font-weight:600;
+          color:var(--text-muted,#888);">${total} participants</span>
+      </div>
+    </div>
+
+    <!-- Data store for pageEvents -->
+    <script type="application/json" id="travelData">${JSON.stringify({ people, stages: STAGES })}<\/script>
+
+    <!-- ── Table ── -->
+    <div class="card" style="overflow:hidden;">
+      <div class="table-wrap">
+        <table id="travelTable">
+          <thead><tr>
+            <th style="width:36px;">#</th>
+            <th>Name</th>
+            <th>Hosting Company</th>
+            <th>✈️ Departure</th>
+            <th>🏠 Return</th>
+            <th>Ticket Status</th>
+            <th>Sponsor</th>
+            <th>Flight Info</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="travelTbody">
+            ${people.length === 0
+              ? `<tr><td colspan="9" style="text-align:center;padding:56px 24px;
+                  color:var(--text-muted,#aaa);font-size:13px;">
+                  ${!isLocal
+                    ? '✈️ Start the local Node.js server to load live travel data from Zoho'
+                    : 'No travel data found in J1 Travel table'}
+                </td></tr>`
+              : people.map((p, i) => rowHtml(p, i, i)).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>`;
 };
 
-pageEvents.travel = function () {};
+// ── Travel page events (filters, sort, side panel) ────────────
+pageEvents.travel = function () {
+  const el = document.getElementById('travelData');
+  if (!el) return;
+  let parsed;
+  try { parsed = JSON.parse(el.textContent); } catch { return; }
+
+  const { people, stages } = parsed;
+  const STAGES_MAP = Object.fromEntries(stages.map(s => [s.key, s]));
+  const C = DIVISION_COLORS.j1;
+
+  const tbody    = document.getElementById('travelTbody');
+  const search   = document.getElementById('travelSearch');
+  const statSel  = document.getElementById('travelStatusFilter');
+  const sponSel  = document.getElementById('travelSponsorFilter');
+  const sortSel  = document.getElementById('travelSort');
+  const countEl  = document.getElementById('travelCount');
+  const clearBtn = document.getElementById('travelClearBtn');
+
+  function urgencyTag(daysUntil, depRaw) {
+    if (!depRaw) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const color = daysUntil === null ? '#888'
+      : daysUntil < 0   ? '#64748B'
+      : daysUntil <= 7  ? '#B01A18'
+      : daysUntil <= 14 ? '#D97706'
+      : daysUntil <= 30 ? '#B87A14'
+      : '#059669';
+    const label = daysUntil === null   ? ''
+      : daysUntil < 0  ? `${Math.abs(daysUntil)}d ago`
+      : daysUntil === 0 ? 'Today!'
+      : `in ${daysUntil}d`;
+    return `<div style="font-weight:600;font-size:12px;line-height:1.4;">${depRaw}</div>`
+      + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
+  }
+
+  function rowHtml(p, dispIdx, origIdx) {
+    const stg    = STAGES_MAP[p.category] || stages[stages.length-1];
+    const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
+    const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
+    return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
+      <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
+      <td>
+        <strong>${p.fullName}</strong>
+        ${p.nationality ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.nationality}</div>` : ''}
+      </td>
+      <td style="font-size:13px;">${p.host || '—'}</td>
+      <td>${urgencyTag(p.daysUntil, p.departure)}</td>
+      <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
+      <td>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+          background:${stg.bg};color:${stg.color};white-space:nowrap;">
+          ${stg.icon} ${p.ticketRaw || stg.label}
+        </span>
+      </td>
+      <td style="font-size:12px;">${p.sponsor || '—'}</td>
+      <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
+      <td>
+        <button class="travel-view-btn" data-idx="${origIdx}"
+          style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
+          font-size:11px;font-weight:700;color:${C};background:transparent;cursor:pointer;">
+          View
+        </button>
+      </td>
+    </tr>`;
+  }
+
+  function openPanel(p) {
+    const stg = STAGES_MAP[p.category] || stages[stages.length-1];
+    const urgColor = p.daysUntil === null ? '#888'
+      : p.daysUntil < 0   ? '#64748B'
+      : p.daysUntil <= 7  ? '#B01A18'
+      : p.daysUntil <= 14 ? '#D97706'
+      : p.daysUntil <= 30 ? '#B87A14'
+      : '#059669';
+    const urgLabel = p.daysUntil === null   ? ''
+      : p.daysUntil < 0  ? `${Math.abs(p.daysUntil)} days ago`
+      : p.daysUntil === 0 ? 'Today!'
+      : `in ${p.daysUntil} days`;
+
+    document.getElementById('panelTitle').textContent = p.fullName || 'Participant';
+    document.getElementById('panelBody').innerHTML = `
+      <div style="text-align:center;padding:18px 0 14px;">
+        <span style="font-size:13px;font-weight:700;padding:6px 20px;border-radius:20px;
+          background:${stg.bg};color:${stg.color};">${stg.icon} ${p.ticketRaw || stg.label}</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;padding:0 2px;">
+        <div style="padding:14px;background:var(--surface,#f5f5f5);border-radius:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+            color:var(--text-muted,#888);margin-bottom:5px;">✈️ Departure</div>
+          <div style="font-size:16px;font-weight:800;">${p.departure || '—'}</div>
+          ${urgLabel ? `<div style="font-size:11px;font-weight:700;color:${urgColor};margin-top:4px;">${urgLabel}</div>` : ''}
+        </div>
+        <div style="padding:14px;background:var(--surface,#f5f5f5);border-radius:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+            color:var(--text-muted,#888);margin-bottom:5px;">🏠 Return</div>
+          <div style="font-size:16px;font-weight:800;">${p.returnDate || '—'}</div>
+        </div>
+      </div>
+
+      ${(p.airline || p.flightNo) ? `
+      <div style="padding:12px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
+        margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:20px;">🛩️</span>
+        <div>
+          ${p.airline  ? `<div style="font-size:13px;font-weight:600;">${p.airline}</div>` : ''}
+          ${p.flightNo ? `<div style="font-size:12px;color:var(--text-muted,#888);font-family:monospace;letter-spacing:0.04em;">${p.flightNo}</div>` : ''}
+        </div>
+      </div>` : ''}
+
+      <div style="border-top:1px solid var(--border,#eee);padding-top:14px;">
+        ${(p.allFields || []).filter(([,v]) => v && v.trim() && v !== '0').map(([k,v]) => `
+          <div style="display:flex;padding:6px 4px;border-bottom:1px solid var(--border,#f0f0f0);">
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted,#888);
+              min-width:130px;flex-shrink:0;">${k}</div>
+            <div style="font-size:12px;color:var(--text,#111);word-break:break-word;">${v}</div>
+          </div>`).join('')}
+      </div>`;
+
+    document.getElementById('sidePanel').classList.add('open');
+    document.getElementById('panelOverlay')?.classList.add('active');
+  }
+
+  function attachViewBtns() {
+    tbody?.querySelectorAll('.travel-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = people[+btn.dataset.idx];
+        if (p) openPanel(p);
+      });
+    });
+  }
+
+  function applyFilters() {
+    const q      = (search?.value  || '').toLowerCase().trim();
+    const status = statSel?.value  || '';
+    const spon   = sponSel?.value  || '';
+    const sort   = sortSel?.value  || 'dep_asc';
+
+    let filtered = people.map((p, i) => ({ ...p, _orig: i }));
+    if (q)      filtered = filtered.filter(p => `${p.fullName} ${p.host}`.toLowerCase().includes(q));
+    if (status) filtered = filtered.filter(p => p.category === status);
+    if (spon)   filtered = filtered.filter(p => p.sponsor === spon);
+
+    const nullLast = (a, b, mul) => {
+      if (a === null && b === null) return 0;
+      if (a === null) return 1; if (b === null) return -1;
+      return (a - b) * mul;
+    };
+    filtered.sort((a, b) => {
+      if (sort === 'name_asc')  return a.fullName.localeCompare(b.fullName);
+      if (sort === 'dep_asc')   return nullLast(a.daysUntil, b.daysUntil,  1);
+      if (sort === 'dep_desc')  return nullLast(a.daysUntil, b.daysUntil, -1);
+      if (sort === 'urgent') {
+        const aU = a.category === 'none' ? 0 : 1, bU = b.category === 'none' ? 0 : 1;
+        if (aU !== bU) return aU - bU;
+        return nullLast(a.daysUntil, b.daysUntil, 1);
+      }
+      return 0;
+    });
+
+    if (!tbody) return;
+    tbody.innerHTML = filtered.length === 0
+      ? `<tr><td colspan="9" style="text-align:center;padding:52px;color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
+      : filtered.map((p, di) => rowHtml(p, di, p._orig)).join('');
+
+    if (countEl) countEl.textContent = filtered.length === people.length
+      ? `${people.length} participants`
+      : `${filtered.length} of ${people.length}`;
+
+    attachViewBtns();
+  }
+
+  // Pipeline stage card → click to filter by that status
+  document.querySelectorAll('.travel-stage-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const stage = card.dataset.stage;
+      const active = statSel.value === stage;
+      statSel.value = active ? '' : stage;
+      document.querySelectorAll('.travel-stage-card').forEach(c => {
+        c.style.boxShadow = '';
+        c.style.opacity   = active ? '1' : (c.dataset.stage === stage ? '1' : '0.55');
+      });
+      if (active) document.querySelectorAll('.travel-stage-card').forEach(c => c.style.opacity = '1');
+      else card.style.boxShadow = `0 0 0 3px ${STAGES_MAP[stage]?.color || '#888'}`;
+      applyFilters();
+    });
+  });
+
+  [search, statSel, sponSel, sortSel].forEach(el => el?.addEventListener('input', applyFilters));
+
+  clearBtn?.addEventListener('click', () => {
+    if (search)  search.value  = '';
+    if (statSel) statSel.value = '';
+    if (sponSel) sponSel.value = '';
+    if (sortSel) sortSel.value = 'dep_asc';
+    document.querySelectorAll('.travel-stage-card').forEach(c => { c.style.boxShadow = ''; c.style.opacity = '1'; });
+    applyFilters();
+  });
+
+  document.getElementById('panelClose')?.addEventListener('click', () => {
+    document.getElementById('sidePanel')?.classList.remove('open');
+    document.getElementById('panelOverlay')?.classList.remove('active');
+  });
+  document.getElementById('panelOverlay')?.addEventListener('click', () => {
+    document.getElementById('sidePanel')?.classList.remove('open');
+    document.getElementById('panelOverlay')?.classList.remove('active');
+  });
+
+  // Initial render with default sort (soonest departure first)
+  applyFilters();
+};
 
 // ============================
 // PAGE: SETTINGS
