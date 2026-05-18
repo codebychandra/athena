@@ -3611,6 +3611,13 @@ pageEvents.requisition = function () {
     return (s||'').toLowerCase().trim().replace(/\s*&\s*/g,' and ').replace(/\s+/g,' ');
   }
 
+  // ── placement "Selected Job" → requisition Department aliases ─────
+  // Add entries here when a job title doesn't directly match a dept name
+  const JOB_ALIAS = {
+    'front desk'   : 'guest relations',
+    'front office' : 'guest relations',
+  };
+
   // ── build fulfillment data from active req rows + J1_OFFLINE_DATA ─
   // Filled = actual placements (Selected Job → matched to req Dept)
   // Remaining = active headcount - filled  (formula auto-updates with data)
@@ -3638,7 +3645,10 @@ pageEvents.requisition = function () {
         const hay = [p['Hosting Company'],p['Selected Job']].join(' ').toLowerCase();
         if (!hay.includes(gSearch)) return;
       }
-      const reqDept = normToReqDept[normDept(p['Selected Job'])];
+      // Apply alias first (e.g. "Front Desk" / "Front Office" → "Guest Relations")
+      const normJob  = normDept(p['Selected Job']);
+      const normKey  = JOB_ALIAS[normJob] || normJob;
+      const reqDept  = normToReqDept[normKey];
       if (reqDept) deptFilled[reqDept] = (deptFilled[reqDept]||0) + 1;
     });
 
