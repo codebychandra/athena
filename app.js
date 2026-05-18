@@ -3461,7 +3461,7 @@ pages.requisition = async function () {
       <!-- ── Chart Row 1b: Fulfillment summary (right col) ──── -->
       <div class="card">
         <div class="card-title">Fulfillment by Department</div>
-        <div class="card-subtitle">Total · Filled · Remaining headcount per department</div>
+        <div class="card-subtitle">Active req headcount vs actual placements · auto-syncs with placement data</div>
         <div class="chart-wrap" style="height:320px;"><canvas id="reqFulfillChart"></canvas></div>
       </div>
     </div>
@@ -3606,27 +3606,51 @@ pageEvents.requisition = function () {
   // Sponsor palette (shared between initial render and refreshCharts)
   const SP_COLORS = ['#1B3A6B','#B01A18','#059669','#B87A14','#6B47DC','#888888'];
 
-  // ── chart refresh (called whenever global filters change) ────────
-  function refreshCharts(activeRows) {
-    // Read current global filter values (for rawRows / fulfillment filtering)
-    const gSearch  = (document.getElementById('reqSearch')?.value   || '').toLowerCase().trim();
-    const gDept    = document.getElementById('reqDeptFilter')?.value    || '';
-    const gSponsor = document.getElementById('reqSponsorFilter')?.value || '';
-    const gHousing = document.getElementById('reqHousingFilter')?.value || '';
+  // ── dept name normaliser: "Food & Beverage" ↔ "Food and Beverage" ─
+  function normDept(s) {
+    return (s||'').toLowerCase().trim().replace(/\s*&\s*/g,' and ').replace(/\s+/g,' ');
+  }
 
-    // Filter rawRows by the same global criteria for the fulfillment chart
-    const filteredRaw = rawRows.filter(r => {
-      if (!r[REQ_CI.progType]?.trim()) return false;
-      if (gDept    && r[REQ_CI.dept]    !== gDept)    return false;
-      if (gSponsor && r[REQ_CI.sponsor] !== gSponsor) return false;
-      if (gHousing && r[REQ_CI.housing] !== gHousing) return false;
-      if (gSearch) {
-        const hay = [r[REQ_CI.company],r[REQ_CI.dept],r[REQ_CI.position],r[REQ_CI.city]].join(' ').toLowerCase();
-        if (!hay.includes(gSearch)) return false;
-      }
-      return true;
+  // ── build fulfillment data from active req rows + J1_OFFLINE_DATA ─
+  // Filled = actual placements (Selected Job → matched to req Dept)
+  // Remaining = active headcount - filled  (formula auto-updates with data)
+  function buildFulfillData(activeRows) {
+    const gSponsor = document.getElementById('reqSponsorFilter')?.value || '';
+    const gSearch  = (document.getElementById('reqSearch')?.value || '').toLowerCase().trim();
+
+    // Active headcount by dept (from requisition)
+    const deptHC = {};
+    activeRows.forEach(r => {
+      const d = r[REQ_CI.dept]||'Unknown';
+      deptHC[d] = (deptHC[d]||0) + (parseInt(r[REQ_CI.slots])||0);
     });
 
+    // Reverse lookup: normalised dept name → original req dept string
+    const normToReqDept = {};
+    Object.keys(deptHC).forEach(d => { normToReqDept[normDept(d)] = d; });
+
+    // Filled count from J1_OFFLINE_DATA (re-read every call so auto-syncs)
+    const deptFilled = {};
+    const placements = Array.isArray(window.J1_OFFLINE_DATA) ? window.J1_OFFLINE_DATA : [];
+    placements.forEach(p => {
+      if (gSponsor && p['Processing Sponsor'] !== gSponsor) return;
+      if (gSearch) {
+        const hay = [p['Hosting Company'],p['Selected Job']].join(' ').toLowerCase();
+        if (!hay.includes(gSearch)) return;
+      }
+      const reqDept = normToReqDept[normDept(p['Selected Job'])];
+      if (reqDept) deptFilled[reqDept] = (deptFilled[reqDept]||0) + 1;
+    });
+
+    // Sort by total headcount descending
+    const depts     = Object.keys(deptHC).sort((a,b) => deptHC[b] - deptHC[a]);
+    const filled    = depts.map(d => Math.min(deptFilled[d]||0, deptHC[d]));
+    const remaining = depts.map(d => Math.max(0, deptHC[d] - (deptFilled[d]||0)));
+    return { depts, filled, remaining };
+  }
+
+  // ── chart refresh (called whenever global filters change) ────────
+  function refreshCharts(activeRows) {
     // ── 1. Sponsor doughnut ──────────────────────────────────────
     const sc = state.charts.get('reqSponsorChart');
     if (sc) {
@@ -3639,21 +3663,13 @@ pageEvents.requisition = function () {
       sc.update();
     }
 
-    // ── 2. Fulfillment stacked bar ───────────────────────────────
+    // ── 2. Fulfillment — cross-ref J1_OFFLINE_DATA ───────────────
     const fc = state.charts.get('reqFulfillChart');
     if (fc) {
-      const fa={}, fcl={};
-      filteredRaw.forEach(r => {
-        const d=r[REQ_CI.dept]||'Unknown', v=parseInt(r[REQ_CI.slots])||0;
-        if (r[REQ_CI.status]==='Active')      fa[d]=(fa[d]||0)+v;
-        else if (r[REQ_CI.status]==='Closed') fcl[d]=(fcl[d]||0)+v;
-      });
-      const fd = [...new Set([...Object.keys(fa),...Object.keys(fcl)])].sort((a,b)=>{
-        return ((fa[b]||0)+(fcl[b]||0)) - ((fa[a]||0)+(fcl[a]||0));
-      });
-      fc.data.labels            = fd;
-      fc.data.datasets[0].data  = fd.map(d=>fcl[d]||0);   // Filled
-      fc.data.datasets[1].data  = fd.map(d=>fa[d]||0);    // Remaining
+      const { depts, filled, remaining } = buildFulfillData(activeRows);
+      fc.data.labels           = depts;
+      fc.data.datasets[0].data = filled;    // Filled (green)
+      fc.data.datasets[1].data = remaining; // Remaining (orange)
       fc.update();
     }
 
@@ -3831,17 +3847,8 @@ pageEvents.requisition = function () {
   });
 
   // ── Chart 2: Fulfillment by Department (stacked: Filled green + Remaining orange) ─
-  const deptActive={}, deptClosed={};
-  rawRows.forEach(r => {
-    if (!r[REQ_CI.progType]?.trim()) return;
-    const d=r[REQ_CI.dept]||'Unknown', v=parseInt(r[REQ_CI.slots])||0;
-    if (r[REQ_CI.status]==='Active')      deptActive[d]=(deptActive[d]||0)+v;
-    else if (r[REQ_CI.status]==='Closed') deptClosed[d]=(deptClosed[d]||0)+v;
-  });
-  const fulfillDepts = [...new Set([...Object.keys(deptActive),...Object.keys(deptClosed)])].sort((a,b)=>{
-    const ta=(deptActive[a]||0)+(deptClosed[a]||0), tb=(deptActive[b]||0)+(deptClosed[b]||0);
-    return tb - ta;
-  });
+  // Filled = actual placements from J1_OFFLINE_DATA (auto-syncs when data updates)
+  const { depts: fulfillDepts, filled: fulfillFilled, remaining: fulfillRemaining } = buildFulfillData(rows);
 
   createChart('reqFulfillChart', {
     type: 'bar',
@@ -3850,11 +3857,11 @@ pageEvents.requisition = function () {
       labels: fulfillDepts,
       datasets: [
         { label: 'Filled',
-          data: fulfillDepts.map(d=>deptClosed[d]||0),
+          data: fulfillFilled,
           backgroundColor: hexToRgba('#059669',0.85),
           borderRadius: 0, stack: 'f' },
         { label: 'Remaining',
-          data: fulfillDepts.map(d=>deptActive[d]||0),
+          data: fulfillRemaining,
           backgroundColor: hexToRgba('#D97706',0.85),
           borderRadius: [0,4,4,0], stack: 'f' }
       ]
