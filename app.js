@@ -3523,6 +3523,7 @@ pageEvents.requisition = function () {
   const C       = DIVISION_COLORS.j1;
   const rows    = state.dataCache['req-rows']    || [];
   const rawRows = state.dataCache['req-rawrows'] || [];
+  const DL      = window.ChartDataLabels;          // datalabels plugin (CDN global)
   if (!rows.length) return;
 
   // ── prog type tags ─────────────────────────────────────────────
@@ -3723,6 +3724,7 @@ pageEvents.requisition = function () {
 
   createChart('reqSponsorChart', {
     type: 'doughnut',
+    plugins: DL ? [DL] : [],
     data: {
       labels: spSorted.map(e=>e[0]),
       datasets: [{
@@ -3737,7 +3739,11 @@ pageEvents.requisition = function () {
       cutout: '52%',
       plugins: {
         legend: { position: 'bottom' },
-        datalabels: {
+        datalabels: DL ? {
+          display: (ctx) => {
+            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+            return total ? ctx.dataset.data[ctx.dataIndex] / total >= 0.05 : false;
+          },
           formatter: (v, ctx) => {
             const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
             const pct   = Math.round(v / total * 100);
@@ -3746,7 +3752,7 @@ pageEvents.requisition = function () {
           color: '#fff',
           font: { size: 11, weight: 'bold' },
           textAlign: 'center'
-        }
+        } : false
       }
     }
   });
@@ -3766,6 +3772,7 @@ pageEvents.requisition = function () {
 
   createChart('reqFulfillChart', {
     type: 'bar',
+    plugins: DL ? [DL] : [],
     data: {
       labels: fulfillDepts,
       datasets: [
@@ -3799,22 +3806,21 @@ pageEvents.requisition = function () {
             }
           }
         },
-        datalabels:{
+        datalabels: DL ? {
           font:{ size:11, weight:'700' },
           display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
           // Filled (ds0): value inside segment in white
-          // Remaining (ds1): value inside segment in white + total OUTSIDE at bar end
+          // Remaining (ds1): value inside + total OUTSIDE at bar end
           anchor: ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
           align:  ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
           offset: ctx => ctx.datasetIndex === 0 ? 0 : 6,
           color:  ctx => ctx.datasetIndex === 0 ? '#fff' : 'var(--text,#1A1A1A)',
           formatter: (v, ctx) => {
             if (ctx.datasetIndex === 0) return v > 0 ? v.toLocaleString() : '';
-            // Outside the Remaining segment — show total
             const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
             return total > 0 ? total.toLocaleString() : '';
           }
-        }
+        } : false
       },
       scales:{
         x:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
@@ -3836,11 +3842,12 @@ pageEvents.requisition = function () {
 
   createChart('reqDateChart', {
     type: 'line',
+    plugins: DL ? [DL] : [],
     data: { labels:mLabels, datasets:[
       { label:'Headcount',
         data: sortedM.map(m=>monthMap[m]),
         borderColor:C, backgroundColor:hexToRgba(C,0.08), borderWidth:2.5,
-        pointRadius:4, pointHoverRadius:7, pointBackgroundColor:C,
+        pointRadius:5, pointHoverRadius:8, pointBackgroundColor:C,
         fill:true, tension:0.3, yAxisID:'y' },
       { label:'Cumulative Headcount',
         data: mCumul,
@@ -3851,13 +3858,15 @@ pageEvents.requisition = function () {
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 } },
-        datalabels:{
-          display: ctx => ctx.datasetIndex === 0,
-          anchor:'end', align:'top', offset:4,
-          font:{ size:10, weight:'700' },
+        datalabels: DL ? {
+          display: ctx => ctx.datasetIndex === 0 && (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+          anchor: 'end',
+          align: 'top',
+          offset: 4,
+          font:{ size:11, weight:'700' },
           color: C,
           formatter: v => v > 0 ? v.toLocaleString() : ''
-        }
+        } : false
       },
       scales:{
         x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11}, maxRotation:45} },
