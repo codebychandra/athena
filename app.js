@@ -4075,13 +4075,23 @@ pages.travel = async function () {
     return 'other';
   }
 
+  // Top pipeline cards — departure (first 4) + return ticket (last 2)
   const STAGES = [
-    { key:'none',      label:'No Ticket',  icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
-    { key:'requested', label:'Requested',  icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
-    { key:'paid',      label:'Paid',       icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
-    { key:'issued',    label:'Issued',     icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
-    { key:'departed',  label:'Departed',   icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
-    { key:'other',     label:'Other',      icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
+    { key:'none',          label:'No Ticket',        icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
+    { key:'requested',     label:'Requested',        icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
+    { key:'issued',        label:'Issued',           icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
+    { key:'departed',      label:'Departed',         icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
+    { key:'ret_requested', label:'Rtn Requested',    icon:'📋', color:'#7C3AED', bg:'rgba(124,58,237,0.10)'  },
+    { key:'ret_issued',    label:'Rtn Issued',       icon:'🏠', color:'#0891B2', bg:'rgba(8,145,178,0.10)'   },
+  ];
+  // Full badge palette — used for ticket status badges in table & side panel
+  const BADGE_STAGES = [
+    { key:'none',      label:'No Ticket', icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
+    { key:'requested', label:'Requested', icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
+    { key:'paid',      label:'Paid',      icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
+    { key:'issued',    label:'Issued',    icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
+    { key:'departed',  label:'Departed',  icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
+    { key:'other',     label:'Other',     icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
   ];
 
   // Parse columns+rows into structured objects — maps to J1 Participants field names
@@ -4160,8 +4170,8 @@ pages.travel = async function () {
       + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
   }
 
-  function ticketBadge(category, label, stagesArr) {
-    const stg = stagesArr.find(s => s.key === category) || stagesArr[stagesArr.length-1];
+  function ticketBadge(category, label) {
+    const stg = BADGE_STAGES.find(s => s.key === category) || BADGE_STAGES[BADGE_STAGES.length-1];
     return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
       background:${stg.bg};color:${stg.color};white-space:nowrap;">
       ${stg.icon} ${label || stg.label}
@@ -4180,8 +4190,8 @@ pages.travel = async function () {
       <td style="font-size:13px;">${p.host || '—'}</td>
       <td>${urgencyTag(p.daysUntil, p.departure)}</td>
       <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
-      <td>${ticketBadge(p.category,    p.depLabel, STAGES)}</td>
-      <td>${ticketBadge(p.retCategory, p.retLabel, STAGES)}</td>
+      <td>${ticketBadge(p.category,    p.depLabel)}</td>
+      <td>${ticketBadge(p.retCategory, p.retLabel)}</td>
       <td style="font-size:12px;">${p.sponsor || '—'}</td>
       <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
       <td>
@@ -4216,8 +4226,12 @@ pages.travel = async function () {
 
   const people   = parseRows(columns, rows);
   const total    = people.length;
-  const counts   = Object.fromEntries(STAGES.map(s => [s.key, 0]));
-  people.forEach(p => { if (counts[p.category] !== undefined) counts[p.category]++; else counts.other++; });
+  const counts = Object.fromEntries(STAGES.map(s => [s.key, 0]));
+  people.forEach(p => {
+    if (p.category in counts) counts[p.category]++;
+    if (p.retCategory === 'requested') counts.ret_requested++;
+    else if (p.retCategory === 'issued') counts.ret_issued++;
+  });
   const authErr  = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
   const sponsors = [...new Set(people.map(p => p.sponsor).filter(Boolean))].sort();
 
@@ -4300,7 +4314,7 @@ pages.travel = async function () {
     </div>
 
     <!-- Data store for pageEvents -->
-    <script type="application/json" id="travelData">${JSON.stringify({ people, stages: STAGES })}<\/script>
+    <script type="application/json" id="travelData">${JSON.stringify({ people, stages: STAGES, badgeStages: BADGE_STAGES })}<\/script>
 
     <!-- ── Table ── -->
     <div class="card" style="overflow:hidden;">
@@ -4340,8 +4354,9 @@ pageEvents.travel = function () {
   let parsed;
   try { parsed = JSON.parse(el.textContent); } catch { return; }
 
-  const { people, stages } = parsed;
-  const STAGES_MAP = Object.fromEntries(stages.map(s => [s.key, s]));
+  const { people, stages, badgeStages } = parsed;
+  const STAGES_MAP      = Object.fromEntries(stages.map(s => [s.key, s]));
+  const BADGE_STAGES_MAP = Object.fromEntries((badgeStages || stages).map(s => [s.key, s]));
   const C = DIVISION_COLORS.j1;
 
   const tbody    = document.getElementById('travelTbody');
@@ -4369,7 +4384,7 @@ pageEvents.travel = function () {
   }
 
   function ticketBadge(category, label) {
-    const stg = STAGES_MAP[category] || stages[stages.length-1];
+    const stg = BADGE_STAGES_MAP[category] || (badgeStages || stages)[((badgeStages || stages).length-1)];
     return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
       background:${stg.bg};color:${stg.color};white-space:nowrap;">
       ${stg.icon} ${label || stg.label}
@@ -4403,7 +4418,7 @@ pageEvents.travel = function () {
   }
 
   function openPanel(p) {
-    const stg = STAGES_MAP[p.category] || stages[stages.length-1];
+    const stg = BADGE_STAGES_MAP[p.category] || (badgeStages||stages)[(badgeStages||stages).length-1];
     const urgColor = p.daysUntil === null ? '#888'
       : p.daysUntil < 0   ? '#64748B'
       : p.daysUntil <= 7  ? '#B01A18'
@@ -4415,7 +4430,7 @@ pageEvents.travel = function () {
       : p.daysUntil === 0 ? 'Today!'
       : `in ${p.daysUntil} days`;
 
-    const retStg = STAGES_MAP[p.retCategory] || stages[stages.length-1];
+    const retStg = BADGE_STAGES_MAP[p.retCategory] || (badgeStages||stages)[(badgeStages||stages).length-1];
 
     document.getElementById('panelTitle').textContent = p.fullName || 'Participant';
     document.getElementById('panelBody').innerHTML = `
@@ -4503,7 +4518,11 @@ pageEvents.travel = function () {
 
     let filtered = people.map((p, i) => ({ ...p, _orig: i }));
     if (q)      filtered = filtered.filter(p => `${p.fullName} ${p.host}`.toLowerCase().includes(q));
-    if (status) filtered = filtered.filter(p => p.category === status);
+    if (status) {
+      if (status === 'ret_requested') filtered = filtered.filter(p => p.retCategory === 'requested');
+      else if (status === 'ret_issued') filtered = filtered.filter(p => p.retCategory === 'issued');
+      else filtered = filtered.filter(p => p.category === status);
+    }
     if (spon)   filtered = filtered.filter(p => p.sponsor === spon);
 
     const nullLast = (a, b, mul) => {
@@ -4546,7 +4565,7 @@ pageEvents.travel = function () {
         c.style.opacity   = active ? '1' : (c.dataset.stage === stage ? '1' : '0.55');
       });
       if (active) document.querySelectorAll('.travel-stage-card').forEach(c => c.style.opacity = '1');
-      else card.style.boxShadow = `0 0 0 3px ${STAGES_MAP[stage]?.color || '#888'}`;
+      else card.style.boxShadow = `0 0 0 3px ${(STAGES_MAP[stage] || BADGE_STAGES_MAP[stage])?.color || '#888'}`;
       applyFilters();
     });
   });
