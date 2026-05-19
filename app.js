@@ -4050,7 +4050,21 @@ pages.travel = async function () {
   const C       = DIVISION_COLORS.j1;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  // Map raw ticket status text → category key
+  // Resolve ticket category from actual Zoho field values:
+  //   Flight Ticket Status:  "" | "Requested" | "Ticket Issued"
+  //   Ticket Payment Status: "" | "Paid"
+  function resolveCategory(flightStatus, payStatus, daysUntil) {
+    const f = (flightStatus || '').toLowerCase().trim();
+    const p = (payStatus    || '').toLowerCase().trim();
+    if (f.includes('issued')) {
+      return (daysUntil !== null && daysUntil < 0) ? 'departed' : 'issued';
+    }
+    if (p === 'paid')         return 'paid';
+    if (f === 'requested')    return 'requested';
+    if (!f && !p)             return 'none';
+    return 'other';
+  }
+  // Keep legacy alias so the old ticketCategory(raw) calls below still work
   function ticketCategory(raw) {
     const s = (raw || '').toLowerCase().trim();
     if (!s || s === 'n/a' || s === 'none' || s === 'no ticket' || s === 'not yet' || s === '-' || s === '—') return 'none';
@@ -4062,15 +4076,15 @@ pages.travel = async function () {
   }
 
   const STAGES = [
-    { key:'none',      label:'No Ticket',     icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
-    { key:'paid',      label:'Ticket Paid',   icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
-    { key:'issued',    label:'Ticket Issued', icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
-    { key:'departed',  label:'Departed',      icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
-    { key:'cancelled', label:'Cancelled',     icon:'❌', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
-    { key:'other',     label:'Other',         icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
+    { key:'none',      label:'No Ticket',  icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
+    { key:'requested', label:'Requested',  icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
+    { key:'paid',      label:'Paid',       icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
+    { key:'issued',    label:'Issued',     icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
+    { key:'departed',  label:'Departed',   icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
+    { key:'other',     label:'Other',      icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
   ];
 
-  // Parse columns+rows array into structured objects
+  // Parse columns+rows into structured objects — maps to J1 Participants field names
   function parseRows(columns, rows) {
     const fi = (pats) => {
       for (const p of pats) {
@@ -4080,26 +4094,34 @@ pages.travel = async function () {
       return -1;
     };
     const idx = {
-      firstName:    fi([/^first.?name$/i]),
-      lastName:     fi([/^last.?name$/i]),
-      name:         fi([/^name$/i, /^full.?name$/i, /participant.?name/i]),
-      host:         fi([/hosting.?company/i, /^host$/i, /employer/i]),
-      departure:    fi([/departure.?date/i, /depart.?date/i, /dep.?date/i, /flight.?date/i, /outbound/i, /^departure$/i]),
-      returnDate:   fi([/return.?date/i, /arrival.?date/i, /^return$/i, /inbound/i]),
-      ticketStatus: fi([/ticket.?status/i, /flight.?status/i, /booking.?status/i, /travel.?status/i, /^ticket$/i]),
-      sponsor:      fi([/processing.?sponsor/i, /^sponsor$/i]),
-      airline:      fi([/^airline$/i, /carrier/i]),
-      flightNo:     fi([/flight.?no/i, /flight.?num/i, /^pnr$/i, /confirmation.?no/i]),
-      nationality:  fi([/nationality/i]),
-      passport:     fi([/passport/i]),
+      firstName:       fi([/^First Name$/i]),
+      lastName:        fi([/^Last Name$/i]),
+      name:            fi([/^Full Name$/i, /^full.?name$/i]),
+      host:            fi([/^Hosting Company$/i, /hosting.?company/i]),
+      departure:       fi([/^Departure Date$/i]),
+      returnDate:      fi([/^Return Departure Date$/i]),   // when they fly back home
+      flightStatus:    fi([/^Flight Ticket Status$/i]),
+      payStatus:       fi([/^Ticket Payment Status$/i]),
+      retFlightStatus: fi([/^Return Flight Ticket Status$/i]),
+      retPayStatus:    fi([/^Return Ticket Payment Status$/i]),
+      sponsor:         fi([/^Processing Sponsor$/i, /processing.?sponsor/i]),
+      airline:         fi([/^Airline$/i]),
+      flightNo:        fi([/^Airline PNR Number$/i]),
+      retAirline:      fi([/^Return Airline$/i]),
+      retFlightNo:     fi([/^Return Airline PNR Number$/i]),
+      country:         fi([/^Country$/i]),
+      appStatus:       fi([/^J1 Application Status$/i]),
+      job:             fi([/^Selected Job$/i]),
+      tripTo:          fi([/^Trip To$/i]),
     };
     const today = new Date(); today.setHours(0,0,0,0);
     return rows.map((row, i) => {
       const g = (k) => idx[k] >= 0 ? String(row[idx[k]] ?? '').trim() : '';
       const first = g('firstName'), last = g('lastName');
       const fullName = (first || last) ? `${first} ${last}`.trim() : g('name') || `Participant ${i+1}`;
-      const depRaw = g('departure'), retRaw = g('returnDate'), ticketRaw = g('ticketStatus');
-      const category = ticketCategory(ticketRaw);
+      const depRaw = g('departure'), retRaw = g('returnDate');
+      const flightStatus = g('flightStatus'), payStatus = g('payStatus');
+      const retFlightStatus = g('retFlightStatus'), retPayStatus = g('retPayStatus');
       let daysUntil = null;
       if (depRaw) {
         const d = new Date(depRaw);
@@ -4107,9 +4129,15 @@ pages.travel = async function () {
       }
       return {
         fullName, host: g('host'), departure: depRaw, returnDate: retRaw,
-        ticketRaw, category, sponsor: g('sponsor'), airline: g('airline'),
-        flightNo: g('flightNo'), nationality: g('nationality'), passport: g('passport'),
-        daysUntil,
+        flightStatus, payStatus, retFlightStatus, retPayStatus,
+        category:    resolveCategory(flightStatus,    payStatus,    daysUntil),
+        retCategory: resolveCategory(retFlightStatus, retPayStatus, null),
+        depLabel:    flightStatus || payStatus    || '',
+        retLabel:    retFlightStatus || retPayStatus || '',
+        sponsor: g('sponsor'), airline: g('airline'), flightNo: g('flightNo'),
+        retAirline: g('retAirline'), retFlightNo: g('retFlightNo'),
+        country: g('country'), appStatus: g('appStatus'), job: g('job'),
+        tripTo: g('tripTo'), daysUntil,
         allFields: columns.map((c, ci) => [c, String(row[ci] ?? '')])
       };
     });
@@ -4132,25 +4160,28 @@ pages.travel = async function () {
       + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
   }
 
+  function ticketBadge(category, label, stagesArr) {
+    const stg = stagesArr.find(s => s.key === category) || stagesArr[stagesArr.length-1];
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${stg.bg};color:${stg.color};white-space:nowrap;">
+      ${stg.icon} ${label || stg.label}
+    </span>`;
+  }
+
   function rowHtml(p, dispIdx, origIdx) {
-    const stg    = STAGES.find(s => s.key === p.category) || STAGES[STAGES.length-1];
     const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
     const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
     return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
       <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
       <td>
         <strong>${p.fullName}</strong>
-        ${p.nationality ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.nationality}</div>` : ''}
+        ${p.country ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.country}</div>` : ''}
       </td>
       <td style="font-size:13px;">${p.host || '—'}</td>
       <td>${urgencyTag(p.daysUntil, p.departure)}</td>
       <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
-      <td>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
-          background:${stg.bg};color:${stg.color};white-space:nowrap;">
-          ${stg.icon} ${p.ticketRaw || stg.label}
-        </span>
-      </td>
+      <td>${ticketBadge(p.category,    p.depLabel, STAGES)}</td>
+      <td>${ticketBadge(p.retCategory, p.retLabel, STAGES)}</td>
       <td style="font-size:12px;">${p.sponsor || '—'}</td>
       <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
       <td>
@@ -4281,14 +4312,15 @@ pages.travel = async function () {
             <th>Hosting Company</th>
             <th>✈️ Departure</th>
             <th>🏠 Return</th>
-            <th>Ticket Status</th>
+            <th>Dep. Ticket</th>
+            <th>Return Ticket</th>
             <th>Sponsor</th>
             <th>Flight Info</th>
             <th></th>
           </tr></thead>
           <tbody id="travelTbody">
             ${people.length === 0
-              ? `<tr><td colspan="9" style="text-align:center;padding:56px 24px;
+              ? `<tr><td colspan="10" style="text-align:center;padding:56px 24px;
                   color:var(--text-muted,#aaa);font-size:13px;">
                   ${!isLocal
                     ? '✈️ Start the local Node.js server to load live travel data from Zoho'
@@ -4336,25 +4368,28 @@ pageEvents.travel = function () {
       + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
   }
 
+  function ticketBadge(category, label) {
+    const stg = STAGES_MAP[category] || stages[stages.length-1];
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${stg.bg};color:${stg.color};white-space:nowrap;">
+      ${stg.icon} ${label || stg.label}
+    </span>`;
+  }
+
   function rowHtml(p, dispIdx, origIdx) {
-    const stg    = STAGES_MAP[p.category] || stages[stages.length-1];
     const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
     const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
     return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
       <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
       <td>
         <strong>${p.fullName}</strong>
-        ${p.nationality ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.nationality}</div>` : ''}
+        ${p.country ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.country}</div>` : ''}
       </td>
       <td style="font-size:13px;">${p.host || '—'}</td>
       <td>${urgencyTag(p.daysUntil, p.departure)}</td>
       <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
-      <td>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
-          background:${stg.bg};color:${stg.color};white-space:nowrap;">
-          ${stg.icon} ${p.ticketRaw || stg.label}
-        </span>
-      </td>
+      <td>${ticketBadge(p.category,    p.depLabel)}</td>
+      <td>${ticketBadge(p.retCategory, p.retLabel)}</td>
       <td style="font-size:12px;">${p.sponsor || '—'}</td>
       <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
       <td>
@@ -4380,14 +4415,28 @@ pageEvents.travel = function () {
       : p.daysUntil === 0 ? 'Today!'
       : `in ${p.daysUntil} days`;
 
+    const retStg = STAGES_MAP[p.retCategory] || stages[stages.length-1];
+
     document.getElementById('panelTitle').textContent = p.fullName || 'Participant';
     document.getElementById('panelBody').innerHTML = `
-      <div style="text-align:center;padding:18px 0 14px;">
-        <span style="font-size:13px;font-weight:700;padding:6px 20px;border-radius:20px;
-          background:${stg.bg};color:${stg.color};">${stg.icon} ${p.ticketRaw || stg.label}</span>
+      <!-- Outbound ticket status -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 2px 12px;">
+        <div style="text-align:center;">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+            color:var(--text-muted,#888);margin-bottom:5px;">Departure Ticket</div>
+          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;
+            background:${stg.bg};color:${stg.color};">${stg.icon} ${p.depLabel || stg.label}</span>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+            color:var(--text-muted,#888);margin-bottom:5px;">Return Ticket</div>
+          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;
+            background:${retStg.bg};color:${retStg.color};">${retStg.icon} ${p.retLabel || retStg.label}</span>
+        </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;padding:0 2px;">
+      <!-- Departure + Return date cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding:0 2px;">
         <div style="padding:14px;background:var(--surface,#f5f5f5);border-radius:10px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
             color:var(--text-muted,#888);margin-bottom:5px;">✈️ Departure</div>
@@ -4401,13 +4450,26 @@ pageEvents.travel = function () {
         </div>
       </div>
 
+      <!-- Outbound flight info -->
       ${(p.airline || p.flightNo) ? `
-      <div style="padding:12px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
-        margin-bottom:16px;display:flex;align-items:center;gap:12px;">
-        <span style="font-size:20px;">🛩️</span>
+      <div style="padding:10px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
+        margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🛩️</span>
         <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text-muted,#888);margin-bottom:2px;">OUTBOUND</div>
           ${p.airline  ? `<div style="font-size:13px;font-weight:600;">${p.airline}</div>` : ''}
-          ${p.flightNo ? `<div style="font-size:12px;color:var(--text-muted,#888);font-family:monospace;letter-spacing:0.04em;">${p.flightNo}</div>` : ''}
+          ${p.flightNo ? `<div style="font-size:11px;color:var(--text-muted,#888);font-family:monospace;">${p.flightNo}</div>` : ''}
+        </div>
+      </div>` : ''}
+      <!-- Return flight info -->
+      ${(p.retAirline || p.retFlightNo) ? `
+      <div style="padding:10px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
+        margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🔄</span>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text-muted,#888);margin-bottom:2px;">RETURN</div>
+          ${p.retAirline  ? `<div style="font-size:13px;font-weight:600;">${p.retAirline}</div>` : ''}
+          ${p.retFlightNo ? `<div style="font-size:11px;color:var(--text-muted,#888);font-family:monospace;">${p.retFlightNo}</div>` : ''}
         </div>
       </div>` : ''}
 

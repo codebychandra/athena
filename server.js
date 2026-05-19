@@ -139,6 +139,9 @@ async function getAllWorkspaces(token) {
 
 // Helper — fetch view data, falling back to async export when sync is disallowed
 // (error code 8133 = SYNC_EXPORT_NOT_ALLOWED, e.g. on query/formula tables)
+// (error code 8525 = URL_RULE_NOT_CONFIGURED,  e.g. on QueryTable views)
+const ASYNC_FALLBACK_CODES = new Set([8133, 8525]);
+
 async function fetchViewData(wsId, viewId, headers) {
   // 1. Try synchronous export first
   try {
@@ -149,8 +152,8 @@ async function fetchViewData(wsId, viewId, headers) {
     return r.data;
   } catch (syncErr) {
     const errCode = syncErr.response?.data?.data?.errorCode;
-    if (errCode !== 8133) throw syncErr;       // unexpected error — re-throw
-    console.log(`⚡ View ${viewId}: sync export not allowed, switching to async...`);
+    if (!ASYNC_FALLBACK_CODES.has(errCode)) throw syncErr;   // unexpected — re-throw
+    console.log(`⚡ View ${viewId}: sync blocked (${errCode}), switching to async export...`);
   }
 
   // 2. Initiate async export (CSV)
@@ -501,8 +504,62 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
   }
 });
 
-// J1 Travel — fetches the J1 Travel QueryTable by its fixed view ID
-const J1_TRAVEL_VIEW_ID = '3008069000006391002';
+// J1 Travel — replicates the J1 Travel QueryTable (view 3008069000006391002)
+// which Zoho Analytics API v2 cannot export directly (QueryTable restriction).
+//
+// Equivalent SQL:
+//   SELECT <travel cols> FROM "J1 Participants"
+//   WHERE "J1 Application Status" NOT IN (<archived/withdrawn statuses>)
+//   ORDER BY "Program Start Date" DESC
+const J1_PARTICIPANTS_VIEW_ID = '3008069000000949007';
+
+// Columns — exact order from the QueryTable SQL (Selected Job aliased as "Role" in UI)
+const J1_TRAVEL_SHOW_COLS = [
+  'J1 Application Status',
+  'J1 Program Sources',
+  'Full Name',
+  'Email',
+  'Selected Job',
+  'Program Start Date',
+  'Program End Date',
+  'Processing Sponsor',
+  'Hosting Company',
+  'Trip From',
+  'Trip To',
+  'Departure Date',
+  'Arrival Date',
+  'Airport Gateway',
+  'Airport Pick-Up',
+  'Flight Ticket Status',
+  'Ticket Pricing',
+  'Ticket Payment Method',
+  'Ticket Payment Status',
+  'Airline',
+  'Airline PNR Number',
+  'Transportation Cost',
+  'Return Trip From',
+  'Return Trip To',
+  'Return Airport Gateway',
+  'Return Departure Date',
+  'Return Arrival Date',
+  'Return Flight Ticket Status',
+  'Return Ticket Price',
+  'Return Ticket Payment Status',
+  'Return Airline',
+  'Return Airline PNR Number',
+  'Return Transportation Cost',
+];
+
+// WHERE "J1 Application Status" NOT IN (...)
+const J1_TRAVEL_EXCLUDE = new Set([
+  'Archived Participants',
+  'Unqualified Participant',
+  'Withdraw at Consultation Call',
+  'Withdraw at Stage 1',
+  'Withdraw at Stage 2',
+  'Withdraw at Stage 3',
+  'Withdraw at Stage 4',
+]);
 
 app.get('/api/zoho/j1-travel', async (req, res) => {
   try {
@@ -511,19 +568,34 @@ app.get('/api/zoho/j1-travel', async (req, res) => {
     const workspaces = await getAllWorkspaces(token);
     if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
 
-    const found = await findZohoView(headers, workspaces, v => v.viewId === J1_TRAVEL_VIEW_ID);
-    if (!found) {
-      return res.status(404).json({
-        error:          'J1 Travel view not found',
-        viewIdSearched: J1_TRAVEL_VIEW_ID,
-        availableViews: await allViewsList(headers, workspaces)
-      });
-    }
+    const found = await findZohoView(headers, workspaces, v => v.viewId === J1_PARTICIPANTS_VIEW_ID);
+    if (!found) return res.status(404).json({ error: 'J1 Participants table not found' });
 
-    const raw  = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
-    const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
-    console.log(`✅ J1 Travel: ${data.rows?.length || 0} rows, ${data.columns?.length || 0} columns`);
-    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
+    const raw     = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
+    const allData = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
+    const allCols = allData.columns || [];
+    const allRows = allData.rows    || [];
+
+    // WHERE "J1 Application Status" NOT IN (excluded statuses)
+    const appIdx   = allCols.indexOf('J1 Application Status');
+    const filtered = allRows.filter(r =>
+      !J1_TRAVEL_EXCLUDE.has(String(r[appIdx] ?? '').trim())
+    );
+
+    // ORDER BY "Program Start Date" DESC
+    const startIdx = allCols.indexOf('Program Start Date');
+    filtered.sort((a, b) =>
+      String(b[startIdx] ?? '').localeCompare(String(a[startIdx] ?? ''))
+    );
+
+    // SELECT only the columns defined in the QueryTable SQL
+    const showIdx = J1_TRAVEL_SHOW_COLS.map(c => allCols.indexOf(c));
+    const columns = J1_TRAVEL_SHOW_COLS.filter((_, i) => showIdx[i] >= 0);
+    const validIdx = showIdx.filter(i => i >= 0);
+    const rows = filtered.map(r => validIdx.map(i => String(r[i] ?? '')));
+
+    console.log(`✅ J1 Travel: ${rows.length}/${allRows.length} participants (${allRows.length - rows.length} excluded), ${columns.length} cols`);
+    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: 'J1 Travel', data: { columns, rows } });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Travel fetch error:', err.response?.data || err.message);
