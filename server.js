@@ -511,7 +511,6 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
 //   SELECT <travel cols> FROM "J1 Participants"
 //   WHERE "J1 Application Status" NOT IN (<archived/withdrawn statuses>)
 //   ORDER BY "Program Start Date" DESC
-const J1_PARTICIPANTS_VIEW_ID = '3008069000000949007';
 
 // Columns — exact order from the QueryTable SQL (Selected Job aliased as "Role" in UI)
 const J1_TRAVEL_SHOW_COLS = [
@@ -568,7 +567,10 @@ app.get('/api/zoho/j1-travel', async (req, res) => {
     const workspaces = await getAllWorkspaces(token);
     if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
 
-    const found = await findZohoView(headers, workspaces, v => v.viewId === J1_PARTICIPANTS_VIEW_ID);
+    const found = await findZohoView(headers, workspaces, v =>
+      v.viewName === 'J1 Participants' ||
+      v.viewName.toLowerCase().includes('j1 participant')
+    );
     if (!found) return res.status(404).json({ error: 'J1 Participants table not found' });
 
     const raw     = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
