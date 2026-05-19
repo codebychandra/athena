@@ -549,16 +549,8 @@ const J1_TRAVEL_SHOW_COLS = [
   'Return Transportation Cost',
 ];
 
-// WHERE "J1 Application Status" NOT IN (...)
-const J1_TRAVEL_EXCLUDE = new Set([
-  'Archived Participants',
-  'Unqualified Participant',
-  'Withdraw at Consultation Call',
-  'Withdraw at Stage 1',
-  'Withdraw at Stage 2',
-  'Withdraw at Stage 3',
-  'Withdraw at Stage 4',
-]);
+// WHERE "J1 Application Status" IN ('Stage 4', 'USA Onboard', 'Program Completed')
+const J1_TRAVEL_INCLUDE = new Set(['Stage 4', 'USA Onboard', 'Program Completed']);
 
 app.get('/api/zoho/j1-travel', async (req, res) => {
   try {
@@ -578,11 +570,15 @@ app.get('/api/zoho/j1-travel', async (req, res) => {
     const allCols = allData.columns || [];
     const allRows = allData.rows    || [];
 
-    // WHERE "J1 Application Status" NOT IN (excluded statuses)
-    const appIdx   = allCols.indexOf('J1 Application Status');
-    const filtered = allRows.filter(r =>
-      !J1_TRAVEL_EXCLUDE.has(String(r[appIdx] ?? '').trim())
-    );
+    // WHERE "J1 Application Status" IN ('Stage 4','USA Onboard','Program Completed')
+    //   AND "Processing Sponsor" IS NOT NULL AND TRIM("Processing Sponsor") <> ''
+    const appIdx      = allCols.indexOf('J1 Application Status');
+    const sponsorIdx  = allCols.indexOf('Processing Sponsor');
+    const filtered    = allRows.filter(r => {
+      const appStatus = String(r[appIdx]     ?? '').trim();
+      const sponsor   = String(r[sponsorIdx] ?? '').trim();
+      return J1_TRAVEL_INCLUDE.has(appStatus) && sponsor !== '';
+    });
 
     // ORDER BY "Program Start Date" DESC
     const startIdx = allCols.indexOf('Program Start Date');
