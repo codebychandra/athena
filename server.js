@@ -384,7 +384,7 @@ async function fetchSheetRecords(resourceId, sheetName) {
   while (true) {
     const url = new URL(`${ZOHO_SHEET}/${resourceId}`);
     url.searchParams.set('method',          'worksheet.records.fetch');
-    url.searchParams.set('sheet_name',      sheetName);
+    url.searchParams.set('worksheet_name',  sheetName);
     url.searchParams.set('header_row',      '1');
     url.searchParams.set('start_row_index', String(startIdx));
     url.searchParams.set('row_count',       String(pageSize));
@@ -411,7 +411,7 @@ async function fetchSheetRecords(resourceId, sheetName) {
 // https://sheet.zoho.com/sheet/open/l9728edc6734e53cd4bf0a5566639f8a90b48
 // ─────────────────────────────────────────────────────────────────────────────
 const PLACEMENT_SHEET_ID   = process.env.PLACEMENT_SHEET_ID   || 'l9728edc6734e53cd4bf0a5566639f8a90b48';
-const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'J1 Placement Report';
+const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'placement';
 
 app.get('/api/zoho/j1-placements', async (req, res) => {
   try {
@@ -430,7 +430,7 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
 // https://sheet.zoho.com/sheet/open/2lr3n52a29b81f88c47618df49092afd2b286
 // ─────────────────────────────────────────────────────────────────────────────
 const VISA_SHEET_ID   = process.env.VISA_SHEET_ID   || '2lr3n52a29b81f88c47618df49092afd2b286';
-const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'J1 Visa Log';
+const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'j1 visa log';
 
 app.get('/api/zoho/j1-visa', async (req, res) => {
   try {
@@ -461,6 +461,7 @@ const REQ_COL_MAP = [
   ['Contract Length',      j => j.contractLength],
   ['Salary',               j => j.salary],
   ['City',                 j => [j.city, j.state].filter(v => v && v !== '—').join(', ') || '—'],
+  ['Date Opened',          j => j.dateOpened || ''],
   ['Target Date',          j => j.targetDate || ''],
   ['Housing Availability', j => j.housingAvail],
 ];
@@ -723,6 +724,7 @@ const JOB_FIELDS = {
   paymentFrequency:  'Payment_Frequency',
   housingAvail:      'Housing_Availability',
   targetDate:        'Target_Date',
+  dateOpened:        'Date_Opened',
   contractLength:    'Contract_Length',
   j1ProgramType:     'J1_Program_Type',
   clientName:        'Client_Name',
@@ -912,6 +914,7 @@ function mapJobRecord(r) {
     paymentFrequency:  r[JF.paymentFrequency]  || '—',
     housingAvail:      r[JF.housingAvail]      || '—',
     targetDate:        r[JF.targetDate]        || null,
+    dateOpened:        r[JF.dateOpened]        || null,
     contractLength:    r[JF.contractLength]    || '—',
     j1ProgramType:     Array.isArray(r[JF.j1ProgramType])
                          ? r[JF.j1ProgramType].join('; ')
