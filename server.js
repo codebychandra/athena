@@ -208,24 +208,6 @@ async function fetchViewData(wsId, viewId, headers) {
 loadTokens();
 app.use(express.json());
 
-// ── Optional HTTP Basic Auth (set BASIC_AUTH_USER + BASIC_AUTH_PASS in .env) ─
-const BASIC_USER = process.env.BASIC_AUTH_USER;
-const BASIC_PASS = process.env.BASIC_AUTH_PASS;
-if (BASIC_USER && BASIC_PASS) {
-  app.use((req, res, next) => {
-    // Skip for local OAuth flow routes
-    if (req.path.startsWith('/auth/') || req.path === '/callback' || req.path === '/health') return next();
-    const auth = req.headers.authorization || '';
-    if (auth.startsWith('Basic ')) {
-      const [u, p] = Buffer.from(auth.slice(6), 'base64').toString().split(':');
-      if (u === BASIC_USER && p === BASIC_PASS) return next();
-    }
-    res.setHeader('WWW-Authenticate', 'Basic realm="CTI Group Command Center"');
-    res.status(401).send('🔒 Authentication required');
-  });
-  console.log('🔒 Basic Auth enabled');
-}
-
 app.use(express.static(path.join(__dirname)));
 
 // ============================
