@@ -291,8 +291,11 @@ async function fetchZohoJ1Data() {
   try {
     const res = await fetch('/api/zoho/j1-placements');
     if (!res.ok) throw new Error('fetch failed');
-    return await res.json();
+    const json = await res.json();
+    return json?.data || json;  // unwrap { source, view, data } envelope if present
   } catch {
+    // Fall back to offline snapshot for GitHub Pages
+    if (window.J1_PLACEMENT_OFFLINE_DATA?.columns) return window.J1_PLACEMENT_OFFLINE_DATA;
     return null;
   }
 }

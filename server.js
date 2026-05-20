@@ -382,16 +382,25 @@ async function fetchSheetRecords(resourceId, sheetName) {
   const pageSize = 1000;
 
   while (true) {
-    const url = new URL(`${ZOHO_SHEET}/${resourceId}`);
-    url.searchParams.set('method',          'worksheet.records.fetch');
-    url.searchParams.set('worksheet_name',  sheetName);
-    url.searchParams.set('header_row',      '1');
-    url.searchParams.set('start_row_index', String(startIdx));
-    url.searchParams.set('row_count',       String(pageSize));
+    // Zoho Sheet API v2 requires POST with application/x-www-form-urlencoded body
+    const body = new URLSearchParams();
+    body.set('method',          'worksheet.records.fetch');
+    body.set('worksheet_name',  sheetName);
+    body.set('header_row',      '1');
+    body.set('start_row_index', String(startIdx));
+    body.set('row_count',       String(pageSize));
 
-    const r    = await axios.get(url.toString(), {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    const r    = await axios.post(`${ZOHO_SHEET}/${resourceId}`, body.toString(), {
+      headers: {
+        Authorization:  `Zoho-oauthtoken ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      }
     });
+
+    if (r.data?.status === 'failure') {
+      throw new Error(`Sheet API error ${r.data.error_code}: ${r.data.error_message}`);
+    }
+
     const page = r.data?.records?.row || [];
     allRows    = allRows.concat(page);
     if (page.length < pageSize) break;   // last page
@@ -461,8 +470,8 @@ const REQ_COL_MAP = [
   ['Contract Length',      j => j.contractLength],
   ['Salary',               j => j.salary],
   ['City',                 j => [j.city, j.state].filter(v => v && v !== '—').join(', ') || '—'],
-  ['Date Opened',          j => j.dateOpened || ''],
-  ['Target Date',          j => j.targetDate || ''],
+  ['Target Date',          j => j.targetDate  || ''],
+  ['Date Opened',          j => j.dateOpened  || ''],
   ['Housing Availability', j => j.housingAvail],
 ];
 
@@ -1226,6 +1235,71 @@ app.post('/api/social-media-disclosure', (req, res) => {
     res.json({ success: true, message: 'Disclosure submitted successfully.' });
   } catch (err) {
     console.error('Disclosure save error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAKE SNAPSHOT — fetch all 4 live endpoints → write offline data to data.js
+// Visit http://localhost:3000/api/make-snapshot to regenerate GitHub Pages data
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/make-snapshot', async (req, res) => {
+  try {
+    const today   = new Date().toISOString().slice(0, 10);
+    const port    = process.env.PORT || 3000;
+    const base    = `http://localhost:${port}`;
+    const report  = {};
+
+    // Fetch all 4 data endpoints in parallel
+    const [travelRes, reqRes, visaRes, placementRes] = await Promise.allSettled([
+      axios.get(`${base}/api/zoho/j1-travel`,       { timeout: 120000 }),
+      axios.get(`${base}/api/zoho/j1-requisition`,  { timeout: 60000  }),
+      axios.get(`${base}/api/zoho/j1-visa`,         { timeout: 60000  }),
+      axios.get(`${base}/api/zoho/j1-placements`,   { timeout: 60000  }),
+    ]);
+
+    // Map: JS variable name → fetched { columns, rows } data
+    const snapshots = [
+      { varName: 'J1_TRAVEL_OFFLINE_DATA',      result: travelRes      },
+      { varName: 'J1_REQUISITION_OFFLINE_DATA',  result: reqRes         },
+      { varName: 'J1_VISA_OFFLINE_DATA',         result: visaRes        },
+      { varName: 'J1_PLACEMENT_OFFLINE_DATA',    result: placementRes   },
+    ];
+
+    const dataJsPath = path.join(__dirname, 'data.js');
+    let content = fs.readFileSync(dataJsPath, 'utf8');
+
+    for (const { varName, result } of snapshots) {
+      if (result.status !== 'fulfilled') {
+        report[varName] = `SKIPPED — fetch failed: ${result.reason?.message}`;
+        continue;
+      }
+      const data = result.value?.data?.data;   // { columns, rows }
+      if (!data?.rows?.length) {
+        report[varName] = 'SKIPPED — no rows returned';
+        continue;
+      }
+
+      const json     = JSON.stringify(data);
+      const newBlock = `window.${varName} = ${json};`;
+
+      // Replace existing assignment (single-line or multi-line object)
+      const regex = new RegExp(`window\\.${varName}\\s*=[\\s\\S]+?;(?=\\s*\\n|\\s*$)`);
+      if (regex.test(content)) {
+        content = content.replace(regex, newBlock);
+        report[varName] = `updated — ${data.rows.length} rows`;
+      } else {
+        content += `\n// ${varName} snapshot (auto-generated ${today})\n${newBlock}\n`;
+        report[varName] = `appended — ${data.rows.length} rows`;
+      }
+    }
+
+    fs.writeFileSync(dataJsPath, content, 'utf8');
+    console.log(`✅ Snapshot written to data.js on ${today}`, report);
+    res.json({ success: true, date: today, snapshots: report });
+
+  } catch (err) {
+    console.error('make-snapshot error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
