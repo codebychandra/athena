@@ -32,21 +32,33 @@ let tokens = { accessToken: null, refreshToken: null, expiresAt: 0 };
 let cachedOrgId = null;
 
 function loadTokens() {
+  // 1. Try local file first (local dev)
   try {
     if (fs.existsSync(TOKENS_FILE)) {
       tokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
       console.log('✅ Zoho tokens loaded from file');
+      return;
     }
   } catch (e) {
-    console.warn('Could not load tokens:', e.message);
+    console.warn('Could not load tokens from file:', e.message);
+  }
+  // 2. Fall back to environment variable (Railway / cloud deployment)
+  if (process.env.ZOHO_REFRESH_TOKEN) {
+    tokens.refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+    tokens.accessToken  = null;   // will be refreshed on first request
+    tokens.expiresAt    = 0;
+    console.log('✅ Zoho refresh token loaded from environment variable');
   }
 }
 
 function saveTokens() {
+  // Save to file (local dev); on Railway the file is ephemeral but that's OK —
+  // the refresh token comes from env vars and access token is refreshed in memory.
   try {
     fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2));
   } catch (e) {
-    console.error('Could not save tokens:', e.message);
+    // Non-fatal on read-only / ephemeral filesystems
+    console.warn('Could not save tokens to file (non-fatal):', e.message);
   }
 }
 
