@@ -14,6 +14,9 @@ const TOKENS_FILE   = path.join(__dirname, '.zoho_tokens.json');
 
 const ZOHO_ACCOUNTS  = 'https://accounts.zoho.com';
 const ZOHO_ANALYTICS = 'https://analyticsapi.zoho.com/restapi/v2';
+const ZOHO_RECRUIT   = 'https://recruit.zoho.com/recruit/v2';
+const ZOHO_CRM       = 'https://www.zohoapis.com/crm/v2';
+const ZOHO_SHEET     = 'https://sheet.zoho.com/api/v2';
 
 // ============================
 // TOKEN MANAGEMENT
@@ -205,8 +208,23 @@ app.use(express.json());
 
 app.get('/auth/zoho', (req, res) => {
   const scopes = [
+    // Zoho Analytics — read only (data comes from clean analytics tables)
     'ZohoAnalytics.data.read',
-    'ZohoAnalytics.metadata.read'
+    'ZohoAnalytics.metadata.read',
+    // Zoho Recruit — CREATE, READ, UPDATE (no DELETE)
+    'ZohoRecruit.modules.READ',
+    'ZohoRecruit.modules.CREATE',
+    'ZohoRecruit.modules.UPDATE',
+    'ZohoRecruit.settings.READ',
+    // Zoho CRM — CREATE, READ, UPDATE (no DELETE)
+    'ZohoCRM.modules.READ',
+    'ZohoCRM.modules.CREATE',
+    'ZohoCRM.modules.UPDATE',
+    'ZohoCRM.settings.READ',
+    // Zoho Sheet — CREATE, READ, UPDATE (no DELETE)
+    'ZohoSheet.dataAPI.READ',
+    'ZohoSheet.dataAPI.CREATE',
+    'ZohoSheet.dataAPI.UPDATE',
   ].join(',');
 
   const url = `${ZOHO_ACCOUNTS}/oauth/v2/auth?` +
@@ -609,6 +627,552 @@ app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
     const raw     = await fetchViewData(req.params.wsId, req.params.viewId, headers);
     const data    = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
     res.json({ source: 'zoho', data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ============================
+// ZOHO RECRUIT + CRM + SHEET
+// ============================
+
+// ── Field maps (from Zoho Recruit / CRM API names) ──────────────────────────
+const RECRUIT_FIELDS = {
+  name:               'Full_Name',
+  firstName:          'First_Name',
+  lastName:           'CustomModule2_Name',
+  country:            'Country',
+  appStatus:          'J1_Application_Status',
+  programSources:     'J1_Program_Sources',
+  eligiblePrograms:   'Eligible_Programs',
+  gender:             'Gender',
+  email:              'Email',
+  phone:              'Phone_Number1',
+  programType:        'Program_Option',
+  programStart:       'Program_Start_Date',
+  programEnd:         'Program_End_Date',
+  hostCompany:        'Hosting_Company_2',
+  processingSponsor:  'Processing_Sponsor',
+  sponsorStatus:      'Sponsor_Interview_Status',
+  hcInterviewStatus:  'Hosting_Company_Interview_Status',
+  housingAvailability:'Housing_Availability',
+  housingLandlord:    'Housing_Landlord',
+  housingPaymentInit: 'Initial_Housing_Payment_Before_Departure',
+  housingPaymentMo:   'Monthly_Housing_Payment',
+  housingAddress:     'Housing_Address',
+  visaStatus:         'J1_Visa_Status',
+  visaExpiredDate:    'J1_Visa_Expired_Date',
+  visaAppointment:    'J1_Visa_Appointment_Date',
+  visaNumber:         'J1_Visa_Number',
+  refLetterStatus:    'Reference_Letter_Status',
+  flightBooked:       'Flight_Ticket_Status',
+  ticketPayStatus:    'Ticket_Payment_Status',
+  ticketPricing:      'Ticket_Pricing',
+  ticketPayMethod:    'Ticket_Payment_Method',
+  airline:            'Airline',
+  pnrNumber:          'PNR_Number',
+  tripFrom:           'Trip_From',
+  tripTo:             'Trip_To',
+  departureDate:      'Departure_Date',
+  arrivalDate:        'Arrival_Date',
+  airportGateway:     'Airport_Gateway',
+  airportPickup:      'Airport_Pick_Up',
+  transportCost:      'Transportation_Cost',
+  returnFlightStatus: 'Returning_Flight_Ticket_Status',
+  returnDeparture:    'Returning_Departure_Date',
+  returnArrival:      'Returning_Arrival_Date',
+  returnAirline:      'Returning_Airline',
+  returnPNR:          'Returning_Airline_PNR_Number',
+  returnTripFrom:     'Returning_Trip_From',
+  returnTripTo:       'Returning_Trip_To',
+  returnGateway:      'Returning_Airport_Gateway',
+  returnTicketPrice:  'Return_Ticket_Price',
+  returnTicketPayStatus: 'Return_Ticket_Payment_Status',
+  returnTransportCost:'Return_Transportation_Cost',
+};
+
+const CRM_FIELDS = {
+  fullName:               'Full_Name',
+  firstName:              'First_Name',
+  lastName:               'Last_Name',
+  email:                  'Email',
+  country:                'Country',
+  phone:                  'Phone',
+  gender:                 'Gender',
+  appStatus:              'J1_Application_Status',
+  programSource:          'J1_Program_Source',
+  programType:            'Program_Option',
+  hostCompany:            'Hosting_Company',
+  age:                    'Age',
+  positionApplied:        'Position_Applied',
+  permanentAddress:       'Permanent_Address',
+  ctiUsaReview:           'CTI_USA_s_Review',
+  eligiblePrograms:       'Eligible_Programs',
+  consultationCallStatus: 'Consultation_Call_Status',
+  consultationCallNotes:  'Consultation_Call_Notes',
+};
+
+const JOB_FIELDS = {
+  jobId:             'Job_Opening_ID',
+  status:            'Requisition_Status',
+  placementCategory: 'Placement_Category',
+  hostingCompany:    'Hosting_Company_2',
+  positionName:      'Position',
+  city:              'City',
+  state:             'State',
+  department:        'Department',
+  numPositions:      'Requisition',
+  salary:            'Salary',
+  paymentFrequency:  'Payment_Frequency',
+  housingAvail:      'Housing_Availability',
+  targetDate:        'Target_Date',
+  contractLength:    'Contract_Length',
+  j1ProgramType:     'J1_Program_Type',
+  clientName:        'Client_Name',
+};
+
+// ── Recruit API helper ──────────────────────────────────────────────────────
+async function recruitGet(endpoint, params = {}) {
+  const token = await ensureValidToken();
+  const url   = new URL(`${ZOHO_RECRUIT}/${endpoint}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  const r = await axios.get(url.toString(), {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return r.data;
+}
+
+async function recruitPost(endpoint, body) {
+  const token = await ensureValidToken();
+  const r = await axios.post(`${ZOHO_RECRUIT}/${endpoint}`, body, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+  });
+  return r.data;
+}
+
+async function recruitPatch(endpoint, body) {
+  const token = await ensureValidToken();
+  const r = await axios.patch(`${ZOHO_RECRUIT}/${endpoint}`, body, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+  });
+  return r.data;
+}
+
+// ── CRM API helper ─────────────────────────────────────────────────────────
+async function crmGet(endpoint, params = {}) {
+  const token = await ensureValidToken();
+  const url   = new URL(`${ZOHO_CRM}/${endpoint}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  const r = await axios.get(url.toString(), {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return r.data;
+}
+
+async function crmPost(endpoint, body) {
+  const token = await ensureValidToken();
+  const r = await axios.post(`${ZOHO_CRM}/${endpoint}`, body, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+  });
+  return r.data;
+}
+
+async function crmPatch(endpoint, body) {
+  const token = await ensureValidToken();
+  const r = await axios.patch(`${ZOHO_CRM}/${endpoint}`, body, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
+  });
+  return r.data;
+}
+
+// ── Sheet API helper ───────────────────────────────────────────────────────
+async function sheetGet(endpoint, params = {}) {
+  const token = await ensureValidToken();
+  const url   = new URL(`${ZOHO_SHEET}/${endpoint}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  const r = await axios.get(url.toString(), {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return r.data;
+}
+
+// ── Paginated fetch helper ─────────────────────────────────────────────────
+async function fetchAllPages(apiFn, module, fields) {
+  let all = [], page = 1, more = true;
+  while (more) {
+    const data    = await apiFn(module, { fields, page, per_page: 200 });
+    const records = data.data || [];
+    all  = all.concat(records);
+    more = data.info?.more_records === true;
+    page++;
+  }
+  return all;
+}
+
+// ── Map a raw Recruit record to a clean object ─────────────────────────────
+function mapRecruitRecord(r) {
+  const F = RECRUIT_FIELDS;
+  const arr = v => Array.isArray(v) ? v.join(', ') : (v || '—');
+  return {
+    _source:             'recruit',
+    id:                  r.id,
+    name:                r[F.name] || [r[F.firstName], r[F.lastName]].filter(Boolean).join(' ') || '—',
+    firstName:           r[F.firstName]          || '—',
+    lastName:            r[F.lastName]           || '—',
+    country:             r[F.country]            || '—',
+    gender:              r[F.gender]             || '—',
+    email:               r[F.email]              || '—',
+    phone:               r[F.phone]              || '—',
+    programType:         r[F.programType]        || '—',
+    programSource:       r[F.programSources]     || '—',
+    placementStatus:     r[F.appStatus]          || '—',
+    processingSponsor:   r[F.processingSponsor]  || '—',
+    hostCompany:         r[F.hostCompany]        || '—',
+    programStart:        r[F.programStart]       || null,
+    programEnd:          r[F.programEnd]         || null,
+    eligiblePrograms:    arr(r[F.eligiblePrograms]),
+    sponsorStatus:       r[F.sponsorStatus]      || '—',
+    hcInterviewStatus:   r[F.hcInterviewStatus]  || '—',
+    housingAvailability: r[F.housingAvailability]|| '—',
+    housingLandlord:     r[F.housingLandlord]    || '—',
+    housingPaymentInit:  r[F.housingPaymentInit] || null,
+    housingPaymentMo:    r[F.housingPaymentMo]   || null,
+    housingAddress:      r[F.housingAddress]     || '—',
+    ds2019End:           r[F.visaExpiredDate]    || null,
+    visaStatus:          r[F.visaStatus]         || '—',
+    visaNumber:          r[F.visaNumber]         || '—',
+    visaAppointment:     r[F.visaAppointment]    || null,
+    refLetterStatus:     r[F.refLetterStatus]    || '—',
+    flightBooked:        r[F.flightBooked]       || '—',
+    ticketPayStatus:     r[F.ticketPayStatus]    || '—',
+    ticketPricing:       r[F.ticketPricing]      || null,
+    ticketPayMethod:     r[F.ticketPayMethod]    || '—',
+    airline:             r[F.airline]            || '—',
+    pnrNumber:           r[F.pnrNumber]          || '—',
+    tripFrom:            r[F.tripFrom]           || '—',
+    tripTo:              r[F.tripTo]             || '—',
+    departureDate:       r[F.departureDate]      || null,
+    arrivalDate:         r[F.arrivalDate]        || null,
+    airportGateway:      r[F.airportGateway]     || '—',
+    airportPickup:       r[F.airportPickup]      || '—',
+    transportCost:       r[F.transportCost]      || null,
+    returnFlightStatus:  r[F.returnFlightStatus] || '—',
+    returnDeparture:     r[F.returnDeparture]    || null,
+    returnArrival:       r[F.returnArrival]      || null,
+    returnAirline:       r[F.returnAirline]      || '—',
+    returnPNR:           r[F.returnPNR]          || '—',
+    returnTripFrom:      r[F.returnTripFrom]     || '—',
+    returnTripTo:        r[F.returnTripTo]       || '—',
+    returnGateway:       r[F.returnGateway]      || '—',
+    returnTicketPrice:   r[F.returnTicketPrice]  || null,
+    returnTicketPayStatus: r[F.returnTicketPayStatus] || '—',
+    returnTransportCost: r[F.returnTransportCost]|| null,
+  };
+}
+
+function mapCRMRecord(r) {
+  const CF = CRM_FIELDS;
+  const arr = v => Array.isArray(v) ? v.join(', ') : (v || '—');
+  return {
+    _source:                'crm',
+    id:                     'crm_' + r.id,
+    name:                   r[CF.fullName] || [r[CF.firstName], r[CF.lastName]].filter(Boolean).join(' ') || '—',
+    firstName:              r[CF.firstName]              || '—',
+    lastName:               r[CF.lastName]               || '—',
+    email:                  r[CF.email]                  || '—',
+    country:                r[CF.country]                || '—',
+    phone:                  r[CF.phone]                  || '—',
+    gender:                 r[CF.gender]                 || '—',
+    age:                    r[CF.age]                    || '—',
+    positionApplied:        r[CF.positionApplied]        || '—',
+    permanentAddress:       r[CF.permanentAddress]       || '—',
+    ctiUsaReview:           r[CF.ctiUsaReview]           || '—',
+    consultationCallStatus: r[CF.consultationCallStatus] || '—',
+    consultationCallNotes:  r[CF.consultationCallNotes]  || '—',
+    programType:            r[CF.programType]            || '—',
+    programSource:          r[CF.programSource]          || '—',
+    eligiblePrograms:       arr(r[CF.eligiblePrograms]),
+    placementStatus:        r[CF.appStatus]              || '—',
+    hostCompany:            r[CF.hostCompany]            || '—',
+  };
+}
+
+function mapJobRecord(r) {
+  const JF = JOB_FIELDS;
+  return {
+    id:                r.id,
+    jobId:             r[JF.jobId]             || '—',
+    status:            r[JF.status]            || '—',
+    placementCategory: r[JF.placementCategory] || '—',
+    hostingCompany:    (r[JF.hostingCompany]?.name || r[JF.hostingCompany]) || '—',
+    positionName:      r[JF.positionName]      || '—',
+    city:              r[JF.city]              || '—',
+    state:             r[JF.state]             || '—',
+    department:        r[JF.department]        || '—',
+    numPositions:      Number(r[JF.numPositions]) || 0,
+    salary:            r[JF.salary]            || '—',
+    paymentFrequency:  r[JF.paymentFrequency]  || '—',
+    housingAvail:      r[JF.housingAvail]      || '—',
+    targetDate:        r[JF.targetDate]        || null,
+    contractLength:    r[JF.contractLength]    || '—',
+    j1ProgramType:     Array.isArray(r[JF.j1ProgramType])
+                         ? r[JF.j1ProgramType].join('; ')
+                         : r[JF.j1ProgramType] || '—',
+    clientName:        (r[JF.clientName]?.name || r[JF.clientName]) || '—',
+  };
+}
+
+// ─────────────────────────────────────────────────
+// RECRUIT ENDPOINTS
+// ─────────────────────────────────────────────────
+
+// GET all J1 Participants from Recruit
+app.get('/api/recruit/j1-participants', async (req, res) => {
+  try {
+    const fields  = Object.values(RECRUIT_FIELDS).join(',');
+    const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
+    const records = await fetchAllPages(recruitGet, module, fields);
+    const data    = records.map(mapRecruitRecord);
+    console.log(`✅ Recruit J1 Participants: ${data.length} records`);
+    res.json({ source: 'recruit', count: data.length, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('Recruit J1 Participants error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// GET Job Openings from Recruit
+app.get('/api/recruit/job-openings', async (req, res) => {
+  try {
+    const fields  = Object.values(JOB_FIELDS).join(',');
+    const module  = process.env.RECRUIT_JOB_MODULE || 'Job_Openings';
+    const records = await fetchAllPages(recruitGet, module, fields);
+    const data    = records.map(mapJobRecord);
+    console.log(`✅ Recruit Job Openings: ${data.length} records`);
+    res.json({ source: 'recruit', count: data.length, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('Recruit Job Openings error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// GET single Recruit record
+app.get('/api/recruit/:module/:id', async (req, res) => {
+  try {
+    const data = await recruitGet(`${req.params.module}/${req.params.id}`);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// CREATE a Recruit record  (POST body: { data: [ { Field: value, ... } ] })
+app.post('/api/recruit/:module', async (req, res) => {
+  try {
+    const data = await recruitPost(req.params.module, req.body);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error(`Recruit CREATE ${req.params.module}:`, err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// UPDATE a Recruit record  (PATCH body: { data: [ { id: "...", Field: value, ... } ] })
+app.patch('/api/recruit/:module/:id', async (req, res) => {
+  try {
+    const body = req.body.data
+      ? req.body
+      : { data: [{ id: req.params.id, ...req.body }] };
+    const data = await recruitPatch(`${req.params.module}/${req.params.id}`, body);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error(`Recruit UPDATE ${req.params.module}/${req.params.id}:`, err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ─────────────────────────────────────────────────
+// CRM ENDPOINTS
+// ─────────────────────────────────────────────────
+
+// GET all J1 Participants from CRM
+app.get('/api/crm/j1-participants', async (req, res) => {
+  try {
+    const fields  = Object.values(CRM_FIELDS).join(',');
+    const module  = process.env.CRM_J1_MODULE || 'J1_Participants1';
+    const records = await fetchAllPages(crmGet, module, fields);
+    const data    = records.map(mapCRMRecord);
+    console.log(`✅ CRM J1 Participants: ${data.length} records`);
+    res.json({ source: 'crm', count: data.length, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('CRM J1 Participants error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// GET single CRM record
+app.get('/api/crm/:module/:id', async (req, res) => {
+  try {
+    const data = await crmGet(`${req.params.module}/${req.params.id}`);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// CREATE a CRM record
+app.post('/api/crm/:module', async (req, res) => {
+  try {
+    const data = await crmPost(req.params.module, req.body);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error(`CRM CREATE ${req.params.module}:`, err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// UPDATE a CRM record
+app.patch('/api/crm/:module/:id', async (req, res) => {
+  try {
+    const body = req.body.data
+      ? req.body
+      : { data: [{ id: req.params.id, ...req.body }] };
+    const data = await crmPatch(`${req.params.module}/${req.params.id}`, body);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error(`CRM UPDATE ${req.params.module}/${req.params.id}:`, err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ─────────────────────────────────────────────────
+// SHEET ENDPOINTS
+// ─────────────────────────────────────────────────
+
+// GET all spreadsheets in Zoho Sheet
+app.get('/api/sheet/list', async (req, res) => {
+  try {
+    const data = await sheetGet('spreadsheets');
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// GET rows from a specific worksheet
+// Query params: ?resource_id=<spreadsheet_id>&sheet_name=<name>&header_row=1
+app.get('/api/sheet/:resource_id', async (req, res) => {
+  try {
+    const params = {
+      method:       'worksheet.records.fetch',
+      sheet_name:   req.query.sheet_name  || 'Sheet1',
+      header_row:   req.query.header_row  || 1,
+      start_row:    req.query.start_row   || 1,
+    };
+    const data = await sheetGet(`${req.params.resource_id}`, params);
+    res.json(data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// APPEND rows to a Zoho Sheet worksheet
+// Body: { sheet_name: "Sheet1", row_data: [ { col: value } ] }
+app.post('/api/sheet/:resource_id/rows', async (req, res) => {
+  try {
+    const token = await ensureValidToken();
+    const { sheet_name = 'Sheet1', row_data } = req.body;
+    const r = await axios.post(
+      `${ZOHO_SHEET}/${req.params.resource_id}`,
+      null,
+      {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params:  { method: 'worksheet.records.add', sheet_name, json_data: JSON.stringify(row_data) }
+      }
+    );
+    res.json(r.data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('Sheet append error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// UPDATE a row in a Zoho Sheet worksheet
+// Body: { sheet_name, row_index, row_data: { col: value } }
+app.patch('/api/sheet/:resource_id/rows/:row_index', async (req, res) => {
+  try {
+    const token = await ensureValidToken();
+    const { sheet_name = 'Sheet1', row_data } = req.body;
+    const r = await axios.post(
+      `${ZOHO_SHEET}/${req.params.resource_id}`,
+      null,
+      {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        params:  {
+          method:     'worksheet.records.update',
+          sheet_name,
+          row_array:  req.params.row_index,
+          json_data:  JSON.stringify(row_data),
+        }
+      }
+    );
+    res.json(r.data);
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('Sheet update error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ─────────────────────────────────────────────────
+// COMBINED: Recruit + CRM participants (merged, deduplicated)
+// ─────────────────────────────────────────────────
+app.get('/api/all-participants', async (req, res) => {
+  try {
+    const [recruitResult, crmResult] = await Promise.allSettled([
+      (async () => {
+        const fields  = Object.values(RECRUIT_FIELDS).join(',');
+        const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
+        const records = await fetchAllPages(recruitGet, module, fields);
+        return records.map(mapRecruitRecord);
+      })(),
+      (async () => {
+        const fields  = Object.values(CRM_FIELDS).join(',');
+        const module  = process.env.CRM_J1_MODULE || 'J1_Participants1';
+        const records = await fetchAllPages(crmGet, module, fields);
+        return records.map(mapCRMRecord);
+      })(),
+    ]);
+
+    const fromRecruit = recruitResult.status === 'fulfilled' ? recruitResult.value : [];
+    const fromCRM     = crmResult.status     === 'fulfilled' ? crmResult.value     : [];
+
+    if (recruitResult.status === 'rejected') console.error('❌ Recruit fetch failed:', recruitResult.reason?.message);
+    if (crmResult.status     === 'rejected') console.error('❌ CRM fetch failed:',     crmResult.reason?.message);
+
+    // CRM (early-stage) first, then Recruit (later-stage)
+    const combined = [...fromCRM, ...fromRecruit];
+    console.log(`✅ All participants: ${fromRecruit.length} Recruit + ${fromCRM.length} CRM = ${combined.length} total`);
+    res.json({
+      source:  'recruit+crm',
+      recruit: fromRecruit.length,
+      crm:     fromCRM.length,
+      total:   combined.length,
+      data:    combined,
+    });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     res.status(status).json({ error: err.message, details: err.response?.data });
