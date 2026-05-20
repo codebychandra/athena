@@ -289,13 +289,11 @@ function updateZohoBadge() {
 
 async function fetchZohoJ1Data() {
   try {
-    const res = await fetch('/api/zoho/j1-placements');
+    const res  = await fetch('/api/zoho/j1-placements');
     if (!res.ok) throw new Error('fetch failed');
     const json = await res.json();
-    return json?.data || json;  // unwrap { source, view, data } envelope if present
+    return json?.data || json;
   } catch {
-    // Fall back to offline snapshot for GitHub Pages
-    if (window.J1_PLACEMENT_OFFLINE_DATA?.columns) return window.J1_PLACEMENT_OFFLINE_DATA;
     return null;
   }
 }
@@ -1077,12 +1075,6 @@ pages.j1 = async function () {
     }
   }
 
-  // ── Offline snapshot fallback (baked Zoho data for public/static hosting) ─
-  if (!rows && Array.isArray(window.J1_OFFLINE_DATA) && window.J1_OFFLINE_DATA.length) {
-    rows = window.J1_OFFLINE_DATA;
-    state.dataCache['j1-zoho-rows'] = rows;
-  }
-
   // ── LIVE DATA PATH ───────────────────────────────────────────
   if (rows) {
     const total       = rows.length;
@@ -1448,10 +1440,7 @@ chartInits.j1 = async function () {
 };
 
 pageEvents.j1 = function () {
-  // Use cached rows; fall back to baked offline data if cache was somehow missed
-  const allRows = state.dataCache['j1-zoho-rows']
-    || (Array.isArray(window.J1_OFFLINE_DATA) && window.J1_OFFLINE_DATA.length
-        ? window.J1_OFFLINE_DATA : null);
+  const allRows = state.dataCache['j1-zoho-rows'] || null;
 
   // ── Audio button ─────────────────────────────────────────────
   const btn      = document.getElementById('j1AudioBtn');
@@ -3104,23 +3093,14 @@ pages.j1visa = async function () {
 
   let columns = [], rows = [], viewName = '', errorMsg = null;
 
-  if (isLocal) {
-    try {
-      const res  = await fetch('/api/zoho/j1-visa');
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Fetch failed');
-      viewName = json.view || '';
-      columns  = json.data?.columns || [];
-      rows     = json.data?.rows    || [];
-    } catch (e) { errorMsg = e.message; }
-  }
-
-  // Offline fallback
-  if (!rows.length && window.J1_VISA_OFFLINE_DATA) {
-    columns  = window.J1_VISA_OFFLINE_DATA.columns;
-    rows     = window.J1_VISA_OFFLINE_DATA.rows;
-    viewName = viewName || 'server offline';
-  }
+  try {
+    const res  = await fetch('/api/zoho/j1-visa');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    viewName = json.view || '';
+    columns  = json.data?.columns || [];
+    rows     = json.data?.rows    || [];
+  } catch (e) { errorMsg = e.message; }
 
   const { counts, people } = computeCounts(columns, rows);
   const total   = counts.registered;
@@ -3321,33 +3301,21 @@ let _reqSortDir = 'asc';
 let _reqColFilters = {};
 
 pages.requisition = async function () {
-  const C       = DIVISION_COLORS.j1;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const C = DIVISION_COLORS.j1;
 
   let rawRows  = [];
   let errorMsg = null;
   let viewName = '';
-  let isOffline = false;
 
-  if (isLocal) {
-    try {
-      const res  = await fetch('/api/zoho/j1-requisition');
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Fetch failed');
-      viewName = json.view || 'J1 Requisition';
-      rawRows  = json.data?.rows || [];
-    } catch (e) { errorMsg = e.message; }
-  }
+  try {
+    const res  = await fetch('/api/zoho/j1-requisition');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    viewName = json.view || 'J1 Requisition';
+    rawRows  = json.data?.rows || [];
+  } catch (e) { errorMsg = e.message; }
 
-  // Offline snapshot fallback
-  if (!rawRows.length && window.J1_REQUISITION_OFFLINE_DATA?.rows?.length) {
-    rawRows   = window.J1_REQUISITION_OFFLINE_DATA.rows;
-    viewName  = 'snapshot · 2026-05-15';
-    isOffline = true;
-    errorMsg  = null;
-  }
-
-  // Filter: Active status + J1 Program Type filled (server already filters, but offline data needs it)
+  // Server already returns only active J1 jobs, but filter defensively
   const rows = rawRows.filter(r =>
     r[REQ_CI.status] === 'Active' && r[REQ_CI.progType]?.trim()
   );
@@ -3379,9 +3347,7 @@ pages.requisition = async function () {
       <div class="division-header" style="border-left-color:${C}">
         <h1>Requisition Dashboard</h1>
         <p class="subtitle">J1 Requisition
-          ${isOffline||!isLocal
-            ? `<span style="font-size:11px;font-weight:600;background:rgba(107,114,128,0.12);color:#6B7280;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Server offline</span>`
-            : `<span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Analytics</span>`}
+          <span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Recruit</span>
         </p>
       </div>
     </div>
@@ -3639,9 +3605,9 @@ pageEvents.requisition = function () {
     const normToReqDept = {};
     Object.keys(deptHC).forEach(d => { normToReqDept[normDept(d)] = d; });
 
-    // Filled count from J1_OFFLINE_DATA (re-read every call so auto-syncs)
+    // Filled count from live placement cache
     const deptFilled = {};
-    const placements = Array.isArray(window.J1_OFFLINE_DATA) ? window.J1_OFFLINE_DATA : [];
+    const placements = Array.isArray(state.dataCache['j1-zoho-rows']) ? state.dataCache['j1-zoho-rows'] : [];
     placements.forEach(p => {
       if (gSponsor && p['Processing Sponsor'] !== gSponsor) return;
       if (gSearch) {
@@ -4207,25 +4173,16 @@ pages.travel = async function () {
     </tr>`;
   }
 
-  // ── Fetch from Zoho (local server) ───────────────────────────
+  // ── Fetch live data from server ──────────────────────────────
   let columns = [], rows = [], viewName = '', errorMsg = null;
-  if (isLocal) {
-    try {
-      const res  = await fetch('/api/zoho/j1-travel');
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Fetch failed');
-      viewName = json.view || 'J1 Travel';
-      columns  = json.data?.columns || [];
-      rows     = json.data?.rows    || [];
-    } catch (e) { errorMsg = e.message; }
-  }
-
-  // Offline snapshot fallback
-  if (!rows.length && window.J1_TRAVEL_OFFLINE_DATA) {
-    columns  = window.J1_TRAVEL_OFFLINE_DATA.columns || [];
-    rows     = window.J1_TRAVEL_OFFLINE_DATA.rows    || [];
-    viewName = viewName || 'offline snapshot';
-  }
+  try {
+    const res  = await fetch('/api/zoho/j1-travel');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    viewName = json.view || 'J1 Travel';
+    columns  = json.data?.columns || [];
+    rows     = json.data?.rows    || [];
+  } catch (e) { errorMsg = e.message; }
 
   const people   = parseRows(columns, rows);
   const total    = people.length;
@@ -4339,9 +4296,7 @@ pages.travel = async function () {
             ${people.length === 0
               ? `<tr><td colspan="10" style="text-align:center;padding:56px 24px;
                   color:var(--text-muted,#aaa);font-size:13px;">
-                  ${!isLocal
-                    ? '✈️ Start the local Node.js server to load live travel data from Zoho'
-                    : 'No travel data found in J1 Travel table'}
+                  No travel data found — check server connection
                 </td></tr>`
               : people.map((p, i) => rowHtml(p, i, i)).join('')}
           </tbody>
@@ -4833,14 +4788,51 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('modalOverlay').classList.remove('active');
   });
 
-  // Check Zoho connection (only works when running via node server.js)
+  // Check Zoho connection
   checkZohoStatus();
 
   // Handle redirect from Zoho callback
   if (window.location.search.includes('zoho=connected')) {
-    showToast('Zoho Analytics connected!', 'success');
+    showToast('Zoho connected!', 'success');
     history.replaceState({}, '', '/');
   }
 
   showPage('interntainee');
+
+  // ── Auto-refresh every 10 minutes ────────────────────────────────────────
+  const AUTO_REFRESH_MS = 10 * 60 * 1000;  // 10 minutes
+  let _lastRefresh      = Date.now();
+  let _refreshTimer     = null;
+
+  function _scheduleRefresh() {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = setTimeout(async () => {
+      _lastRefresh = Date.now();
+      console.log('🔄 Auto-refreshing data from Zoho…');
+      updateLastUpdated();
+      await showPage(state.page);
+      _scheduleRefresh();           // reschedule after page finishes loading
+    }, AUTO_REFRESH_MS);
+  }
+
+  function updateLastUpdated() {
+    const el = document.getElementById('lastUpdatedTime');
+    if (!el) return;
+    const secs = Math.round((Date.now() - _lastRefresh) / 1000);
+    if (secs < 60)        el.textContent = 'Just now';
+    else if (secs < 3600) el.textContent = `${Math.floor(secs/60)}m ago`;
+    else                  el.textContent = `${Math.floor(secs/3600)}h ago`;
+  }
+
+  // Tick every 30 s to keep "last updated" display fresh
+  setInterval(updateLastUpdated, 30_000);
+  // Reset timer on any manual page navigation
+  const _origShow = showPage;
+  window._resetRefreshTimer = function () {
+    _lastRefresh = Date.now();
+    updateLastUpdated();
+    _scheduleRefresh();
+  };
+
+  _scheduleRefresh();
 });

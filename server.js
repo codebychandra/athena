@@ -18,6 +18,13 @@ const ZOHO_RECRUIT   = 'https://recruit.zoho.com/recruit/v2';
 const ZOHO_CRM       = 'https://www.zohoapis.com/crm/v2';
 const ZOHO_SHEET     = 'https://sheet.zoho.com/api/v2';
 
+// ── Server-side cache (10-minute TTL) ─────────────────────────────────────────
+const CACHE_TTL  = 10 * 60 * 1000;   // 10 minutes in ms
+const _apiCache  = new Map();
+function getCached(key)       { const e = _apiCache.get(key); return (e && Date.now()-e.t < CACHE_TTL) ? e.d : null; }
+function setCached(key, data) { _apiCache.set(key, { d: data, t: Date.now() }); }
+function clearCache(key)      { if (key) _apiCache.delete(key); else _apiCache.clear(); }
+
 // ============================
 // TOKEN MANAGEMENT
 // ============================
@@ -424,9 +431,13 @@ const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'placement';
 
 app.get('/api/zoho/j1-placements', async (req, res) => {
   try {
+    const cached = getCached('j1-placements');
+    if (cached) return res.json(cached);
     const data = await fetchSheetRecords(PLACEMENT_SHEET_ID, PLACEMENT_SHEET_NAME);
     console.log(`✅ J1 Placements (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
-    res.json({ source: 'zoho-sheet', view: PLACEMENT_SHEET_NAME, data });
+    const payload = { source: 'zoho-sheet', view: PLACEMENT_SHEET_NAME, data };
+    setCached('j1-placements', payload);
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Placements fetch error:', err.response?.data || err.message);
@@ -443,9 +454,13 @@ const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'j1 visa log';
 
 app.get('/api/zoho/j1-visa', async (req, res) => {
   try {
+    const cached = getCached('j1-visa');
+    if (cached) return res.json(cached);
     const data = await fetchSheetRecords(VISA_SHEET_ID, VISA_SHEET_NAME);
     console.log(`✅ J1 Visa (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
-    res.json({ source: 'zoho-sheet', view: VISA_SHEET_NAME, data });
+    const payload = { source: 'zoho-sheet', view: VISA_SHEET_NAME, data };
+    setCached('j1-visa', payload);
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Visa fetch error:', err.response?.data || err.message);
@@ -477,6 +492,9 @@ const REQ_COL_MAP = [
 
 app.get('/api/zoho/j1-requisition', async (req, res) => {
   try {
+    const cached = getCached('j1-requisition');
+    if (cached) return res.json(cached);
+
     const fields  = Object.values(JOB_FIELDS).join(',');
     const module  = process.env.RECRUIT_JOB_MODULE || 'Job_Openings';
     const records = await fetchAllPages(recruitGet, module, fields);
@@ -492,7 +510,9 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
     const rows    = j1Jobs.map(j => REQ_COL_MAP.map(([, get]) => String(get(j) ?? '')));
 
     console.log(`✅ J1 Requisition (Recruit): ${rows.length}/${allJobs.length} active J1 jobs`);
-    res.json({ source: 'zoho-recruit', view: 'Job Openings', data: { columns, rows } });
+    const payload = { source: 'zoho-recruit', view: 'Job Openings', data: { columns, rows } };
+    setCached('j1-requisition', payload);
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Requisition fetch error:', err.response?.data || err.message);
@@ -548,6 +568,9 @@ const TRAVEL_COL_MAP = [
 
 app.get('/api/zoho/j1-travel', async (req, res) => {
   try {
+    const cached = getCached('j1-travel');
+    if (cached) return res.json(cached);
+
     const fields  = Object.values(RECRUIT_FIELDS).join(',');
     const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
     const records = await fetchAllPages(recruitGet, module, fields);
@@ -566,7 +589,9 @@ app.get('/api/zoho/j1-travel', async (req, res) => {
     const rows    = filtered.map(r => TRAVEL_COL_MAP.map(([, get]) => String(get(r) ?? '')));
 
     console.log(`✅ J1 Travel (Recruit): ${rows.length}/${allRecs.length} participants, ${columns.length} cols`);
-    res.json({ source: 'zoho-recruit', view: 'J1 Participants', data: { columns, rows } });
+    const payload = { source: 'zoho-recruit', view: 'J1 Participants', data: { columns, rows } };
+    setCached('j1-travel', payload);
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Travel fetch error:', err.response?.data || err.message);
@@ -1237,6 +1262,13 @@ app.post('/api/social-media-disclosure', (req, res) => {
     console.error('Disclosure save error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ── Cache clear (force immediate re-fetch from Zoho) ──────────────────────────
+app.get('/api/cache/clear', (req, res) => {
+  clearCache();
+  console.log('🧹 API cache cleared');
+  res.json({ success: true, message: 'Cache cleared — next request will fetch fresh data from Zoho' });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
