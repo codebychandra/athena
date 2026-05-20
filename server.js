@@ -347,73 +347,6 @@ app.get('/api/zoho/workspaces/:wsId/views', async (req, res) => {
 });
 
 // J1 Placement Report — auto-discover + fetch
-app.get('/api/zoho/j1-placements', async (req, res) => {
-  try {
-    const token      = await ensureValidToken();
-    const headers    = await zohoHeaders(token);
-    const workspaces = await getAllWorkspaces(token);
-
-    console.log('Workspaces found:', workspaces.map(w => w.workspaceName));
-
-    if (workspaces.length === 0) {
-      return res.status(404).json({ error: 'No workspaces found in your Zoho Analytics account' });
-    }
-
-    let foundWs   = null;
-    let foundView = null;
-
-    for (const ws of workspaces) {
-      const viewsRes = await axios.get(
-        `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`,
-        { headers }
-      );
-      const views = viewsRes.data.data?.views || [];
-      const match = views.find(v =>
-        v.viewName === 'J1 Placement Report' ||
-        v.viewName.toLowerCase().includes('j1 placement')
-      );
-      if (match) { foundWs = ws; foundView = match; break; }
-    }
-
-    if (!foundView) {
-      const allViews = [];
-      for (const ws of workspaces.slice(0, 5)) {
-        const viewsRes = await axios.get(
-          `${ZOHO_ANALYTICS}/workspaces/${ws.workspaceId}/views`,
-          { headers }
-        );
-        const views = (viewsRes.data.data?.views || []).map(v => ({
-          workspace: ws.workspaceName,
-          viewName:  v.viewName,
-          viewId:    v.viewId
-        }));
-        allViews.push(...views);
-      }
-      return res.status(404).json({
-        error:          'J1 Placement Report not found',
-        availableViews: allViews
-      });
-    }
-
-    const rawData    = await fetchViewData(foundWs.workspaceId, foundView.viewId, headers);
-    const parsedData = typeof rawData === 'string'
-      ? parseCSV(rawData)
-      : (rawData && rawData.columns ? rawData : parseCSV(String(rawData || '')));
-
-    res.json({
-      source:    'zoho',
-      workspace: foundWs.workspaceName,
-      view:      foundView.viewName,
-      data:      parsedData
-    });
-
-  } catch (err) {
-    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error('J1 fetch error:', err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
-  }
-});
-
 // ── Shared helper — find a view by search terms across all workspaces ──────
 async function findZohoView(headers, workspaces, matchFn) {
   for (const ws of workspaces) {
@@ -440,27 +373,70 @@ async function allViewsList(headers, workspaces) {
   return list;
 }
 
-// J1 Visa Status
+// ── Zoho Sheet helper — fetch all rows from a named worksheet ──────────────
+// Paginates using start_row_index + row_count until all rows are loaded.
+async function fetchSheetRecords(resourceId, sheetName) {
+  const token    = await ensureValidToken();
+  let allRows    = [];
+  let startIdx   = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const url = new URL(`${ZOHO_SHEET}/${resourceId}`);
+    url.searchParams.set('method',          'worksheet.records.fetch');
+    url.searchParams.set('sheet_name',      sheetName);
+    url.searchParams.set('header_row',      '1');
+    url.searchParams.set('start_row_index', String(startIdx));
+    url.searchParams.set('row_count',       String(pageSize));
+
+    const r    = await axios.get(url.toString(), {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const page = r.data?.records?.row || [];
+    allRows    = allRows.concat(page);
+    if (page.length < pageSize) break;   // last page
+    startIdx  += pageSize;
+  }
+
+  if (!allRows.length) return { columns: [], rows: [] };
+
+  // Column names = keys of first row, excluding Zoho's auto "No." counter column
+  const columns  = Object.keys(allRows[0]).filter(k => k !== 'No.');
+  const dataRows = allRows.map(row => columns.map(col => String(row[col] ?? '')));
+  return { columns, rows: dataRows };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// J1 PLACEMENT — source: Zoho Sheet "J1 Placement Report"
+// https://sheet.zoho.com/sheet/open/l9728edc6734e53cd4bf0a5566639f8a90b48
+// ─────────────────────────────────────────────────────────────────────────────
+const PLACEMENT_SHEET_ID   = process.env.PLACEMENT_SHEET_ID   || 'l9728edc6734e53cd4bf0a5566639f8a90b48';
+const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'J1 Placement Report';
+
+app.get('/api/zoho/j1-placements', async (req, res) => {
+  try {
+    const data = await fetchSheetRecords(PLACEMENT_SHEET_ID, PLACEMENT_SHEET_NAME);
+    console.log(`✅ J1 Placements (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
+    res.json({ source: 'zoho-sheet', view: PLACEMENT_SHEET_NAME, data });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('J1 Placements fetch error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// J1 VISA — source: Zoho Sheet "J1 Visa Log"
+// https://sheet.zoho.com/sheet/open/2lr3n52a29b81f88c47618df49092afd2b286
+// ─────────────────────────────────────────────────────────────────────────────
+const VISA_SHEET_ID   = process.env.VISA_SHEET_ID   || '2lr3n52a29b81f88c47618df49092afd2b286';
+const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'J1 Visa Log';
+
 app.get('/api/zoho/j1-visa', async (req, res) => {
   try {
-    const token      = await ensureValidToken();
-    const headers    = await zohoHeaders(token);
-    const workspaces = await getAllWorkspaces(token);
-    if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
-
-    const found = await findZohoView(headers, workspaces, v =>
-      v.viewName === 'J1 Visa' ||
-      v.viewName.toLowerCase().includes('j1 visa')
-    );
-    if (!found) {
-      return res.status(404).json({
-        error: 'J1 Visa view not found',
-        availableViews: await allViewsList(headers, workspaces)
-      });
-    }
-    const raw  = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
-    const data = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
-    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: found.view.viewName, data });
+    const data = await fetchSheetRecords(VISA_SHEET_ID, VISA_SHEET_NAME);
+    console.log(`✅ J1 Visa (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
+    res.json({ source: 'zoho-sheet', view: VISA_SHEET_NAME, data });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Visa fetch error:', err.response?.data || err.message);
@@ -468,53 +444,45 @@ app.get('/api/zoho/j1-visa', async (req, res) => {
   }
 });
 
-// J1 Requisition — fetches the base "Job Openings" table and filters for J1 Program rows.
-// Note: the "J1 Requisition" QueryTable (viewId 3008069000006372243) is a QueryTable type
-// which Zoho Analytics API v2 does not support for export; we replicate it by pulling the
-// underlying Table and applying the same filter (Placement Category = 'J1 Program').
-const JOB_OPENINGS_VIEW_ID = '3008069000000329012';
-const J1_REQ_SHOW_COLS = [
-  'Hosting Company', 'Department', 'Position Name',
-  'Requisition', 'Client Name Analytics', 'J1 Program Type',
-  'Requisition Status', 'Contract Length',
-  'Salary', 'City', 'Target Date', 'Date Opened', 'Housing Availability'
+// ─────────────────────────────────────────────────────────────────────────────
+// J1 REQUISITION — source: Zoho Recruit "Job_Openings" module
+// Filter: Placement_Category = 'J1 Program' AND Requisition_Status = 'Active'
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Column display map: [display label, getter from mapJobRecord result]
+const REQ_COL_MAP = [
+  ['Hosting Company',      j => j.hostingCompany],
+  ['Department',           j => j.department],
+  ['Position Name',        j => j.positionName],
+  ['Requisition',          j => String(j.numPositions || '')],
+  ['Client Name',          j => j.clientName],
+  ['J1 Program Type',      j => j.j1ProgramType],
+  ['Requisition Status',   j => j.status],
+  ['Contract Length',      j => j.contractLength],
+  ['Salary',               j => j.salary],
+  ['City',                 j => [j.city, j.state].filter(v => v && v !== '—').join(', ') || '—'],
+  ['Target Date',          j => j.targetDate || ''],
+  ['Housing Availability', j => j.housingAvail],
 ];
 
 app.get('/api/zoho/j1-requisition', async (req, res) => {
   try {
-    const token      = await ensureValidToken();
-    const headers    = await zohoHeaders(token);
-    const workspaces = await getAllWorkspaces(token);
-    if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
+    const fields  = Object.values(JOB_FIELDS).join(',');
+    const module  = process.env.RECRUIT_JOB_MODULE || 'Job_Openings';
+    const records = await fetchAllPages(recruitGet, module, fields);
+    const allJobs = records.map(mapJobRecord);
 
-    // Find the workspace containing Job Openings (CTI Group Dashboard)
-    const found = await findZohoView(headers, workspaces, v => v.viewId === JOB_OPENINGS_VIEW_ID);
-    if (!found) return res.status(404).json({ error: 'Job Openings table not found in any workspace' });
+    // Filter: Placement Category = 'J1 Program' AND Status = 'Active'
+    const j1Jobs  = allJobs.filter(j =>
+      /^j1 program$/i.test((j.placementCategory || '').trim()) &&
+      /^active$/i.test((j.status || '').trim())
+    );
 
-    // Fetch all Job Openings rows
-    const raw      = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
-    const allData  = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
-    const allCols  = allData.columns || [];
-    const allRows  = allData.rows    || [];
+    const columns = REQ_COL_MAP.map(([label]) => label);
+    const rows    = j1Jobs.map(j => REQ_COL_MAP.map(([, get]) => String(get(j) ?? '')));
 
-    // Filter: Placement Category = 'J1 Program', Requisition Status = 'Active', J1 Program Type filled
-    const catIdx  = allCols.indexOf('Placement Category');
-    const statIdx = allCols.indexOf('Requisition Status');
-    const progIdx = allCols.indexOf('J1 Program Type');
-    const j1Rows  = allRows.filter(r => {
-      if (catIdx  >= 0 && r[catIdx]  !== 'J1 Program') return false;
-      if (statIdx >= 0 && r[statIdx] !== 'Active')     return false;
-      if (progIdx >= 0 && !r[progIdx]?.trim())         return false;
-      return true;
-    });
-
-    // Project to only the columns we want to display
-    const showIdx = J1_REQ_SHOW_COLS.map(c => allCols.indexOf(c)).filter(i => i >= 0);
-    const columns = showIdx.map(i => allCols[i]);
-    const rows    = j1Rows.map(r => showIdx.map(i => r[i] ?? ''));
-
-    console.log(`✅ J1 Requisition: ${rows.length} rows, ${columns.length} columns`);
-    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: 'J1 Requisition', data: { columns, rows } });
+    console.log(`✅ J1 Requisition (Recruit): ${rows.length}/${allJobs.length} active J1 jobs`);
+    res.json({ source: 'zoho-recruit', view: 'Job Openings', data: { columns, rows } });
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('J1 Requisition fetch error:', err.response?.data || err.message);
@@ -522,55 +490,82 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
   }
 });
 
-// J1 Travel — replicates the J1 Travel QueryTable (view 3008069000006391002)
-// which Zoho Analytics API v2 cannot export directly (QueryTable restriction).
-//
-// Equivalent SQL:
-//   SELECT <travel cols> FROM "J1 Participants"
-//   WHERE "J1 Application Status" NOT IN (<archived/withdrawn statuses>)
-//   ORDER BY "Program Start Date" DESC
+// ─────────────────────────────────────────────────────────────────────────────
+// J1 TRAVEL — source: Zoho Recruit "J1_Participants" module
+// Filter: J1_Application_Status IN ('Stage 4','USA Onboard','Program Completed')
+//         AND Processing_Sponsor IS NOT NULL/empty
+// Sort:   Program_Start_Date DESC
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Columns — exact order from the QueryTable SQL (Selected Job aliased as "Role" in UI)
-const J1_TRAVEL_SHOW_COLS = [
-  'J1 Application Status',
-  'J1 Program Sources',
-  'Full Name',
-  'Email',
-  'Selected Job',
-  'Program Start Date',
-  'Program End Date',
-  'Processing Sponsor',
-  'Hosting Company',
-  'Trip From',
-  'Trip To',
-  'Departure Date',
-  'Arrival Date',
-  'Airport Gateway',
-  'Airport Pick-Up',
-  'Flight Ticket Status',
-  'Ticket Pricing',
-  'Ticket Payment Method',
-  'Ticket Payment Status',
-  'Airline',
-  'Airline PNR Number',
-  'Transportation Cost',
-  'Return Trip From',
-  'Return Trip To',
-  'Return Airport Gateway',
-  'Return Departure Date',
-  'Return Arrival Date',
-  'Return Flight Ticket Status',
-  'Return Ticket Price',
-  'Return Ticket Payment Status',
-  'Return Airline',
-  'Return Airline PNR Number',
-  'Return Transportation Cost',
-];
-
-// WHERE "J1 Application Status" IN ('Stage 4', 'USA Onboard', 'Program Completed')
 const J1_TRAVEL_INCLUDE = new Set(['Stage 4', 'USA Onboard', 'Program Completed']);
 
+// Column display map: [display label, getter from mapRecruitRecord result]
+const TRAVEL_COL_MAP = [
+  ['J1 Application Status',       r => r.placementStatus],
+  ['J1 Program Sources',          r => r.programSource],
+  ['Full Name',                   r => r.name],
+  ['Email',                       r => r.email],
+  ['Selected Job',                r => r.selectedJob],
+  ['Program Start Date',          r => r.programStart   || ''],
+  ['Program End Date',            r => r.programEnd     || ''],
+  ['Processing Sponsor',          r => r.processingSponsor],
+  ['Hosting Company',             r => r.hostCompany],
+  ['Trip From',                   r => r.tripFrom],
+  ['Trip To',                     r => r.tripTo],
+  ['Departure Date',              r => r.departureDate  || ''],
+  ['Arrival Date',                r => r.arrivalDate    || ''],
+  ['Airport Gateway',             r => r.airportGateway],
+  ['Airport Pick-Up',             r => r.airportPickup],
+  ['Flight Ticket Status',        r => r.flightBooked],
+  ['Ticket Pricing',              r => r.ticketPricing != null ? String(r.ticketPricing) : ''],
+  ['Ticket Payment Method',       r => r.ticketPayMethod],
+  ['Ticket Payment Status',       r => r.ticketPayStatus],
+  ['Airline',                     r => r.airline],
+  ['Airline PNR Number',          r => r.pnrNumber],
+  ['Transportation Cost',         r => r.transportCost != null ? String(r.transportCost) : ''],
+  ['Return Trip From',            r => r.returnTripFrom],
+  ['Return Trip To',              r => r.returnTripTo],
+  ['Return Airport Gateway',      r => r.returnGateway],
+  ['Return Departure Date',       r => r.returnDeparture || ''],
+  ['Return Arrival Date',         r => r.returnArrival   || ''],
+  ['Return Flight Ticket Status', r => r.returnFlightStatus],
+  ['Return Ticket Price',         r => r.returnTicketPrice != null ? String(r.returnTicketPrice) : ''],
+  ['Return Ticket Payment Status',r => r.returnTicketPayStatus],
+  ['Return Airline',              r => r.returnAirline],
+  ['Return Airline PNR Number',   r => r.returnPNR],
+  ['Return Transportation Cost',  r => r.returnTransportCost != null ? String(r.returnTransportCost) : ''],
+];
+
 app.get('/api/zoho/j1-travel', async (req, res) => {
+  try {
+    const fields  = Object.values(RECRUIT_FIELDS).join(',');
+    const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
+    const records = await fetchAllPages(recruitGet, module, fields);
+    const allRecs = records.map(mapRecruitRecord);
+
+    // Filter: status IN ('Stage 4','USA Onboard','Program Completed') AND sponsor set
+    const filtered = allRecs.filter(r =>
+      J1_TRAVEL_INCLUDE.has(r.placementStatus) &&
+      r.processingSponsor && r.processingSponsor !== '—'
+    );
+
+    // Sort: programStart DESC
+    filtered.sort((a, b) => String(b.programStart || '').localeCompare(String(a.programStart || '')));
+
+    const columns = TRAVEL_COL_MAP.map(([label]) => label);
+    const rows    = filtered.map(r => TRAVEL_COL_MAP.map(([, get]) => String(get(r) ?? '')));
+
+    console.log(`✅ J1 Travel (Recruit): ${rows.length}/${allRecs.length} participants, ${columns.length} cols`);
+    res.json({ source: 'zoho-recruit', view: 'J1 Participants', data: { columns, rows } });
+  } catch (err) {
+    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
+    console.error('J1 Travel fetch error:', err.response?.data || err.message);
+    res.status(status).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// (Legacy Analytics endpoints retained below for reference — no longer used by dashboard)
+app.get('/api/zoho/j1-travel-analytics-legacy', async (req, res) => {
   try {
     const token      = await ensureValidToken();
     const headers    = await zohoHeaders(token);
@@ -652,6 +647,7 @@ const RECRUIT_FIELDS = {
   programType:        'Program_Option',
   programStart:       'Program_Start_Date',
   programEnd:         'Program_End_Date',
+  selectedJob:        'Select_a_Job',
   hostCompany:        'Hosting_Company_2',
   processingSponsor:  'Processing_Sponsor',
   sponsorStatus:      'Sponsor_Interview_Status',
@@ -828,6 +824,7 @@ function mapRecruitRecord(r) {
     programSource:       r[F.programSources]     || '—',
     placementStatus:     r[F.appStatus]          || '—',
     processingSponsor:   r[F.processingSponsor]  || '—',
+    selectedJob:         r[F.selectedJob]        || '—',
     hostCompany:         r[F.hostCompany]        || '—',
     programStart:        r[F.programStart]       || null,
     programEnd:          r[F.programEnd]         || null,
