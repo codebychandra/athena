@@ -251,6 +251,21 @@ async function loadJSON(file) {
 }
 
 // ============================
+// ── Safe fetch helper — always returns JSON or throws a clean error ──────────
+// Prevents "Unexpected token '<'" when the server returns an HTML error page.
+async function safeJson(url, opts = {}) {
+  const res = await fetch(url, opts);
+  const ct  = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    // Server returned HTML (not running, 404, or unhandled Express error)
+    throw new Error(res.status === 401 ? 'NOT_AUTHENTICATED'
+      : `Server not reachable (HTTP ${res.status})`);
+  }
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
 // ZOHO INTEGRATION
 // ============================
 async function checkZohoStatus() {
@@ -289,9 +304,7 @@ function updateZohoBadge() {
 
 async function fetchZohoJ1Data() {
   try {
-    const res  = await fetch('/api/zoho/j1-placements');
-    if (!res.ok) throw new Error('fetch failed');
-    const json = await res.json();
+    const json = await safeJson('/api/zoho/j1-placements');
     return json?.data || json;
   } catch {
     return null;
@@ -3094,9 +3107,7 @@ pages.j1visa = async function () {
   let columns = [], rows = [], viewName = '', errorMsg = null;
 
   try {
-    const res  = await fetch('/api/zoho/j1-visa');
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    const json = await safeJson('/api/zoho/j1-visa');
     viewName = json.view || '';
     columns  = json.data?.columns || [];
     rows     = json.data?.rows    || [];
@@ -3308,9 +3319,7 @@ pages.requisition = async function () {
   let viewName = '';
 
   try {
-    const res  = await fetch('/api/zoho/j1-requisition');
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    const json = await safeJson('/api/zoho/j1-requisition');
     viewName = json.view || 'J1 Requisition';
     rawRows  = json.data?.rows || [];
   } catch (e) { errorMsg = e.message; }
@@ -4176,9 +4185,7 @@ pages.travel = async function () {
   // ── Fetch live data from server ──────────────────────────────
   let columns = [], rows = [], viewName = '', errorMsg = null;
   try {
-    const res  = await fetch('/api/zoho/j1-travel');
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Fetch failed');
+    const json = await safeJson('/api/zoho/j1-travel');
     viewName = json.view || 'J1 Travel';
     columns  = json.data?.columns || [];
     rows     = json.data?.rows    || [];

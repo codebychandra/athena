@@ -206,8 +206,20 @@ async function fetchViewData(wsId, viewId, headers) {
 // INIT
 // ============================
 loadTokens();
-app.use(express.static(path.join(__dirname)));
 app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+
+// ── Ensure all unmatched /api/* routes return JSON, never HTML ────────────────
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `No API route: ${req.method} ${req.path}` });
+});
+
+// ── Global error handler — always JSON ───────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
 
 // ============================
 // OAUTH ROUTES
