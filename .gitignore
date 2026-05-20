@@ -1,6 +1,17 @@
 # Secrets — never commit these
 .env
 .zoho_tokens.json
+ngrok.yml
+
+# Logs & temp output
+*.txt
+*.log
+
+# Data exports
+*.xlsx
+
+# Claude session
+.claude/
 
 # Dependencies
 node_modules/

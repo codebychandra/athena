@@ -25,15 +25,17 @@ const PAGE_TITLES = {
   marine:       'Marine Travel',
   visa:         'Visa Services',
   clients:      'Clients',
-  reports:      'Reports',
-  settings:     'Settings',
-  interntainee: 'Intern v Trainee',
-  socialmedia:  'Social Media Disclosure',
+  reports:      'Report',
   compliance:   'Compliance',
   marketing:    'Marketing',
-  j1visa:       'Visa Status',
+  j1visa:       'Visa',
   requisition:  'Requisition',
-  travel:       'Travel'
+  travel:       'Travel',
+  participant:  'Participant',
+  talentpool:   'Talent Pool',
+  housing:      'Housing',
+  returnhome:   'Return Home',
+  task:         'Task',
 };
 
 // Pages that are locked (no live data yet)
@@ -2682,303 +2684,6 @@ pages.reports = async function () {
 };
 
 // ============================
-// PAGE: INTERN v TRAINEE
-// ============================
-pages.interntainee = async function () {
-  const C = DIVISION_COLORS.j1;
-  return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
-        <h1>Intern v Trainee</h1>
-        <p class="subtitle">J1 Exchange Visitor Program — category eligibility guide for embassy reporting</p>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
-      <div class="card" style="border-top:4px solid ${C};">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-          <div style="width:44px;height:44px;border-radius:50%;background:${C};display:flex;
-            align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;">🎓</div>
-          <div>
-            <div style="font-size:17px;font-weight:700;">Intern</div>
-            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">J1 Intern Category</div>
-          </div>
-        </div>
-        <div style="font-size:13px;line-height:1.75;color:var(--text-secondary,#555);">
-          <p style="margin:0 0 10px;"><strong>Who qualifies:</strong></p>
-          <ul style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Currently enrolled full-time in a degree program at a post-secondary academic institution <em>outside</em> the United States</li>
-            <li>OR graduated within the <strong>past 12 months</strong> from such an institution</li>
-          </ul>
-          <p style="margin:0 0 8px;"><strong>Program requirements:</strong></p>
-          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Internship must be <strong>directly related</strong> to the participant's current field of study</li>
-            <li>Maximum duration: <strong>12 months</strong></li>
-            <li>Requires DS-7002 Training/Internship Placement Plan</li>
-            <li>Must be a structured, supervised program</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="card" style="border-top:4px solid #B01A18;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-          <div style="width:44px;height:44px;border-radius:50%;background:#B01A18;display:flex;
-            align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;">💼</div>
-          <div>
-            <div style="font-size:17px;font-weight:700;">Trainee</div>
-            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">J1 Trainee Category</div>
-          </div>
-        </div>
-        <div style="font-size:13px;line-height:1.75;color:var(--text-secondary,#555);">
-          <p style="margin:0 0 10px;"><strong>Who qualifies:</strong></p>
-          <ul style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Holds a degree or professional certificate AND has at least <strong>1 year</strong> of work experience in their occupational field</li>
-            <li>OR has <strong>5+ years</strong> of work experience in their occupational field (no degree required)</li>
-          </ul>
-          <p style="margin:0 0 8px;"><strong>Program requirements:</strong></p>
-          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            <li>Maximum duration: <strong>18 months</strong></li>
-            <li>Requires DS-7002 Training/Internship Placement Plan</li>
-            <li>Must share knowledge and skills upon return home</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-title" style="margin-bottom:16px;">Side-by-Side Comparison</div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:var(--bg-subtle,#F3F4F6);">
-              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);width:30%;">Criteria</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);color:${C};">Intern</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid var(--border,#E5E7EB);color:#B01A18;">Trainee</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${[
-              ['Education requirement',  'Currently enrolled OR graduated ≤12 months ago','Degree + 1 yr experience, OR 5 yrs experience'],
-              ['Minimum work experience','None required',                                  'At least 1 year in field (or 5 yrs without degree)'],
-              ['Program link to study','Must relate to current field of study',          'Career development beyond home-country opportunities'],
-              ['Maximum duration',       '12 months',                                      '18 months'],
-              ['Key document',           'DS-7002 Internship Placement Plan',              'DS-7002 Training Placement Plan'],
-              ['Supervision',            'Direct supervisor required',                     'Structured training phases required'],
-              ['Repeat eligibility',     'Once per degree program',                        'Once per career field'],
-            ].map(([c,i,t]) => `
-              <tr style="border-bottom:1px solid var(--border,#E5E7EB);">
-                <td style="padding:10px 14px;font-weight:600;">${c}</td>
-                <td style="padding:10px 14px;color:var(--text-secondary,#555);">${i}</td>
-                <td style="padding:10px 14px;color:var(--text-secondary,#555);">${t}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card" style="border-left:4px solid #B87A14;background:rgba(184,122,20,0.04);">
-      <div style="display:flex;gap:12px;align-items:flex-start;">
-        <span style="font-size:22px;margin-top:2px;">📋</span>
-        <div>
-          <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#B87A14;">Embassy Reporting Notes</div>
-          <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:var(--text-secondary,#555);display:flex;flex-direction:column;gap:4px;">
-            <li>The correct category <strong>(Intern or Trainee)</strong> must be specified on the DS-2019 Certificate of Eligibility</li>
-            <li>DS-7002 must be signed by the host employer, exchange visitor, and sponsor <em>before</em> the program begins</li>
-            <li>Misclassification is one of the most common compliance issues flagged during embassy interviews</li>
-            <li>CTI Group verifies category eligibility during the application screening process</li>
-          </ul>
-        </div>
-      </div>
-    </div>`;
-};
-
-// ============================
-// PAGE: SOCIAL MEDIA DISCLOSURE
-// ============================
-pages.socialmedia = async function () {
-  const C = DIVISION_COLORS.j1;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
-        <h1>Social Media Disclosure Form</h1>
-        <p class="subtitle">J1 participants must complete this form prior to program commencement</p>
-      </div>
-    </div>
-
-    ${!isLocal ? `<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;
-      background:rgba(184,122,20,0.08);border:1px solid rgba(184,122,20,0.25);border-radius:8px;margin-bottom:20px;">
-      <span>⚠️</span>
-      <span style="font-size:13px;color:#B87A14;font-weight:500;">Server offline</span>
-    </div>` : ''}
-
-    <div class="card mb-24">
-      <div class="card-title" style="margin-bottom:20px;">📝 Social Media Disclosure Form</div>
-
-      <form id="smForm" style="display:flex;flex-direction:column;gap:24px;">
-
-        <!-- Personal Info -->
-        <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
-            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
-            Personal Information
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            ${[
-              ['firstName','First Name','text','John','true'],
-              ['lastName','Last Name','text','Doe','true'],
-              ['email','Email Address','email','john@email.com','true'],
-              ['phone','Phone Number','tel','+1 234 567 8900','false'],
-              ['nationality','Nationality','text','Indonesian','false'],
-              ['hostingCompany','Hosting Company','text','e.g. Viking Cruises','true'],
-              ['startDate','Program Start Date','date','','false'],
-              ['endDate','Program End Date','date','','false'],
-            ].map(([id,label,type,ph,req]) => `
-              <div>
-                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-                  ${label}${req==='true'?' <span style="color:#B01A18;">*</span>':''}
-                </label>
-                <input id="sm_${id}" type="${type}" placeholder="${ph}"
-                  ${req==='true'?'required':''} autocomplete="off"
-                  style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                    border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                    color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
-                  onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-              </div>`).join('')}
-          </div>
-        </div>
-
-        <!-- Social Media Account -->
-        <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
-            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
-            Social Media Account <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;">(submit your primary account)</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end;">
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-                Platform <span style="color:#B01A18;">*</span>
-              </label>
-              <select id="sm_platform" required
-                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                  border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                  color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;appearance:auto;"
-                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-                <option value="">Select platform…</option>
-                <option value="Instagram">📸 Instagram</option>
-                <option value="TikTok">🎵 TikTok</option>
-                <option value="Facebook">👤 Facebook</option>
-                <option value="Twitter / X">🐦 Twitter / X</option>
-                <option value="LinkedIn">💼 LinkedIn</option>
-                <option value="YouTube">▶ YouTube</option>
-                <option value="Snapchat">👻 Snapchat</option>
-                <option value="Other">🌐 Other</option>
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-                Username / Profile URL
-              </label>
-              <input id="sm_username" type="text" placeholder="@username or profile URL"
-                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                  border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                  color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
-                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-            </div>
-          </div>
-          <div style="margin-top:14px;">
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-              letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-              🔒 Privacy Setting During Program <span style="color:#B01A18;">*</span>
-            </label>
-            <select id="sm_privacySetting" required
-              style="width:100%;max-width:360px;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                border-radius:8px;font-size:13px;font-family:inherit;background:var(--bg,#fff);
-                color:var(--text,#1A1A1A);outline:none;appearance:auto;">
-              <option value="">Select privacy setting…</option>
-              <option value="Account set to Private">Account set to Private</option>
-              <option value="Account remains Public">Account remains Public</option>
-              <option value="I do not have social media accounts">I do not have social media accounts</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Acknowledgements -->
-        <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
-            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
-            Acknowledgements <span style="color:#B01A18;">*</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            ${[
-              ['confirmedAccurate','I confirm that all social media accounts listed above are accurate and complete'],
-              ['noProhibitedContent','I agree not to post prohibited content (confidential, discriminatory, or political) during my program'],
-              ['termsAgreed','I have read and agree to the CTI Group Social Media Terms & Agreement'],
-            ].map(([id,label]) => `
-              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;
-                color:var(--text-secondary,#555);line-height:1.5;">
-                <input id="sm_${id}" type="checkbox" required
-                  style="margin-top:2px;width:15px;height:15px;accent-color:${C};flex-shrink:0;">
-                ${label}
-              </label>`).join('')}
-          </div>
-        </div>
-
-        <!-- Signature -->
-        <div>
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted,#888);
-            text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border,#E5E7EB);">
-            Signature
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end;">
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">
-                Full Name (typed signature) <span style="color:#B01A18;">*</span>
-              </label>
-              <input id="sm_signature" type="text" placeholder="Type your full name" required
-                style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                  border-radius:8px;font-size:14px;font-family:'Georgia',serif;font-style:italic;
-                  background:var(--bg,#fff);color:var(--text,#1A1A1A);outline:none;transition:border-color 0.15s;"
-                onfocus="this.style.borderColor='${C}'" onblur="this.style.borderColor='var(--border,#E5E7EB)'">
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.06em;color:var(--text-muted,#888);margin-bottom:6px;">Date</label>
-              <input type="text" value="${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}"
-                disabled style="width:100%;padding:10px 13px;border:1.5px solid var(--border,#E5E7EB);
-                  border-radius:8px;font-size:13px;background:var(--bg-subtle,#F3F4F6);
-                  color:var(--text-muted,#888);font-family:inherit;">
-            </div>
-          </div>
-        </div>
-
-        <!-- Submit -->
-        <div style="display:flex;gap:12px;align-items:center;padding-top:8px;border-top:1px solid var(--border,#E5E7EB);">
-          <button type="submit" id="smSubmitBtn"
-            style="padding:12px 28px;border:none;border-radius:8px;background:${C};color:#fff;
-              font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;
-              box-shadow:0 4px 14px rgba(27,58,107,0.3);transition:all 0.15s;"
-            onmouseover="this.style.background='#152e56'" onmouseout="this.style.background='${C}'">
-            Submit Disclosure
-          </button>
-          <button type="button" onclick="document.getElementById('smForm').reset();showToast('Form cleared.','info');"
-            style="padding:12px 20px;border:1.5px solid var(--border,#E5E7EB);border-radius:8px;
-              background:transparent;color:var(--text-muted,#888);font-size:13px;font-weight:600;
-              font-family:inherit;cursor:pointer;">
-            Clear Form
-          </button>
-          <span id="smFormMsg" style="font-size:13px;display:none;"></span>
-        </div>
-
-      </form>
-    </div>`;
-};
-
-// ============================
 // PAGE: COMPLIANCE
 // ============================
 pages.compliance = async function () {
@@ -3038,258 +2743,280 @@ pages.compliance = async function () {
 // PAGE: J1 VISA STATUS
 // ============================
 pages.j1visa = async function () {
-  const C       = DIVISION_COLORS.j1;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  let recruitRows = [], crmRows = [], errorMsg = null;
+  const [rRes, cRes] = await Promise.allSettled([
+    safeJson('/api/recruit/j1-participants'),
+    safeJson('/api/crm/j1-participants'),
+  ]);
+  if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
+  else errorMsg = rRes.reason?.message;
+  if (cRes.status === 'fulfilled') crmRows = cRes.value?.data || [];
 
-  // 7 milestone stages — counts are INDEPENDENT (a person can count in multiple)
-  const STAGES = [
-    { key:'registered',  label:'Registered',          icon:'📋', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
-    { key:'paid',        label:'Paid',                icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)' },
-    { key:'ds',          label:'DS-160 Processed',    icon:'📄', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)' },
-    { key:'waiting',     label:'Waiting Appointment', icon:'⏳', color:'#B87A14', bg:'rgba(184,122,20,0.10)' },
-    { key:'appointment', label:'Has Appointment',     icon:'📅', color:'#2D7A55', bg:'rgba(45,122,85,0.10)' },
-    { key:'approved',    label:'Approved',            icon:'✅', color:'#059669', bg:'rgba(5,150,105,0.10)' },
-    { key:'rejected',    label:'Rejected',            icon:'❌', color:'#B01A18', bg:'rgba(176,26,24,0.10)' },
-  ];
+  // Filter: visa status not blank
+  const allRows = [...recruitRows, ...crmRows].filter(r => r.visaStatus && r.visaStatus !== '—');
+  state.dataCache['visa-rows'] = allRows;
+  _visaSortCol = null; _visaSortDir = 'asc';
 
-  // Compute milestone counts + per-participant current stage
-  function computeCounts(columns, rows) {
-    const payIdx      = columns.findIndex(c => /payment status/i.test(c));
-    const visIdx      = columns.findIndex(c => /^visa status$/i.test(c));
-    const apptIdx     = columns.findIndex(c => /appointment date/i.test(c));
-    const nameIdx     = columns.findIndex(c => /^name$/i.test(c));
-    const natIdx      = columns.findIndex(c => /nationality/i.test(c));
-    const passportIdx = columns.findIndex(c => /passport/i.test(c));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const totalVisa  = allRows.length;
+  const cntApproved= allRows.filter(r => r.visaStatus === 'Approved').length;
+  const cntRejected= allRows.filter(r => /rejected/i.test(r.visaStatus)).length;
+  const cntPending = allRows.filter(r => /pending/i.test(r.visaStatus)).length;
+  const cntUpcoming= allRows.filter(r => {
+    if (!r.visaAppointment || r.visaAppointment === '—') return false;
+    const d = new Date(r.visaAppointment);
+    return !isNaN(d.getTime()) && d >= today;
+  }).length;
+  const successRate = (cntApproved + cntRejected) > 0
+    ? Math.round(cntApproved / (cntApproved + cntRejected) * 100) : null;
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED')||errorMsg.includes('401'));
 
-    const counts = Object.fromEntries(STAGES.map(s => [s.key, 0]));
-    const people = [];
+  // Filter dropdown options
+  const visaStatuses = [...new Set(allRows.map(r=>r.visaStatus).filter(v=>v&&v!=='—'))].sort();
+  const countries    = [...new Set(allRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
+  // Month/Year options from appointment dates
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const apptDates = allRows.map(r=>r.visaAppointment).filter(v=>v&&v!=='—').map(v=>new Date(v)).filter(d=>!isNaN(d));
+  const apptYears  = [...new Set(apptDates.map(d=>d.getFullYear()))].sort((a,b)=>a-b);
+  const apptMonths = [...new Set(apptDates.map(d=>d.getMonth()))].sort((a,b)=>a-b);
 
-    rows.forEach(row => {
-      const pay      = String(payIdx      >= 0 ? row[payIdx]      || '' : '');
-      const vis      = String(visIdx      >= 0 ? row[visIdx]      || '' : '');
-      const appt     = String(apptIdx     >= 0 ? row[apptIdx]     || '' : '').trim();
-      const passport = String(passportIdx >= 0 ? row[passportIdx] || '' : '');
+  // Table headers
+  const thSort = VISA_TABLE_COLS.map(col =>
+    col.sortable
+      ? `<th data-visafield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th style="white-space:nowrap;">${col.label}</th>`
+  ).join('') + '<th style="width:52px;"></th>';
 
-      counts.registered++;
-      if (/paid/i.test(pay))                                             counts.paid++;
-      if (/visa application processed/i.test(vis))                      counts.ds++;
-      if (/visa payment processed/i.test(vis) && !appt)                 counts.waiting++;
-      if (/visa payment processed/i.test(vis) && appt)                  counts.appointment++;
-      if (/approv|issued|granted/i.test(vis))                           counts.approved++;
-      if (/reject|denied|refused/i.test(vis))                           counts.rejected++;
-
-      // Highest current stage (for table display)
-      let stage;
-      if (/reject|denied|refused/i.test(vis))                           stage = 'rejected';
-      else if (/approv|issued|granted/i.test(vis))                      stage = 'approved';
-      else if (/visa payment processed/i.test(vis) && appt)             stage = 'appointment';
-      else if (/visa payment processed/i.test(vis))                     stage = 'waiting';
-      else if (/visa application processed/i.test(vis))                 stage = 'ds';
-      else if (/paid/i.test(pay))                                       stage = 'paid';
-      else                                                               stage = 'registered';
-
-      // Store all raw column values for the full panel view
-      const allFields = columns.map((col, i) => [col, String(row[i] ?? '')]);
-
-      people.push({
-        name:          String(nameIdx >= 0 ? row[nameIdx] || '' : ''),
-        nationality:   String(natIdx  >= 0 ? row[natIdx]  || '' : ''),
-        passport,
-        paymentStatus: pay,
-        visaStatus:    vis,
-        stage, appt,
-        allFields
-      });
-    });
-    return { counts, people };
-  }
-
-  let columns = [], rows = [], viewName = '', errorMsg = null;
-
-  try {
-    const json = await safeJson('/api/zoho/j1-visa');
-    viewName = json.view || '';
-    columns  = json.data?.columns || [];
-    rows     = json.data?.rows    || [];
-  } catch (e) { errorMsg = e.message; }
-
-  const { counts, people } = computeCounts(columns, rows);
-  const total   = counts.registered;
-  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  const cfDropdowns = { visaStatus: visaStatuses, country: countries };
+  const thFilter = VISA_TABLE_COLS.map(col => {
+    const opts = cfDropdowns[col.field];
+    return `<th>${opts
+      ? `<select class="req-cf" data-visafield="${escH(col.field)}"><option value="">All</option>${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}</select>`
+      : `<input class="req-cf req-col-f" data-visafield="${escH(col.field)}" type="text" placeholder="—">`
+    }</th>`;
+  }).join('') + '<th></th>';
 
   return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
-        <h1>Visa Status</h1>
-        <p class="subtitle">J1 visa application pipeline · ${total} participants${viewName ? ' · ' + viewName : ''}</p>
+    <div class="req-page-header">
+      <h1>Visa</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">${totalVisa} participants with visa status</span>
+    </div>
+
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
+
+    <!-- Filter Bar (sticky) -->
+    <div class="card req-filter-bar">
+      <select id="visaStatusFilter" class="req-gsel">
+        <option value="">All Visa Statuses</option>
+        ${visaStatuses.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="visaApptMonth" class="req-gsel">
+        <option value="">All Months</option>
+        ${apptMonths.map(m=>`<option value="${m}">${MONTH_NAMES[m]}</option>`).join('')}
+      </select>
+      <select id="visaApptYear" class="req-gsel">
+        <option value="">All Years</option>
+        ${apptYears.map(y=>`<option value="${y}">${y}</option>`).join('')}
+      </select>
+      <select id="visaCountryFilter" class="req-gsel">
+        <option value="">All Countries</option>
+        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
+      </select>
+      <button id="visaClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="visaCount" class="req-count-badge">${allRows.length} records</span>
+    </div>
+
+    <!-- KPIs (5 + success rate donut) -->
+    <div class="req-kpi-grid" style="grid-template-columns:repeat(6,1fr);">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Applications</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;" id="visaKpiTotal">${totalVisa.toLocaleString()}</span>
+        <span class="req-kpi-sub">with visa status</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Approved</span>
+        <span class="req-kpi-value" style="color:#2D7A55;" id="visaKpiApproved">${cntApproved.toLocaleString()}</span>
+        <span class="req-kpi-sub">visa approved</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Rejected</span>
+        <span class="req-kpi-value" style="color:#B01A18;" id="visaKpiRejected">${cntRejected.toLocaleString()}</span>
+        <span class="req-kpi-sub">visa rejected</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Pending</span>
+        <span class="req-kpi-value" style="color:#D97706;" id="visaKpiPending">${cntPending.toLocaleString()}</span>
+        <span class="req-kpi-sub">awaiting decision</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Upcoming Appt.</span>
+        <span class="req-kpi-value" style="color:#0891B2;" id="visaKpiUpcoming">${cntUpcoming.toLocaleString()}</span>
+        <span class="req-kpi-sub">future appointments</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Success Rate</span>
+        <span class="req-kpi-value" style="color:${successRate !== null ? (successRate >= 80 ? '#2D7A55' : successRate >= 50 ? '#D97706' : '#B01A18') : '#6B7280'};" id="visaKpiRate">${successRate !== null ? successRate + '%' : 'N/A'}</span>
+        <span class="req-kpi-sub">approved vs rejected</span>
       </div>
     </div>
 
-    ${errorMsg && !rows.length ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
-      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
-      border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr ? 'Server not connected' : 'Server error'}
-        </div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">
-          ${authErr
-            ? 'Session expired or server not connected. <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Click here to reconnect →</a>'
-            : errorMsg}
-        </div>
-      </div>
-    </div>` : ''}
-
-    <!-- 7-stage milestone pipeline -->
-    <div style="display:flex;align-items:stretch;gap:0;margin-bottom:24px;overflow-x:auto;">
-      ${STAGES.map((s, i) => `
-        ${i > 0 ? `<div style="display:flex;align-items:center;padding:0 2px;color:var(--text-muted,#bbb);font-size:18px;flex-shrink:0;">›</div>` : ''}
-        <div style="flex:1;min-width:90px;padding:16px 10px;text-align:center;
-          background:${s.bg};border:1px solid ${s.color}30;
-          border-radius:${i===0?'12px 0 0 12px':i===STAGES.length-1?'0 12px 12px 0':'0'};
-          border-left:${i>0?'none':'1px solid '+s.color+'30'};">
-          <div style="font-size:22px;line-height:1;margin-bottom:8px;">${s.icon}</div>
-          <div style="font-size:32px;font-weight:800;color:${s.color};line-height:1;">${counts[s.key]}</div>
-          <div style="font-size:10px;font-weight:700;color:${s.color};margin-top:6px;
-            text-transform:uppercase;letter-spacing:0.05em;line-height:1.4;">${s.label}</div>
-        </div>`).join('')}
-    </div>
-
-    <!-- Participants table -->
-    ${people.length > 0 ? `
-    <script type="application/json" id="j1visaData">${JSON.stringify({
-      people,
-      stagesMap: Object.fromEntries(STAGES.map(s => [s.key, s]))
-    })}<\/script>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:16px;">👤 Participant Details</div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Nationality</th>
-            <th>Passport No.</th>
-            <th>Payment Status</th>
-            <th>Visa Status</th>
-            <th>Appointment Date</th>
-            <th>Current Stage</th>
-            <th></th>
-          </tr></thead>
-          <tbody>
-            ${people.map((p, i) => {
-              const stg = STAGES.find(s => s.key === p.stage) || STAGES[0];
-              return `<tr>
-                <td style="color:var(--text-muted,#888);font-size:12px;">${i+1}</td>
-                <td><strong>${p.name || '—'}</strong></td>
-                <td>${p.nationality || '—'}</td>
-                <td style="font-family:monospace;font-size:12px;letter-spacing:0.03em;">${p.passport || '—'}</td>
-                <td>${p.paymentStatus
-                  ? `<span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;
-                      background:rgba(107,71,220,0.1);color:#6B47DC;">${p.paymentStatus}</span>`
-                  : '<span style="color:var(--text-muted,#aaa);">—</span>'}</td>
-                <td style="font-size:12px;color:var(--text-secondary,#555);">${p.visaStatus || '—'}</td>
-                <td style="color:${p.appt ? '#059669' : 'var(--text-muted,#aaa)'};">${p.appt || '—'}</td>
-                <td>
-                  <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
-                    background:${stg.bg};color:${stg.color};white-space:nowrap;">
-                    ${stg.icon} ${stg.label}
-                  </span>
-                </td>
-                <td>
-                  <button class="j1visa-details-btn" data-idx="${i}"
-                    style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
-                      background:transparent;color:${C};font-size:11px;font-weight:700;
-                      font-family:inherit;cursor:pointer;white-space:nowrap;transition:all 0.15s;"
-                    onmouseover="this.style.background='${C}';this.style.color='#fff'"
-                    onmouseout="this.style.background='transparent';this.style.color='${C}'">
-                    View Details
-                  </button>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
+    <!-- Table -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="visaMainTable">
+          <thead>
+            <tr id="visaSortRow">${thSort}</tr>
+            <tr id="visaColFilterRow">${thFilter}</tr>
+          </thead>
+          <tbody id="visaTableBody"></tbody>
         </table>
       </div>
-    </div>` : ''}`;
+    </div>`;
 };
 
-// ── J1 Visa side-panel events ──────────────────────────────────
 pageEvents.j1visa = function () {
-  const dataEl = document.getElementById('j1visaData');
-  if (!dataEl) return;
-  let parsed;
-  try { parsed = JSON.parse(dataEl.textContent); } catch { return; }
-  const { people, stagesMap } = parsed;
-  const C = DIVISION_COLORS.j1;
+  const allRows = state.dataCache['visa-rows'] || [];
+  if (!allRows.length) return;
 
-  document.querySelectorAll('.j1visa-details-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.idx, 10);
-      const p   = people[idx];
-      if (!p) return;
-      const stg = stagesMap[p.stage] || stagesMap['registered'];
+  // ── Helpers ───────────────────────────────────────────
+  function visaBadge(s) {
+    const c = visaStatusColor(s);
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${c}18;color:${c};border:1px solid ${c}40;white-space:nowrap;">${escH(s||'—')}</span>`;
+  }
+  function statusBadge(s) {
+    const c = PAR_STATUS_COLORS[s] || '#888';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${c}18;color:${c};border:1px solid ${c}40;white-space:nowrap;">${escH(s||'—')}</span>`;
+  }
+  function fmtDate(v) {
+    if (!v || v === '—') return '—';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+  function cellContent(r, col) {
+    const v   = r[col.field];
+    const str = (v === null || v === undefined || v === '') ? '—' : String(v);
+    if (col.statusbadge) return statusBadge(str);
+    if (col.visabadge)   return visaBadge(str);
+    if (col.datecol)     return fmtDate(str);
+    return escH(str);
+  }
 
-      document.getElementById('panelTitle').textContent = p.name || 'Participant';
-
-      // All source columns + derived Current Stage
-      const displayFields = (p.allFields && p.allFields.length
-        ? p.allFields.filter(([col]) => !/^name$/i.test(col))  // name already in header
-        : [
-            ['Nationality',      p.nationality   || ''],
-            ['Passport Number',  p.passport      || ''],
-            ['Payment Status',   p.paymentStatus || ''],
-            ['Visa Status',      p.visaStatus    || ''],
-            ['Appointment Date', p.appt          || ''],
-          ]
-      ).concat([['Current Stage', stg.label]]);
-
-      const isCodeField = col => /passport|sevis|visa.*(application|payment)\s*id|program number/i.test(col);
-
-      document.getElementById('panelBody').innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0;">
-          <div style="display:flex;align-items:center;gap:14px;">
-            <div style="width:52px;height:52px;border-radius:50%;background:${stg.bg};
-              border:2px solid ${stg.color};display:flex;align-items:center;justify-content:center;
-              font-size:24px;flex-shrink:0;">${stg.icon}</div>
-            <div>
-              <div style="font-size:16px;font-weight:700;">${p.name || '—'}</div>
-              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px;">${p.nationality || '—'}</div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            ${displayFields.map(([col, val]) => `
-              <div style="padding:11px 13px;background:var(--bg-subtle,#F3F4F6);border-radius:8px;">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-                  color:var(--text-muted,#888);margin-bottom:4px;">${col}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);
-                  font-family:${isCodeField(col)?'monospace':'inherit'};">
-                  ${val || '—'}
-                </div>
-              </div>`).join('')}
-          </div>
-          <div style="padding:12px 16px;background:${stg.bg};border-radius:8px;
-            border:1px solid ${stg.color}40;">
-            <span style="font-size:13px;font-weight:700;color:${stg.color};">
-              ${stg.icon} Current Stage: ${stg.label}
-            </span>
-          </div>
-        </div>`;
-
-      document.getElementById('sidePanel').classList.add('open');
-      document.getElementById('panelOverlay')?.classList.add('active');
+  function applyFilters(base) {
+    const gSt    = document.getElementById('visaStatusFilter')?.value  || '';
+    const gCtry  = document.getElementById('visaCountryFilter')?.value || '';
+    const gMonth = document.getElementById('visaApptMonth')?.value     || '';
+    const gYear  = document.getElementById('visaApptYear')?.value      || '';
+    const colF   = {};
+    document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el => {
+      const v = el.value.trim(); if (v) colF[el.dataset.visafield] = v.toLowerCase();
     });
+    return base.filter(r => {
+      if (gSt   && r.visaStatus !== gSt)   return false;
+      if (gCtry && r.country    !== gCtry) return false;
+      if (gMonth !== '' || gYear !== '') {
+        const appt = r.visaAppointment;
+        if (!appt || appt === '—') return false;
+        const d = new Date(appt);
+        if (isNaN(d.getTime())) return false;
+        if (gMonth !== '' && d.getMonth() !== parseInt(gMonth)) return false;
+        if (gYear  !== '' && d.getFullYear() !== parseInt(gYear))  return false;
+      }
+      for (const [f, fv] of Object.entries(colF)) {
+        if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+  }
+  function doSort(rows) {
+    if (!_visaSortCol) return rows;
+    const isDate = ['visaPaymentDate','visaAppointment','visaExpiredDate'].includes(_visaSortCol);
+    return [...rows].sort((a, b) => {
+      let av = a[_visaSortCol], bv = b[_visaSortCol];
+      if (isDate) {
+        av = av ? new Date(av).getTime() : 0;
+        bv = bv ? new Date(bv).getTime() : 0;
+        return _visaSortDir === 'asc' ? av - bv : bv - av;
+      }
+      const cmp = String(av||'').localeCompare(String(bv||''));
+      return _visaSortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+  function renderRows(rows) {
+    if (!rows.length) return `<tr><td colspan="${VISA_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td>${cellContent(r,col)}</td>`).join('')}<td></td></tr>`).join('');
+  }
+
+  function updateKpis(rows) {
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const approved= rows.filter(r => r.visaStatus === 'Approved').length;
+    const rejected= rows.filter(r => /rejected/i.test(r.visaStatus)).length;
+    const pending = rows.filter(r => /pending/i.test(r.visaStatus)).length;
+    const upcoming= rows.filter(r => {
+      if (!r.visaAppointment || r.visaAppointment === '—') return false;
+      const d = new Date(r.visaAppointment);
+      return !isNaN(d.getTime()) && d >= today;
+    }).length;
+    const rate = (approved + rejected) > 0 ? Math.round(approved/(approved+rejected)*100) : null;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('visaKpiTotal',    rows.length.toLocaleString());
+    set('visaKpiApproved', approved.toLocaleString());
+    set('visaKpiRejected', rejected.toLocaleString());
+    set('visaKpiPending',  pending.toLocaleString());
+    set('visaKpiUpcoming', upcoming.toLocaleString());
+    const rateEl = document.getElementById('visaKpiRate');
+    if (rateEl) {
+      rateEl.textContent = rate !== null ? rate + '%' : 'N/A';
+      rateEl.style.color = rate === null ? '#6B7280' : rate >= 80 ? '#2D7A55' : rate >= 50 ? '#D97706' : '#B01A18';
+    }
+  }
+
+  let _currentRows = [...allRows];
+  function refresh() {
+    _currentRows = doSort(applyFilters([...allRows]));
+    const tbody = document.getElementById('visaTableBody');
+    if (tbody) tbody.innerHTML = renderRows(_currentRows);
+    const cnt = document.getElementById('visaCount');
+    if (cnt) cnt.textContent = `${_currentRows.length} of ${allRows.length} records`;
+    updateKpis(_currentRows);
+  }
+
+  refresh();
+
+  // Filters
+  ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', refresh));
+
+  // Column filters
+  document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el =>
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+
+  // Sort
+  document.getElementById('visaSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-visafield]'); if (!th) return;
+    const field = th.dataset.visafield;
+    if (_visaSortCol === field) _visaSortDir = _visaSortDir === 'asc' ? 'desc' : 'asc';
+    else { _visaSortCol = field; _visaSortDir = 'asc'; }
+    document.querySelectorAll('#visaSortRow .req-sort-icon').forEach(el => {
+      el.textContent = '⇅'; el.closest('th')?.classList.remove('req-sort-asc','req-sort-desc');
+    });
+    const icon = th.querySelector('.req-sort-icon');
+    if (icon) { icon.textContent = _visaSortDir === 'asc' ? '↑' : '↓'; th.classList.add(_visaSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc'); }
+    refresh();
   });
 
-  document.getElementById('panelClose')?.addEventListener('click', () => {
-    document.getElementById('sidePanel').classList.remove('open');
-    document.getElementById('panelOverlay')?.classList.remove('active');
-  });
-  document.getElementById('panelOverlay')?.addEventListener('click', () => {
-    document.getElementById('sidePanel').classList.remove('open');
-    document.getElementById('panelOverlay')?.classList.remove('active');
+  // Clear
+  document.getElementById('visaClearBtn')?.addEventListener('click', () => {
+    ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el => el.value = '');
+    _visaSortCol = null; _visaSortDir = 'asc';
+    document.querySelectorAll('#visaSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
+    document.querySelectorAll('#visaSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
+    refresh();
   });
 };
 
@@ -3303,481 +3030,566 @@ pageEvents.j1visa = function () {
 const REQ_CI = {
   company:   0, dept:      1, position: 2, slots:    3,
   sponsor:   4, progType:  5, status:   6, contract: 7,
-  salary:    8, city:      9, target:  10, start:   11, housing: 12
+  salary:    8, city:      9, target:  10, start:   11, housing: 12,
+  payFreq:  13
 };
 
-// Sort state
+// Table display column order (indices into data row)
+const REQ_TABLE_COLS = [
+  { label: 'Sponsor',          ci: 4,  sortable: true  },
+  { label: 'J1 Program Type',  ci: 5,  sortable: false, tags: true },
+  { label: 'Hosting Company',  ci: 0,  sortable: true  },
+  { label: 'Department',       ci: 1,  sortable: true,  badge: true },
+  { label: 'Headcount',        ci: 3,  sortable: true,  center: true, num: true },
+  { label: 'Start Date',       ci: 11, sortable: true  },
+  { label: 'Target Date',      ci: 10, sortable: true  },
+  { label: 'Housing',          ci: 12, sortable: true  },
+  { label: 'Salary',           ci: 8,  sortable: true  },
+  { label: 'Pay Freq.',        ci: 13, sortable: true  },
+  { label: 'Contract',         ci: 7,  sortable: true  },
+];
+
+// Sort state — Requisition
 let _reqSortCol = null;
 let _reqSortDir = 'asc';
 let _reqColFilters = {};
+
+// ── PAR (Participant) column indices ──────────────────
+// 0:Email  1:Program End Date  2:First Name  3:Gender  4:Housing Name
+// 5:Program Start Date  6:J1 Application Status  7:Processing Sponsor
+// 8:J1 Program Sources  9:Hosting Company  10:Department
+// 11:Program Sponsor Invoice Status  12:Total Paid Investment
+// 13:Selected Job  14:Housing Address  15:Program Option  16:Last Name
+// Participant — field names on normalized row objects (Recruit + CRM)
+const PAR_STATUSES = [
+  'New Submission','On Hold','Consultation Call','Sales Call',
+  'Stage 1','Stage 2','Stage 3','Stage 4','USA Onboard','Program Completed',
+];
+const PAR_PLACEMENT_STATUSES = new Set(['USA Onboard','Program Completed']);
+const PAR_STATUS_COLORS = {
+  'New Submission':    '#6B7280',
+  'On Hold':           '#D97706',
+  'Consultation Call': '#0891B2',
+  'Sales Call':        '#7C3AED',
+  'Stage 1':           '#DC4A2D',
+  'Stage 2':           '#EA580C',
+  'Stage 3':           '#0F766E',
+  'Stage 4':           '#0369A1',
+  'USA Onboard':       '#1B3A6B',
+  'Program Completed': '#2D7A55',
+};
+// PAR_TABLE_COLS uses object field names, not numeric indices (data is Recruit/CRM objects)
+const PAR_TABLE_COLS = [
+  { label:'Status',            field:'placementStatus',   sortable:true,  statusbadge:true               },
+  { label:'J1 Source',         field:'programSource',     sortable:true                                  },
+  { label:'First Name',        field:'firstName',         sortable:true                                  },
+  { label:'Last Name',         field:'lastName',          sortable:true                                  },
+  { label:'Country',           field:'country',           sortable:true                                  },
+  { label:'Department',        field:'department',        sortable:true,  badge:true                     },
+  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:false                                 },
+  { label:'Sponsor',           field:'processingSponsor', sortable:true                                  },
+  { label:'Hosting Company',   field:'hostCompany',       sortable:true                                  },
+  { label:'Start Date',        field:'programStart',      sortable:true,  datecol:true                   },
+  { label:'End Date',          field:'programEnd',        sortable:true,  datecol:true                   },
+  { label:'App Source',        field:'_source',           sortable:true,  sourcebadge:true               },
+];
+// Sort state — Participant
+let _parSortCol   = null;
+let _parSortDir   = 'asc';
+let _parActiveTab = 'All';
+
+// ── Visa page constants ───────────────────────────────
+const VISA_STATUS_COLORS = {
+  'Approved':             '#2D7A55',
+  'Rejected 1st Attempt': '#B01A18',
+  'Rejected 2nd Attempt': '#B01A18',
+  'Rejected 3rd Attempt': '#B01A18',
+  'Pending 2nd Interview':'#D97706',
+  'Pending 3rd Interview':'#D97706',
+};
+function visaStatusColor(s) {
+  if (!s || s === '—') return '#6B7280';
+  if (s === 'Approved') return '#2D7A55';
+  if (/rejected/i.test(s)) return '#B01A18';
+  if (/pending/i.test(s)) return '#D97706';
+  return '#6B7280';
+}
+const VISA_TABLE_COLS = [
+  { label:'J1 App Status',     field:'placementStatus',  sortable:true,  statusbadge:true },
+  { label:'J1 Source',         field:'programSource',    sortable:true                    },
+  { label:'First Name',        field:'firstName',        sortable:true                    },
+  { label:'Last Name',         field:'lastName',         sortable:true                    },
+  { label:'Eligible Programs', field:'eligiblePrograms', sortable:false                   },
+  { label:'Country',           field:'country',          sortable:true                    },
+  { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
+  { label:'Visa Status',       field:'visaStatus',       sortable:true,  visabadge:true   },
+  { label:'Payment Date',      field:'visaPaymentDate',  sortable:true,  datecol:true     },
+  { label:'Appointment Date',  field:'visaAppointment',  sortable:true,  datecol:true     },
+  { label:'Expired Date',      field:'visaExpiredDate',  sortable:true,  datecol:true     },
+  { label:'Support Letter',    field:'refLetterStatus',  sortable:true                    },
+];
+let _visaSortCol = null, _visaSortDir = 'asc';
+
+// ── Talent Pool constants ─────────────────────────────
+const TP_STATUSES = ['New Submission','On Hold','Consultation Call','Sales Call'];
+const TP_TABLE_COLS = [
+  { label:'Status',            field:'placementStatus',   sortable:true,  statusbadge:true },
+  { label:'J1 Source',         field:'programSource',     sortable:true                    },
+  { label:'First Name',        field:'firstName',         sortable:true                    },
+  { label:'Last Name',         field:'lastName',          sortable:true                    },
+  { label:'Country',           field:'country',           sortable:true                    },
+  { label:'Department',        field:'department',        sortable:true,  badge:true        },
+  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:false                   },
+  { label:'App Source',        field:'_source',           sortable:true,  sourcebadge:true  },
+];
+let _tpSortCol   = null;
+let _tpSortDir   = 'asc';
+let _tpActiveTab = 'All';
 
 pages.requisition = async function () {
   const C = DIVISION_COLORS.j1;
 
   let rawRows  = [];
   let errorMsg = null;
-  let viewName = '';
 
   try {
     const json = await safeJson('/api/zoho/j1-requisition');
-    viewName = json.view || 'J1 Requisition';
     rawRows  = json.data?.rows || [];
   } catch (e) { errorMsg = e.message; }
 
-  // Server already returns only active J1 jobs, but filter defensively
+  // Server already filters for Active + J1 Program; double-check defensively
   const rows = rawRows.filter(r =>
-    r[REQ_CI.status] === 'Active' && r[REQ_CI.progType]?.trim()
+    (!r[REQ_CI.status] || r[REQ_CI.status] === 'Active')
   );
 
   // Cache for pageEvents
   state.dataCache['req-rows']    = rows;
-  state.dataCache['req-rawrows'] = rawRows; // all rows for fulfillment chart
+  state.dataCache['req-rawrows'] = rawRows;
 
-  // Summary stats (all rows are already Active + filled J1 Program Type)
+  // Summary stats
   const totalHeadcount = rows.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
-  const sponsors       = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(Boolean))].sort();
-  const depts          = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(Boolean))].sort();
-  const housings       = [...new Set(rows.map(r=>r[REQ_CI.housing]).filter(Boolean))].sort();
-  const authErr        = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+  const sponsors  = [...new Set(rows.map(r=>r[REQ_CI.sponsor]).filter(v=>v&&v!=='—'))].sort();
+  const depts     = [...new Set(rows.map(r=>r[REQ_CI.dept]).filter(v=>v&&v!=='—'))].sort();
+  const progTypes = [...new Set(rows.map(r=>r[REQ_CI.progType]).filter(v=>v&&v!=='—')
+      .flatMap(v=>v.split(';').map(t=>t.trim())))].sort();
+  const hosting   = [...new Set(rows.map(r=>r[REQ_CI.company]).filter(v=>v&&v!=='—'))].sort();
+  const housings  = [...new Set(rows.map(r=>r[REQ_CI.housing]).filter(v=>v&&v!=='—'))].sort();
+  const authErr   = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
 
-  // ── Column filter input helper ─────────────────────────────────
-  const inpSty = `width:100%;font-size:11px;padding:2px 6px;height:24px;
-    border:1px solid var(--border,#ddd);border-radius:3px;box-sizing:border-box;
-    background:var(--surface,#fff);color:var(--text,#333);`;
-  const selSty = inpSty + 'cursor:pointer;';
+  // ── column filter select builder ────────────────────────
+  const mkCFSel = (id, opts, placeholder) =>
+    `<select id="${id}" class="req-cf req-cf-sel">
+       <option value="">${escH(placeholder || 'All')}</option>
+       ${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}
+     </select>`;
 
-  const mkSel = (id, opts) => `<select id="${id}" style="${selSty}">
-    <option value="">All</option>
-    ${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}
-    </select>`;
+  // ── table header/filter rows ─────────────────────────────
+  const thSort = REQ_TABLE_COLS.map(col =>
+    col.sortable
+      ? `<th data-rcol="${col.ci}" class="sortable" style="cursor:pointer;user-select:none;${col.center?'text-align:center;':''}">
+           ${col.label} <span class="req-sort-icon">⇅</span>
+         </th>`
+      : `<th>${col.label}</th>`
+  ).join('') + '<th style="width:52px;"></th>';
+
+  const colFilterMap = { 4: sponsors, 1: depts, 12: housings };
+  const thFilter = REQ_TABLE_COLS.map(col => {
+    const opts = colFilterMap[col.ci];
+    return `<th>${
+      opts
+        ? mkCFSel(`reqCF_${col.ci}`, opts, 'All')
+        : `<input class="req-cf req-col-f" data-rcol="${col.ci}" type="text" placeholder="—">`
+    }</th>`;
+  }).join('') + '<th></th>';
 
   return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
-        <h1>Requisition Dashboard</h1>
-        <p class="subtitle">J1 Requisition
-          <span style="font-size:11px;font-weight:600;background:rgba(45,122,85,0.15);color:#2D7A55;padding:2px 10px;border-radius:20px;margin-left:8px;vertical-align:middle;">● Live · Zoho Recruit</span>
-        </p>
-      </div>
+    <!-- ── Page header ───────────────────────────────────── -->
+    <div class="req-page-header">
+      <h1>Requisition</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">Active J1 Program Job Openings</span>
     </div>
 
     ${errorMsg ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:rgba(176,26,24,0.07);
-      border:1px solid rgba(176,26,24,0.25);border-radius:10px;margin-bottom:18px;">
-      <span style="font-size:20px;">${authErr ? '🔑' : '⚠️'}</span>
+    <div class="req-error-banner">
+      <span>${authErr ? '🔑' : '⚠️'}</span>
       <div>
-        <div style="font-size:13px;font-weight:700;color:#B01A18;">${authErr ? 'Server not connected' : 'Server error'}</div>
-        <div style="font-size:12px;color:var(--text-secondary,#555);margin-top:2px;">${authErr
-          ? '<a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">Re-connect to Zoho →</a>'
-          : errorMsg}</div>
+        <strong>${authErr ? 'Not connected to Zoho' : 'Server error'}</strong>
+        ${authErr
+          ? ' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>'
+          : ` — ${escH(errorMsg)}`}
       </div>
     </div>` : ''}
 
     ${rows.length > 0 ? `
-    <!-- ── Global Filter Bar (top) ──────────────────────────────── -->
-    <div class="card mb-24" style="padding:14px 18px;">
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-        <input id="reqSearch" type="search" placeholder="🔍 Search company, position, city…"
-          style="font-size:12px;padding:4px 10px;height:32px;min-width:220px;flex:1 1 220px;
-            border:1px solid var(--border,#ddd);border-radius:6px;
-            background:var(--surface,#fff);color:var(--text,#333);">
-        <select id="reqDeptFilter" style="font-size:12px;padding:4px 8px;height:32px;
-          border:1px solid var(--border,#ddd);border-radius:6px;
-          background:var(--surface,#fff);color:var(--text,#333);min-width:140px;flex:1 1 140px;">
-          <option value="">All Departments</option>
-          ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
-        </select>
-        <select id="reqSponsorFilter" style="font-size:12px;padding:4px 8px;height:32px;
-          border:1px solid var(--border,#ddd);border-radius:6px;
-          background:var(--surface,#fff);color:var(--text,#333);min-width:160px;flex:1 1 160px;">
-          <option value="">All Sponsors</option>
-          ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-        </select>
-        <select id="reqHousingFilter" style="font-size:12px;padding:4px 8px;height:32px;
-          border:1px solid var(--border,#ddd);border-radius:6px;
-          background:var(--surface,#fff);color:var(--text,#333);min-width:140px;flex:1 1 140px;">
-          <option value="">All Housing</option>
-          ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-        </select>
-        <button id="reqClearBtn"
-          style="height:32px;padding:0 14px;border:1.5px solid #B01A18;border-radius:6px;
-            background:transparent;color:#B01A18;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
-          ✕ Clear</button>
-        <span id="reqCount" style="font-size:12px;font-weight:600;color:#888;white-space:nowrap;">
-          ${rows.length} requisitions</span>
+    <!-- ── Global Filter Bar ─────────────────────────────── -->
+    <div class="card req-filter-bar">
+      <select id="reqDeptFilter" class="req-gsel">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
+      </select>
+      <select id="reqProgTypeFilter">
+        <option value="">All Program Types</option>
+        ${progTypes.map(p=>`<option value="${escH(p)}">${escH(p)}</option>`).join('')}
+      </select>
+      <select id="reqSponsorFilter">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="reqHousingFilter">
+        <option value="">All Housing</option>
+        ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+      </select>
+      <button id="reqClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="reqCount" class="req-count-badge">${rows.length} requisitions</span>
+    </div>
+
+    <!-- ── KPI Grid ──────────────────────────────────────── -->
+    <div class="req-kpi-grid">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Requisitions</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;" id="reqKpiCount">${rows.length}</span>
+        <span class="req-kpi-sub">active J1 job openings</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Headcount</span>
+        <span class="req-kpi-value" style="color:${C};" id="reqKpiSlots">${totalHeadcount.toLocaleString()}</span>
+        <span class="req-kpi-sub">open positions</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Sponsors</span>
+        <span class="req-kpi-value" style="color:#6B47DC;" id="reqKpiSponsors">${sponsors.length}</span>
+        <span class="req-kpi-sub">sponsors</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Hosting Companies</span>
+        <span class="req-kpi-value" id="reqKpiHosting">${hosting.length}</span>
+        <span class="req-kpi-sub">hosting companies</span>
       </div>
     </div>
 
-    <!-- ── KPI Grid ───────────────────────────────────────────── -->
-    <div class="kpi-grid mb-24">
-      <div class="kpi-card">
-        <span class="kpi-label">Requisitions</span>
-        <span class="kpi-value" style="color:#1B3A6B;" id="reqKpiCount">${rows.length}</span>
+    <!-- ── Chart Row ─────────────────────────────────────── -->
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Headcount by Sponsor</div>
+        <div class="req-card-sub">Open positions per sponsor</div>
+        <canvas id="reqSponsorChart"></canvas>
       </div>
-      <div class="kpi-card">
-        <span class="kpi-label">Total Headcount</span>
-        <span class="kpi-value" style="color:${C};" id="reqKpiSlots">${totalHeadcount.toLocaleString()}</span>
-      </div>
-      <div class="kpi-card">
-        <span class="kpi-label">Sponsors</span>
-        <span class="kpi-value" style="color:#6B47DC;">${sponsors.length}</span>
-      </div>
-      <div class="kpi-card">
-        <span class="kpi-label">Departments</span>
-        <span class="kpi-value">${depts.length}</span>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Opening by Department</div>
+        <div class="req-card-sub">Total headcount per department</div>
+        <canvas id="reqDeptChart"></canvas>
       </div>
     </div>
 
-    <!-- ── Chart Row 1: Sponsor donut (centred square) ─────────── -->
-    <div class="two-col mb-24">
-      <div class="card">
-        <div class="card-title">Headcount by Sponsor</div>
-        <div class="card-subtitle">Share of open headcount per sponsor</div>
-        <div class="chart-wrap"><canvas id="reqSponsorChart"></canvas></div>
-      </div>
-
-      <!-- ── Chart Row 1b: Fulfillment summary (right col) ──── -->
-      <div class="card">
-        <div class="card-title">Fulfillment by Department</div>
-        <div class="card-subtitle">Active req headcount vs actual placements · auto-syncs with placement data</div>
-        <div class="chart-wrap" style="height:320px;"><canvas id="reqFulfillChart"></canvas></div>
-      </div>
+    <!-- ── Date Chart ─────────────────────────────────────── -->
+    <div class="card req-date-card">
+      <div class="req-card-title">Opening by Start Date &amp; Cumulative Projection</div>
+      <div class="req-card-sub">Monthly headcount · bars = new openings · line = running total</div>
+      <canvas id="reqDateChart"></canvas>
     </div>
 
-    <!-- ── Chart Row 3: Start Date line (full width, tall) ───── -->
-    <div class="card mb-24">
-      <div class="card-title">Requisitions by Start Date</div>
-      <div class="card-subtitle">Monthly count of new active requisitions · with cumulative overlay</div>
-      <div class="chart-wrap" style="height:260px;"><canvas id="reqDateChart"></canvas></div>
-    </div>
-
-    <!-- ── Sortable + Column-Filtered Table ───────────────────── -->
-    <div class="card">
-      <div class="table-wrap">
+    <!-- ── Table ──────────────────────────────────────────── -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
         <table id="reqMainTable">
           <thead>
-            <!-- Sort row -->
-            <tr id="reqSortRow">
-              <th data-rcol="0" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Hosting Company <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="1" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Department <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="2" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Position <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="3" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;text-align:center;">Headcount <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="4" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Sponsor <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th>Program Type</th>
-              <th data-rcol="7" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Contract <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="8" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Salary <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="9" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">City <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="11" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Start Date <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th data-rcol="10" class="sortable" style="cursor:pointer;white-space:nowrap;user-select:none;">Target Date <span class="sort-icon" style="opacity:0.4;font-size:10px;"> ⇅</span></th>
-              <th style="width:56px;"></th>
-            </tr>
-            <!-- Column filter row -->
-            <tr id="reqColFilterRow">
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="0" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;">${mkSel('reqCF1', depts)}</th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="2" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="3" placeholder="#" style="${inpSty}"></th>
-              <th style="padding:3px 4px;">${mkSel('reqCF4', sponsors)}</th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="5" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="7" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="8" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="9" placeholder="Filter…" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="11" placeholder="YYYY-MM" style="${inpSty}"></th>
-              <th style="padding:3px 4px;"><input type="text" class="req-col-f" data-rcol="10" placeholder="YYYY-MM" style="${inpSty}"></th>
-              <th></th>
-            </tr>
+            <tr id="reqSortRow">${thSort}</tr>
+            <tr id="reqColFilterRow">${thFilter}</tr>
           </thead>
           <tbody id="reqTableBody"></tbody>
         </table>
       </div>
-    </div>` : `
-    <div class="card" style="text-align:center;padding:56px 24px;">
-      <div style="font-size:48px;margin-bottom:14px;opacity:0.25;">📋</div>
-      <div style="font-size:15px;font-weight:600;color:var(--text-muted,#888);">No active requisition data available.</div>
+    </div>
+
+    <!-- ── Executive Summary floating button ─────────────── -->
+    <button class="exec-summary-btn" id="execSummaryBtn" title="Executive Summary — click to hear dashboard narration">🎙</button>
+
+    ` : `
+    <div class="card" style="text-align:center;padding:48px 24px;">
+      <div style="font-size:40px;margin-bottom:12px;opacity:0.2;">📋</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);">No active requisition data available.</div>
     </div>`}`;
 };
 
 pageEvents.requisition = function () {
-  const C       = DIVISION_COLORS.j1;
-  const rows    = state.dataCache['req-rows']    || [];
-  const rawRows = state.dataCache['req-rawrows'] || [];
-  const DL      = window.ChartDataLabels;          // datalabels plugin (CDN global)
+  const C    = DIVISION_COLORS.j1;
+  const rows = state.dataCache['req-rows'] || [];
+  const DL   = window.ChartDataLabels;
   if (!rows.length) return;
 
-  // ── prog type tags ─────────────────────────────────────────────
+  const SP_COLORS = ['#1B3A6B','#B01A18','#059669','#B87A14','#6B47DC','#E05A2B','#0891B2','#7C3AED'];
+
+  // ── prog type tags ─────────────────────────────────────────
   function progTags(val) {
     return (val||'').split(';').map(t=>t.trim()).filter(Boolean)
-      .map(t=>`<span style="display:inline-block;margin:1px 2px;padding:2px 6px;border-radius:10px;
-        background:rgba(176,26,24,0.08);color:#B01A18;font-weight:600;font-size:11px;white-space:nowrap;">${escH(t)}</span>`)
-      .join('') || '—';
+      .map(t=>`<span class="req-prog-tag">${escH(t)}</span>`).join('')
+      || '<span style="color:var(--text-muted)">—</span>';
   }
 
-  // ── table render ───────────────────────────────────────────────
+  // ── table render ───────────────────────────────────────────
   let _currentRows = [...rows];
 
+  function cellContent(r, col) {
+    const v = r[col.ci] ?? '';
+    if (col.tags)   return progTags(String(v));
+    if (col.badge)  return `<span class="req-dept-badge">${escH(String(v)||'—')}</span>`;
+    if (col.num)    return `<span class="req-slots-num" style="color:${C};">${v||'0'}</span>`;
+    return escH(String(v)||'—');
+  }
+
   function renderRows(subset) {
-    if (!subset.length) return `<tr><td colspan="12" style="text-align:center;padding:36px;color:var(--text-muted,#888);">No matching records.</td></tr>`;
-    return subset.map((r,i) => `
-      <tr>
-        <td style="font-weight:500;max-width:170px;white-space:normal;line-height:1.3;">${escH(r[REQ_CI.company]||'—')}</td>
-        <td><span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(27,58,107,0.09);color:#1B3A6B;font-weight:600;white-space:nowrap;">${escH(r[REQ_CI.dept]||'—')}</span></td>
-        <td style="font-weight:500;">${escH(r[REQ_CI.position]||'—')}</td>
-        <td style="text-align:center;font-size:16px;font-weight:800;color:${C};">${r[REQ_CI.slots]||'0'}</td>
-        <td style="font-size:12px;color:var(--text-secondary,#666);">${escH(r[REQ_CI.sponsor]||'—')}</td>
-        <td style="font-size:11px;">${progTags(r[REQ_CI.progType])}</td>
-        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.contract]||'—')}</td>
-        <td style="font-size:13px;font-weight:600;">${escH(r[REQ_CI.salary]||'—')}</td>
-        <td style="font-size:12px;">${escH(r[REQ_CI.city]||'—')}</td>
-        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.start]||'—')}</td>
-        <td style="font-size:12px;white-space:nowrap;">${escH(r[REQ_CI.target]||'—')}</td>
-        <td style="text-align:center;">
-          <button class="req-detail-btn" data-idx="${rows.indexOf(r)}"
-            style="padding:4px 10px;border:1.5px solid ${C};border-radius:6px;
-            background:transparent;color:${C};font-size:11px;font-weight:700;
-            font-family:inherit;cursor:pointer;white-space:nowrap;"
-            onmouseover="this.style.background='${C}';this.style.color='#fff'"
-            onmouseout="this.style.background='transparent';this.style.color='${C}'">
-            Details
-          </button>
-        </td>
-      </tr>`).join('');
+    if (!subset.length) return `<tr><td colspan="${REQ_TABLE_COLS.length+1}"
+      style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return subset.map(r => {
+      const idx = rows.indexOf(r);
+      return `<tr>${REQ_TABLE_COLS.map(col =>
+        `<td style="${col.center?'text-align:center;':''}">${cellContent(r,col)}</td>`
+      ).join('')}
+      <td style="text-align:center;">
+        <button class="req-detail-btn" data-idx="${idx}">Details</button>
+      </td></tr>`;
+    }).join('');
+  }
+
+  function refreshKPIs() {
+    const hc = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0);
+    const sp = [...new Set(_currentRows.map(r=>r[REQ_CI.sponsor]).filter(v=>v&&v!=='—'))].length;
+    const ht = [...new Set(_currentRows.map(r=>r[REQ_CI.company]).filter(v=>v&&v!=='—'))].length;
+    const el = id => document.getElementById(id);
+    if (el('reqKpiCount'))   el('reqKpiCount').textContent   = _currentRows.length;
+    if (el('reqKpiSlots'))   el('reqKpiSlots').textContent   = hc.toLocaleString();
+    if (el('reqKpiSponsors'))el('reqKpiSponsors').textContent= sp;
+    if (el('reqKpiHosting')) el('reqKpiHosting').textContent = ht;
+    if (el('reqCount'))      el('reqCount').textContent      = `${_currentRows.length} of ${rows.length} requisitions`;
   }
 
   function refreshTable() {
     const tbody = document.getElementById('reqTableBody');
     if (tbody) tbody.innerHTML = renderRows(_currentRows);
-    const cnt = document.getElementById('reqCount');
-    if (cnt) cnt.textContent = `${_currentRows.length} of ${rows.length} requisitions`;
-    const k = document.getElementById('reqKpiCount');
-    if (k) k.textContent = _currentRows.length;
-    const s = document.getElementById('reqKpiSlots');
-    if (s) s.textContent = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0).toLocaleString(); // headcount
+    refreshKPIs();
   }
 
   refreshTable();
 
-  // ── column sort ────────────────────────────────────────────────
+  // ── column sort ────────────────────────────────────────────
   document.getElementById('reqSortRow')?.addEventListener('click', e => {
     const th = e.target.closest('th[data-rcol]');
     if (!th) return;
     const col = parseInt(th.dataset.rcol);
-    if (_reqSortCol === col) {
-      _reqSortDir = _reqSortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      _reqSortCol = col;
-      _reqSortDir = col === 3 ? 'desc' : 'asc'; // slots default desc
+    if (_reqSortCol === col) { _reqSortDir = _reqSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { _reqSortCol = col; _reqSortDir = col === 3 ? 'desc' : 'asc'; }
+    // reset all icons
+    document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(el => {
+      el.textContent = '⇅'; el.closest('th')?.classList.remove('req-sort-asc','req-sort-desc');
+    });
+    const icon = th.querySelector('.req-sort-icon');
+    if (icon) {
+      icon.textContent = _reqSortDir === 'asc' ? '↑' : '↓';
+      th.classList.add(_reqSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc');
     }
-    // Update icons
-    document.querySelectorAll('#reqSortRow .sort-icon').forEach(el => { el.textContent = ' ⇅'; el.style.opacity='0.4'; });
-    const icon = th.querySelector('.sort-icon');
-    if (icon) { icon.textContent = _reqSortDir === 'asc' ? ' ↑' : ' ↓'; icon.style.opacity='1'; }
-    // Sort
     _currentRows = [..._currentRows].sort((a, b) => {
-      let av = a[_reqSortCol] || '', bv = b[_reqSortCol] || '';
+      let av = a[_reqSortCol]||'', bv = b[_reqSortCol]||'';
       if (_reqSortCol === 3) { av = parseInt(av)||0; bv = parseInt(bv)||0; }
-      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      const cmp = typeof av === 'number' ? av-bv : String(av).localeCompare(String(bv));
       return _reqSortDir === 'asc' ? cmp : -cmp;
     });
     refreshTable();
   });
 
-  // Sponsor palette (shared between initial render and refreshCharts)
-  const SP_COLORS = ['#1B3A6B','#B01A18','#059669','#B87A14','#6B47DC','#888888'];
-
-  // ── dept name normaliser: "Food & Beverage" ↔ "Food and Beverage" ─
-  function normDept(s) {
-    return (s||'').toLowerCase().trim().replace(/\s*&\s*/g,' and ').replace(/\s+/g,' ');
+  // ── chart data builders ────────────────────────────────────
+  function buildSponsorData(active) {
+    const sm = {};
+    active.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sm[s]=(sm[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
+    return Object.entries(sm).sort((a,b)=>b[1]-a[1]);
+  }
+  function buildDeptData(active) {
+    const dm = {};
+    active.forEach(r => { const d=r[REQ_CI.dept]||'?'; dm[d]=(dm[d]||0)+(parseInt(r[REQ_CI.slots])||0); });
+    return Object.entries(dm).sort((a,b)=>b[1]-a[1]);
+  }
+  function buildDateData(active) {
+    const mm = {};
+    active.forEach(r => {
+      const raw=r[REQ_CI.start]; if(!raw) return;
+      const m=raw.substring(0,7);
+      mm[m]=(mm[m]||0)+(parseInt(r[REQ_CI.slots])||0);
+    });
+    const sorted = Object.keys(mm).sort();
+    const labels = sorted.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
+    const vals   = sorted.map(m=>mm[m]);
+    const cumul  = sorted.map((_,i)=>sorted.slice(0,i+1).reduce((t,k)=>t+(mm[k]||0),0));
+    return { labels, vals, cumul };
   }
 
-  // ── placement "Selected Job" → requisition Department aliases ─────
-  // Add entries here when a job title doesn't directly match a dept name
-  const JOB_ALIAS = {
-    'front desk'   : 'guest relations',
-    'front office' : 'guest relations',
-  };
-
-  // ── build fulfillment data from active req rows + J1_OFFLINE_DATA ─
-  // Filled = actual placements (Selected Job → matched to req Dept)
-  // Remaining = active headcount - filled  (formula auto-updates with data)
-  function buildFulfillData(activeRows) {
-    const gSponsor = document.getElementById('reqSponsorFilter')?.value || '';
-    const gSearch  = (document.getElementById('reqSearch')?.value || '').toLowerCase().trim();
-
-    // Active headcount by dept (from requisition)
-    const deptHC = {};
-    activeRows.forEach(r => {
-      const d = r[REQ_CI.dept]||'Unknown';
-      deptHC[d] = (deptHC[d]||0) + (parseInt(r[REQ_CI.slots])||0);
-    });
-
-    // Reverse lookup: normalised dept name → original req dept string
-    const normToReqDept = {};
-    Object.keys(deptHC).forEach(d => { normToReqDept[normDept(d)] = d; });
-
-    // Filled count from live placement cache
-    const deptFilled = {};
-    const placements = Array.isArray(state.dataCache['j1-zoho-rows']) ? state.dataCache['j1-zoho-rows'] : [];
-    placements.forEach(p => {
-      if (gSponsor && p['Processing Sponsor'] !== gSponsor) return;
-      if (gSearch) {
-        const hay = [p['Hosting Company'],p['Selected Job']].join(' ').toLowerCase();
-        if (!hay.includes(gSearch)) return;
-      }
-      // Apply alias first (e.g. "Front Desk" / "Front Office" → "Guest Relations")
-      const normJob  = normDept(p['Selected Job']);
-      const normKey  = JOB_ALIAS[normJob] || normJob;
-      const reqDept  = normToReqDept[normKey];
-      if (reqDept) deptFilled[reqDept] = (deptFilled[reqDept]||0) + 1;
-    });
-
-    // Sort by total headcount descending
-    const depts     = Object.keys(deptHC).sort((a,b) => deptHC[b] - deptHC[a]);
-    const filled    = depts.map(d => Math.min(deptFilled[d]||0, deptHC[d]));
-    const remaining = depts.map(d => Math.max(0, deptHC[d] - (deptFilled[d]||0)));
-    return { depts, filled, remaining };
+  // ── chart right-click: data popup ─────────────────────────
+  function showChartPopup(chartId, title, e) {
+    document.querySelectorAll('.req-ctx-popup').forEach(p=>p.remove());
+    const chart = state.charts.get(chartId);
+    if (!chart) return;
+    const labels = chart.data.labels || [];
+    const datasets = chart.data.datasets || [];
+    const rowsHtml = labels.map((lbl,i) =>
+      `<tr><td>${escH(String(lbl))}</td>${datasets.map(ds=>
+        `<td style="text-align:right;font-weight:600;">${(ds.data[i]||0).toLocaleString()}</td>`
+      ).join('')}</tr>`
+    ).join('');
+    const popup = document.createElement('div');
+    popup.className = 'req-ctx-popup';
+    popup.innerHTML = `
+      <div class="req-ctx-popup-hdr">
+        <span>${escH(title)}</span>
+        <button class="req-ctx-popup-close">✕</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Label</th>
+          ${datasets.map(ds=>`<th style="text-align:right;">${escH(ds.label||'')}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    // Position near cursor, keep inside viewport
+    popup.style.left = Math.min(e.clientX, window.innerWidth - 440) + 'px';
+    popup.style.top  = Math.min(e.clientY, window.innerHeight - 380) + 'px';
+    document.body.appendChild(popup);
+    popup.querySelector('.req-ctx-popup-close').onclick = () => popup.remove();
+    setTimeout(() => {
+      const close = ev => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('mousedown', close); } };
+      document.addEventListener('mousedown', close);
+    }, 100);
   }
 
-  // ── chart refresh (called whenever global filters change) ────────
-  function refreshCharts(activeRows) {
-    // ── 1. Sponsor doughnut ──────────────────────────────────────
+  // ── chart refresh ──────────────────────────────────────────
+  function refreshCharts(active) {
     const sc = state.charts.get('reqSponsorChart');
     if (sc) {
-      const sm = {};
-      activeRows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sm[s]=(sm[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
-      const ss = Object.entries(sm).sort((a,b)=>b[1]-a[1]);
-      sc.data.labels            = ss.map(e=>e[0]);
-      sc.data.datasets[0].data  = ss.map(e=>e[1]);
-      sc.data.datasets[0].backgroundColor = ss.map((_,i)=>SP_COLORS[i%SP_COLORS.length]);
+      const sp = buildSponsorData(active);
+      sc.data.labels = sp.map(e=>e[0]);
+      sc.data.datasets[0].data = sp.map(e=>e[1]);
+      sc.data.datasets[0].backgroundColor = sp.map((_,i)=>SP_COLORS[i%SP_COLORS.length]);
       sc.update();
     }
-
-    // ── 2. Fulfillment — cross-ref J1_OFFLINE_DATA ───────────────
-    const fc = state.charts.get('reqFulfillChart');
-    if (fc) {
-      const { depts, filled, remaining } = buildFulfillData(activeRows);
-      fc.data.labels           = depts;
-      fc.data.datasets[0].data = filled;    // Filled (green)
-      fc.data.datasets[1].data = remaining; // Remaining (orange)
-      fc.update();
+    const dc2 = state.charts.get('reqDeptChart');
+    if (dc2) {
+      const dp = buildDeptData(active);
+      dc2.data.labels = dp.map(e=>e[0]);
+      dc2.data.datasets[0].data = dp.map(e=>e[1]);
+      dc2.data.datasets[0].backgroundColor = dp.map((_,i)=>SP_COLORS[i%SP_COLORS.length]);
+      dc2.update();
     }
-
-    // ── 3. Date line chart ───────────────────────────────────────
     const dc = state.charts.get('reqDateChart');
     if (dc) {
-      const mm={};
-      activeRows.forEach(r => {
-        const raw=r[REQ_CI.start]; if(!raw) return;
-        const m=raw.substring(0,7);
-        mm[m]=(mm[m]||0)+(parseInt(r[REQ_CI.slots])||0);
-      });
-      const sm2   = Object.keys(mm).sort();
-      const lbls  = sm2.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
-      const cumul = sm2.map((_,i)=>sm2.slice(0,i+1).reduce((t,k)=>t+(mm[k]||0),0));
-      dc.data.labels            = lbls;
-      dc.data.datasets[0].data  = sm2.map(m=>mm[m]);
-      dc.data.datasets[1].data  = cumul;
+      const { labels, vals, cumul } = buildDateData(active);
+      dc.data.labels = labels;
+      dc.data.datasets[0].data = vals;
+      dc.data.datasets[1].data = cumul;
       dc.update();
     }
   }
 
-  // ── global filters + column filters (unified) ──────────────────
+  // ── unified filter ─────────────────────────────────────────
   function applyAllFilters() {
-    const gSearch  = (document.getElementById('reqSearch')?.value   || '').toLowerCase().trim();
-    const gDept    = document.getElementById('reqDeptFilter')?.value    || '';
-    const gSponsor = document.getElementById('reqSponsorFilter')?.value || '';
-    const gHousing = document.getElementById('reqHousingFilter')?.value || '';
+    const gDept    = document.getElementById('reqDeptFilter')?.value     || '';
+    const gProg    = document.getElementById('reqProgTypeFilter')?.value || '';
+    const gSponsor = document.getElementById('reqSponsorFilter')?.value  || '';
+    const gHousing = document.getElementById('reqHousingFilter')?.value  || '';
 
-    // Column filters
+    // column selects
+    const cfDept    = document.getElementById(`reqCF_${REQ_CI.dept}`)?.value    || '';
+    const cfSponsor = document.getElementById(`reqCF_${REQ_CI.sponsor}`)?.value || '';
+    const cfHousing = document.getElementById(`reqCF_${REQ_CI.housing}`)?.value || '';
+
+    // text column filters
     const colFilters = {};
     document.querySelectorAll('.req-col-f').forEach(el => {
       const v = el.value.trim();
       if (v) colFilters[parseInt(el.dataset.rcol)] = v.toLowerCase();
     });
-    const cf1 = document.getElementById('reqCF1')?.value || '';
-    const cf4 = document.getElementById('reqCF4')?.value || '';
 
     _currentRows = rows.filter(r => {
       if (gDept    && r[REQ_CI.dept]    !== gDept)    return false;
       if (gSponsor && r[REQ_CI.sponsor] !== gSponsor) return false;
       if (gHousing && r[REQ_CI.housing] !== gHousing) return false;
-      if (gSearch) {
-        const hay = [r[REQ_CI.company],r[REQ_CI.dept],r[REQ_CI.position],r[REQ_CI.city]].join(' ').toLowerCase();
-        if (!hay.includes(gSearch)) return false;
+      if (gProg) {
+        const tags = (r[REQ_CI.progType]||'').split(';').map(t=>t.trim());
+        if (!tags.includes(gProg)) return false;
       }
-      if (cf1 && r[REQ_CI.dept]    !== cf1) return false;
-      if (cf4 && r[REQ_CI.sponsor] !== cf4) return false;
+      if (cfDept    && r[REQ_CI.dept]    !== cfDept)    return false;
+      if (cfSponsor && r[REQ_CI.sponsor] !== cfSponsor) return false;
+      if (cfHousing && r[REQ_CI.housing] !== cfHousing) return false;
       for (const [ci, fv] of Object.entries(colFilters)) {
         if (!String(r[ci]||'').toLowerCase().includes(fv)) return false;
       }
       return true;
     });
 
-    // Re-apply sort if active
     if (_reqSortCol !== null) {
       _currentRows = [..._currentRows].sort((a,b) => {
-        let av = a[_reqSortCol]||'', bv = b[_reqSortCol]||'';
+        let av=a[_reqSortCol]||'', bv=b[_reqSortCol]||'';
         if (_reqSortCol===3) { av=parseInt(av)||0; bv=parseInt(bv)||0; }
-        const cmp = typeof av==='number' ? av-bv : String(av).localeCompare(String(bv));
-        return _reqSortDir==='asc' ? cmp : -cmp;
+        const cmp=typeof av==='number'?av-bv:String(av).localeCompare(String(bv));
+        return _reqSortDir==='asc'?cmp:-cmp;
       });
     }
     refreshTable();
     refreshCharts(_currentRows);
   }
 
-  ['reqSearch','reqDeptFilter','reqSponsorFilter','reqHousingFilter','reqCF1','reqCF4'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', applyAllFilters);
-  });
+  ['reqDeptFilter','reqProgTypeFilter','reqSponsorFilter','reqHousingFilter'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', applyAllFilters));
+  [`reqCF_${REQ_CI.dept}`,`reqCF_${REQ_CI.sponsor}`,`reqCF_${REQ_CI.housing}`].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', applyAllFilters));
   document.querySelectorAll('.req-col-f').forEach(el => el.addEventListener('input', applyAllFilters));
 
   document.getElementById('reqClearBtn')?.addEventListener('click', () => {
-    ['reqSearch','reqDeptFilter','reqSponsorFilter','reqHousingFilter','reqCF1','reqCF4'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    document.querySelectorAll('.req-col-f').forEach(el => { el.value = ''; });
-    _reqSortCol = null; _reqSortDir = 'asc';
-    document.querySelectorAll('#reqSortRow .sort-icon').forEach(el => { el.textContent=' ⇅'; el.style.opacity='0.4'; });
+    ['reqDeptFilter','reqProgTypeFilter','reqSponsorFilter','reqHousingFilter',
+     `reqCF_${REQ_CI.dept}`,`reqCF_${REQ_CI.sponsor}`,`reqCF_${REQ_CI.housing}`]
+      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.querySelectorAll('.req-col-f').forEach(el=>el.value='');
+    _reqSortCol=null; _reqSortDir='asc';
+    document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(el=>{ el.textContent='⇅'; });
+    document.querySelectorAll('#reqSortRow th').forEach(th=>th.classList.remove('req-sort-asc','req-sort-desc'));
     _currentRows = [...rows];
     refreshTable();
     refreshCharts(_currentRows);
   });
 
-  // ── details modal ──────────────────────────────────────────────
+  // ── details modal ──────────────────────────────────────────
   function openDetails(idx) {
     const r = rows[idx];
     if (!r) return;
-    const fld = (label, val, full) => val
-      ? `<div style="${full?'grid-column:1/-1;':''}margin-bottom:14px;">
-           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary,#888);margin-bottom:3px;">${label}</div>
-           <div style="font-size:13px;font-weight:500;">${escH(val)}</div>
+    const fld = (label, val, full) => (val && val !== '—')
+      ? `<div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+           <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+           <div style="font-size:11px;font-weight:500;">${escH(val)}</div>
          </div>` : '';
-
     document.getElementById('modalTitle').textContent = r[REQ_CI.company] || 'Requisition Details';
     document.getElementById('modalBody').innerHTML = `
-      <div style="padding:4px 0 12px;">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
           ${progTags(r[REQ_CI.progType])}
-          <span style="padding:4px 12px;border-radius:20px;background:rgba(27,58,107,0.1);color:#1B3A6B;font-size:12px;font-weight:700;">${escH(r[REQ_CI.dept]||'')}</span>
+          <span class="req-dept-badge">${escH(r[REQ_CI.dept]||'')}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:18px;padding:14px 18px;background:rgba(176,26,24,0.06);
-          border-radius:12px;border:1px solid rgba(176,26,24,0.14);margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;
+          background:rgba(176,26,24,0.06);border-radius:10px;border:1px solid rgba(176,26,24,0.14);margin-bottom:14px;">
           <div>
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Headcount</div>
-            <div style="font-size:40px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C};">Headcount</div>
+            <div style="font-size:34px;font-weight:800;color:${C};line-height:1.1;">${r[REQ_CI.slots]||'0'}</div>
           </div>
-          <div style="border-left:1px solid rgba(176,26,24,0.18);padding-left:18px;">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-secondary,#888);">Position</div>
-            <div style="font-size:16px;font-weight:700;margin-top:4px;">${escH(r[REQ_CI.position]||'—')}</div>
+          <div style="border-left:1px solid rgba(176,26,24,0.18);padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Position</div>
+            <div style="font-size:13px;font-weight:700;margin-top:3px;">${escH(r[REQ_CI.position]||'—')}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           ${fld('Sponsor', r[REQ_CI.sponsor])}
           ${fld('Contract Length', r[REQ_CI.contract])}
           ${fld('Salary', r[REQ_CI.salary])}
-          ${fld('City', r[REQ_CI.city])}
+          ${fld('Payment Frequency', r[REQ_CI.payFreq])}
           ${fld('Start Date', r[REQ_CI.start])}
           ${fld('Target Date', r[REQ_CI.target])}
-          ${fld('Housing', r[REQ_CI.housing], true)}
+          ${fld('City', r[REQ_CI.city])}
+          ${fld('Housing', r[REQ_CI.housing])}
         </div>
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
@@ -3791,160 +3603,904 @@ pageEvents.requisition = function () {
     document.getElementById('modalOverlay')?.classList.remove('active'));
   document.getElementById('modalOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('modalOverlay'))
-      document.getElementById('modalOverlay').classList.remove('active');
+      document.getElementById('modalOverlay')?.classList.remove('active');
   });
 
-  // ── Chart 1: Headcount by Sponsor (doughnut — Placement style) ─
-  const sponsorMap = {};
-  rows.forEach(r => { const s=r[REQ_CI.sponsor]||'?'; sponsorMap[s]=(sponsorMap[s]||0)+(parseInt(r[REQ_CI.slots])||0); });
-  const spSorted = Object.entries(sponsorMap).sort((a,b)=>b[1]-a[1]);
-
+  // ── Chart 1: Headcount by Sponsor (doughnut) ──────────────
+  const spData = buildSponsorData(rows);
   createChart('reqSponsorChart', {
     type: 'doughnut',
     plugins: DL ? [DL] : [],
     data: {
-      labels: spSorted.map(e=>e[0]),
-      datasets: [{
-        data: spSorted.map(e=>e[1]),
-        backgroundColor: spSorted.map((_,i)=>SP_COLORS[i%SP_COLORS.length]),
+      labels: spData.map(e=>e[0]),
+      datasets: [{ label:'Headcount',
+        data: spData.map(e=>e[1]),
+        backgroundColor: spData.map((_,i)=>SP_COLORS[i%SP_COLORS.length]),
         borderWidth: 2,
-        borderColor: 'var(--card-bg,#fff)'
+        borderColor: 'var(--bg-card,#fff)'
       }]
     },
     options: {
       responsive: true,
-      cutout: '52%',
+      maintainAspectRatio: false,
+      cutout: '58%',
+      layout: { padding: 8 },
       plugins: {
-        legend: { position: 'bottom' },
+        legend: {
+          position: 'bottom',
+          labels: { font:{size:10}, padding:10, boxWidth:10, usePointStyle:true }
+        },
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} openings`
+        }},
         datalabels: DL ? {
-          display: (ctx) => {
-            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-            return total ? ctx.dataset.data[ctx.dataIndex] / total >= 0.05 : false;
-          },
+          font: { size: 10, weight: '700' },
+          color: '#fff',
           formatter: (v, ctx) => {
             const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-            const pct   = Math.round(v / total * 100);
-            return `${ctx.chart.data.labels[ctx.dataIndex]}\n${v.toLocaleString()} (${pct}%)`;
-          },
-          color: '#fff',
-          font: { size: 11, weight: 'bold' },
-          textAlign: 'center'
+            const pct = total > 0 ? Math.round(v/total*100) : 0;
+            return pct >= 5 ? v.toLocaleString() : '';
+          }
         } : false
       }
     }
   });
 
-  // ── Chart 2: Fulfillment by Department (stacked: Filled green + Remaining orange) ─
-  // Filled = actual placements from J1_OFFLINE_DATA (auto-syncs when data updates)
-  const { depts: fulfillDepts, filled: fulfillFilled, remaining: fulfillRemaining } = buildFulfillData(rows);
+  // right-click → data popup
+  document.getElementById('reqSponsorChart')?.addEventListener('contextmenu', e => {
+    e.preventDefault(); showChartPopup('reqSponsorChart','Headcount by Sponsor',e);
+  });
 
-  createChart('reqFulfillChart', {
+  // ── Chart 2: Opening by Department (vertical bar) ──────────
+  const dpData = buildDeptData(rows);
+  createChart('reqDeptChart', {
     type: 'bar',
     plugins: DL ? [DL] : [],
     data: {
-      labels: fulfillDepts,
-      datasets: [
-        { label: 'Filled',
-          data: fulfillFilled,
-          backgroundColor: hexToRgba('#059669',0.85),
-          borderRadius: 0, stack: 'f' },
-        { label: 'Remaining',
-          data: fulfillRemaining,
-          backgroundColor: hexToRgba('#D97706',0.85),
-          borderRadius: [0,4,4,0], stack: 'f' }
-      ]
+      labels: dpData.map(e=>e[0]),
+      datasets: [{ label:'Headcount',
+        data: dpData.map(e=>e[1]),
+        backgroundColor: dpData.map((_,i)=>SP_COLORS[i%SP_COLORS.length]),
+        borderSkipped: false
+      }]
     },
     options: {
-      indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
-      layout:{ padding:{ right: 60 } },
-      plugins:{
-        legend:{
-          position: 'top',
-          labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 }
-        },
-        tooltip:{ mode:'index', intersect:false,
-          callbacks:{
-            footer: items => {
-              const filled    = items.find(i=>i.datasetIndex===0)?.parsed.x || 0;
-              const remaining = items.find(i=>i.datasetIndex===1)?.parsed.x || 0;
-              const total = filled + remaining;
-              return total ? `Total: ${total.toLocaleString()}  ·  Fill rate: ${Math.round(filled/total*100)}%` : '';
-            }
-          }
-        },
+      layout: { padding: { top: 20 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()} openings` }},
         datalabels: DL ? {
-          font:{ size:11, weight:'700' },
-          display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
-          // Filled (ds0): value inside segment in white
-          // Remaining (ds1): value inside + total OUTSIDE at bar end
-          anchor: ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
-          align:  ctx => ctx.datasetIndex === 0 ? 'center' : 'end',
-          offset: ctx => ctx.datasetIndex === 0 ? 0 : 6,
-          color:  ctx => ctx.datasetIndex === 0 ? '#fff' : 'var(--text,#1A1A1A)',
-          formatter: (v, ctx) => {
-            if (ctx.datasetIndex === 0) return v > 0 ? v.toLocaleString() : '';
-            const total = ctx.chart.data.datasets.reduce((s,ds)=>s+(ds.data[ctx.dataIndex]||0),0);
-            return total > 0 ? total.toLocaleString() : '';
-          }
-        } : false
-      },
-      scales:{
-        x:{ stacked:true, grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true },
-        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
-      }
-    }
-  });
-
-  // ── Chart 3: Headcount by Start Date (full-width line, SUM headcount) ─
-  const monthMap={};
-  rows.forEach(r => {
-    const raw=r[REQ_CI.start]; if(!raw) return;
-    const m=raw.substring(0,7);
-    monthMap[m]=(monthMap[m]||0)+(parseInt(r[REQ_CI.slots])||0);
-  });
-  const sortedM = Object.keys(monthMap).sort();
-  const mLabels = sortedM.map(m=>{ const [y,mo]=m.split('-'); return new Date(+y,+mo-1).toLocaleString('default',{month:'short',year:'2-digit'}); });
-  const mCumul  = sortedM.map((_,i)=>sortedM.slice(0,i+1).reduce((t,k)=>t+(monthMap[k]||0),0));
-
-  createChart('reqDateChart', {
-    type: 'line',
-    plugins: DL ? [DL] : [],
-    data: { labels:mLabels, datasets:[
-      { label:'Headcount',
-        data: sortedM.map(m=>monthMap[m]),
-        borderColor:C, backgroundColor:hexToRgba(C,0.08), borderWidth:2.5,
-        pointRadius:5, pointHoverRadius:8, pointBackgroundColor:C,
-        fill:true, tension:0.3, yAxisID:'y' },
-      { label:'Cumulative Headcount',
-        data: mCumul,
-        borderColor:'#6B47DC', backgroundColor:'transparent', borderWidth:2, borderDash:[5,4],
-        pointRadius:3, pointHoverRadius:6, pointBackgroundColor:'#6B47DC',
-        fill:false, tension:0.3, yAxisID:'y2' }
-    ]},
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{ position:'top', labels:{ font:{size:12}, usePointStyle:true, pointStyle:'circle', padding:16 } },
-        datalabels: DL ? {
-          display: ctx => ctx.datasetIndex === 0 && (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
-          anchor: 'end',
-          align: 'top',
-          offset: 4,
-          font:{ size:11, weight:'700' },
-          color: C,
+          anchor: 'end', align: 'top', offset: 2,
+          font: { size: 10, weight: '700' },
+          color: 'var(--text-primary,#1A1A1A)',
           formatter: v => v > 0 ? v.toLocaleString() : ''
         } : false
       },
-      scales:{
-        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11}, maxRotation:45} },
-        y:{ grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11}}, beginAtZero:true,
-            title:{display:true, text:'Headcount', font:{size:10}, color:'var(--text-secondary,#888)'} },
-        y2:{ position:'right', grid:{display:false}, ticks:{font:{size:11}}, beginAtZero:true,
-             title:{display:true, text:'Cumulative', font:{size:10}, color:'#6B47DC'} }
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:10}, maxRotation:45}, border:{display:false} },
+        y: { grid:{display:false}, ticks:{display:false}, border:{display:false}, beginAtZero:true }
       }
     }
   });
+  document.getElementById('reqDeptChart')?.addEventListener('contextmenu', e => {
+    e.preventDefault(); showChartPopup('reqDeptChart','Opening by Department',e);
+  });
+
+  // ── Chart 3: Opening by Start Date + Cumulative ────────────
+  const { labels: dtLabels, vals: dtVals, cumul: dtCumul } = buildDateData(rows);
+  createChart('reqDateChart', {
+    type: 'bar',
+    plugins: DL ? [DL] : [],
+    data: {
+      labels: dtLabels,
+      datasets: [
+        { label: 'New Openings',
+          type: 'bar',
+          data: dtVals,
+          backgroundColor: hexToRgba(C, 0.75),
+          yAxisID: 'y',
+          order: 2 },
+        { label: 'Cumulative',
+          type: 'line',
+          data: dtCumul,
+          borderColor: '#6B47DC',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          borderDash: [5,4],
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#6B47DC',
+          tension: 0.3,
+          fill: false,
+          yAxisID: 'y2',
+          order: 1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position:'top', labels:{ font:{size:10}, usePointStyle:true, padding:14 } },
+        tooltip: { mode:'index', intersect:false },
+        datalabels: DL ? {
+          display: ctx => ctx.datasetIndex===0 && (ctx.dataset.data[ctx.dataIndex]||0) > 0,
+          anchor:'end', align:'top', offset:2,
+          font:{ size:10, weight:'700' }, color:C,
+          formatter: v => v > 0 ? v.toLocaleString() : ''
+        } : false
+      },
+      scales: {
+        x:  { grid:{display:false}, ticks:{font:{size:10}, maxRotation:45} },
+        y:  { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{display:false}, border:{display:false}, beginAtZero:true },
+        y2: { position:'right', grid:{display:false}, ticks:{display:false}, border:{display:false}, beginAtZero:true }
+      }
+    }
+  });
+  document.getElementById('reqDateChart')?.addEventListener('contextmenu', e => {
+    e.preventDefault(); showChartPopup('reqDateChart','Opening by Start Date',e);
+  });
+
+  // ── Executive Summary (Web Speech API) ────────────────────
+  const execBtn = document.getElementById('execSummaryBtn');
+  if (execBtn && window.speechSynthesis) {
+    execBtn.addEventListener('click', () => {
+      const synth = window.speechSynthesis;
+      if (synth.speaking) { synth.cancel(); execBtn.classList.remove('speaking'); return; }
+      const hc  = _currentRows.reduce((t,r)=>t+(parseInt(r[REQ_CI.slots])||0),0);
+      const sp  = [...new Set(_currentRows.map(r=>r[REQ_CI.sponsor]).filter(v=>v&&v!=='—'))].length;
+      const ht  = [...new Set(_currentRows.map(r=>r[REQ_CI.company]).filter(v=>v&&v!=='—'))].length;
+      const top = buildDeptData(_currentRows).slice(0,3).map(e=>`${e[0]} with ${e[1]}`).join(', ');
+      const text = `Requisition Dashboard Summary for CTI Group J1 Program. ` +
+        `Currently showing ${_currentRows.length} active requisition${_currentRows.length!==1?'s':''}, ` +
+        `with a total of ${hc} open positions across ${sp} sponsor${sp!==1?'s':''} ` +
+        `and ${ht} hosting ${ht!==1?'companies':'company'}. ` +
+        (top ? `Top departments by headcount are: ${top}. ` : '') +
+        `Use the filters above to narrow by department, program type, sponsor, or housing availability.`;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.92; utter.pitch = 1;
+      utter.onstart = () => execBtn.classList.add('speaking');
+      utter.onend   = () => execBtn.classList.remove('speaking');
+      utter.onerror = () => execBtn.classList.remove('speaking');
+      synth.speak(utter);
+    });
+  } else if (execBtn) {
+    execBtn.title = 'Executive Summary (speech not supported in this browser)';
+    execBtn.style.opacity = '0.5';
+  }
+};
+
+// ============================
+// PAGE: PARTICIPANT
+// ============================
+pages.participant = async function () {
+  let recruitRows = [], crmRows = [], errorMsg = null;
+  try {
+    const [rRes, cRes] = await Promise.allSettled([
+      safeJson('/api/recruit/j1-participants'),
+      safeJson('/api/crm/j1-participants'),
+    ]);
+    if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
+    else errorMsg = rRes.reason?.message;
+    if (cRes.status === 'fulfilled') crmRows = cRes.value?.data || [];
+  } catch (e) { errorMsg = e.message; }
+
+  // Normalize: ensure department field exists (now mapped directly on both sources)
+  function normalizeRow(r) {
+    return { ...r };
+  }
+  const rawRows = [
+    ...recruitRows.map(normalizeRow),
+    ...crmRows.map(normalizeRow),
+  ];
+  state.dataCache['par-rows'] = rawRows;
+  _parActiveTab = 'All';
+
+  // Status counts
+  const statusCounts = {};
+  PAR_STATUSES.forEach(s => { statusCounts[s] = 0; });
+  rawRows.forEach(r => {
+    const s = r.placementStatus || '';
+    if (s in statusCounts) statusCounts[s]++;
+  });
+  const totalPlacement = (statusCounts['USA Onboard'] || 0) + (statusCounts['Program Completed'] || 0);
+
+  // Filter dropdown options
+  const sources   = [...new Set(rawRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const depts     = [...new Set(rawRows.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
+  const countries = [...new Set(rawRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
+  const sponsors  = [...new Set(rawRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const authErr   = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED')||errorMsg.includes('401'));
+
+  // Tab bar: All + each status + Total Placement
+  const tabsHtml = ['All', ...PAR_STATUSES, 'Total Placement'].map(s => {
+    const count = s === 'All' ? rawRows.length
+                : s === 'Total Placement' ? totalPlacement
+                : (statusCounts[s] || 0);
+    const extra = s === 'Total Placement' ? ' par-tab-placement' : '';
+    return `<button class="par-tab${s==='All'?' active':''}${extra}" data-status="${escH(s)}">${escH(s)}<span class="par-tab-count">${count}</span></button>`;
+  }).join('');
+
+  // Table sort header
+  const thSort = PAR_TABLE_COLS.map(col =>
+    col.sortable
+      ? `<th data-pfield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;${col.center?'text-align:center;':''}white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th style="white-space:nowrap;">${col.label}</th>`
+  ).join('') + '<th style="width:52px;"></th>';
+
+  // Table column-level filters
+  const cfDropdowns = {
+    'placementStatus':   [...PAR_STATUSES],
+    'programSource':     sources,
+    'department':        depts,
+    'country':           countries,
+    'processingSponsor': sponsors,
+  };
+  const thFilter = PAR_TABLE_COLS.map(col => {
+    if (col.money || col.datecol || col.sourcebadge) return '<th></th>';
+    const opts = cfDropdowns[col.field];
+    return `<th>${opts
+      ? `<select class="req-cf" data-pfield="${escH(col.field)}"><option value="">All</option>${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}</select>`
+      : `<input class="req-cf req-col-f" data-pfield="${escH(col.field)}" type="text" placeholder="—">`
+    }</th>`;
+  }).join('') + '<th></th>';
+
+  return `
+    <div class="req-page-header">
+      <h1>Participant</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">Recruit (${recruitRows.length}) + CRM (${crmRows.length}) · ${rawRows.length} total</span>
+    </div>
+
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
+
+    ${rawRows.length > 0 ? `
+    <!-- Filter Bar -->
+    <div class="card req-filter-bar">
+      <select id="parStatusFilter" class="req-gsel">
+        <option value="">All Statuses</option>
+        ${PAR_STATUSES.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+        <option value="Total Placement">Total Placement</option>
+      </select>
+      <select id="parSourceFilter" class="req-gsel">
+        <option value="">All J1 Sources</option>
+        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="parDeptFilter" class="req-gsel">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
+      </select>
+      <select id="parCountryFilter" class="req-gsel">
+        <option value="">All Countries</option>
+        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
+      </select>
+      <select id="parSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <label class="par-date-label" for="parStartDateFilter">Start ≥</label>
+      <input type="date" id="parStartDateFilter" class="req-gsel par-date-input">
+      <label class="par-date-label" for="parEndDateFilter">End ≤</label>
+      <input type="date" id="parEndDateFilter" class="req-gsel par-date-input">
+      <button id="parClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="parCount" class="req-count-badge">${rawRows.length} participants</span>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="par-tab-bar">${tabsHtml}</div>
+
+    <!-- Table -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="parMainTable">
+          <thead>
+            <tr id="parSortRow">${thSort}</tr>
+            <tr id="parColFilterRow">${thFilter}</tr>
+          </thead>
+          <tbody id="parTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    ` : `<div class="card" style="text-align:center;padding:48px 24px;">
+      <div style="font-size:40px;margin-bottom:12px;opacity:0.2;">👥</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);">No participant data available.</div>
+    </div>`}`;
+};
+
+pageEvents.participant = function () {
+  const allRows = state.dataCache['par-rows'] || [];
+  if (!allRows.length) return;
+
+  function getTabRows() {
+    if (_parActiveTab === 'All') return [...allRows];
+    if (_parActiveTab === 'Total Placement') return allRows.filter(r => PAR_PLACEMENT_STATUSES.has(r.placementStatus));
+    return allRows.filter(r => r.placementStatus === _parActiveTab);
+  }
+
+  function parseDateStr(str) {
+    if (!str || str === '—') return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return new Date(str);
+    const p = str.split('/');
+    if (p.length === 3) return new Date(+p[2], +p[0] - 1, +p[1]);
+    return null;
+  }
+
+  function fmtDate(str) {
+    if (!str || str === '—') return '—';
+    const d = parseDateStr(str);
+    if (!d || isNaN(d)) return str;
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function statusBadge(status) {
+    const color = PAR_STATUS_COLORS[status] || '#888';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${color}18;color:${color};border:1px solid ${color}40;white-space:nowrap;">${escH(status||'—')}</span>`;
+  }
+
+  function sourceBadge(src) {
+    const isR = src === 'recruit';
+    const color = isR ? '#1B3A6B' : '#7C3AED';
+    const label = isR ? 'Recruit' : 'CRM';
+    return `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:${color}15;color:${color};border:1px solid ${color}30;white-space:nowrap;">${label}</span>`;
+  }
+
+  function cellContent(r, col) {
+    const v = r[col.field];
+    const str = (v === null || v === undefined || v === '') ? '—' : String(v);
+    if (col.statusbadge) return statusBadge(str);
+    if (col.sourcebadge) return sourceBadge(str);
+    if (col.badge)   return str === '—' ? str : `<span class="req-dept-badge">${escH(str)}</span>`;
+    if (col.datecol) return escH(fmtDate(str === '—' ? '' : str));
+    return escH(str);
+  }
+
+  function renderRows(subset) {
+    if (!subset.length) return `<tr><td colspan="${PAR_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return subset.map(r => `<tr>${PAR_TABLE_COLS.map(col =>
+      `<td style="${col.center?'text-align:center;':''}">${cellContent(r, col)}</td>`
+    ).join('')}<td style="text-align:center;"><button class="req-detail-btn" data-pidx="${allRows.indexOf(r)}">Details</button></td></tr>`
+    ).join('');
+  }
+
+  function refreshCount(rows) {
+    const el = document.getElementById('parCount');
+    if (el) el.textContent = `${rows.length} of ${allRows.length} participants`;
+  }
+
+  function applyFilters(base) {
+    const gSt  = document.getElementById('parStatusFilter')?.value  || '';
+    const gSrc = document.getElementById('parSourceFilter')?.value  || '';
+    const gDpt = document.getElementById('parDeptFilter')?.value    || '';
+    const gCtry= document.getElementById('parCountryFilter')?.value || '';
+    const gSp  = document.getElementById('parSponsorFilter')?.value || '';
+    const gsD  = document.getElementById('parStartDateFilter')?.value || '';
+    const geD  = document.getElementById('parEndDateFilter')?.value   || '';
+    const colF = {};
+    document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => {
+      const v = el.value.trim(); if (v) colF[el.dataset.pfield] = v.toLowerCase();
+    });
+    return base.filter(r => {
+      if (gSt) {
+        if (gSt === 'Total Placement') { if (!PAR_PLACEMENT_STATUSES.has(r.placementStatus)) return false; }
+        else if (r.placementStatus !== gSt) return false;
+      }
+      if (gSrc  && r.programSource     !== gSrc)  return false;
+      if (gDpt  && r.department         !== gDpt)  return false;
+      if (gCtry && r.country           !== gCtry) return false;
+      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gsD) {
+        const fd = new Date(gsD), rd = parseDateStr(r.programStart);
+        if (!rd || rd < fd) return false;
+      }
+      if (geD) {
+        const fd = new Date(geD), rd = parseDateStr(r.programEnd);
+        if (!rd || rd > fd) return false;
+      }
+      for (const [field, fv] of Object.entries(colF)) {
+        const val = String(r[field] || '');
+        if (!val.toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+  }
+
+  function doSort(rows) {
+    if (!_parSortCol) return rows;
+    return [...rows].sort((a, b) => {
+      let av = a[_parSortCol] ?? '', bv = b[_parSortCol] ?? '';
+      if (_parSortCol === 'age') {
+        av = parseFloat(av) || 0; bv = parseFloat(bv) || 0;
+      } else if (_parSortCol === 'programStart' || _parSortCol === 'programEnd') {
+        const da = parseDateStr(String(av)), db = parseDateStr(String(bv));
+        av = da ? da.getTime() : 0; bv = db ? db.getTime() : 0;
+      }
+      const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      return _parSortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  function setActiveTab(status) {
+    _parActiveTab = status || 'All';
+    document.querySelectorAll('.par-tab').forEach(t => t.classList.toggle('active', t.dataset.status === _parActiveTab));
+    const dd = document.getElementById('parStatusFilter');
+    if (dd) dd.value = _parActiveTab === 'All' ? '' : _parActiveTab;
+  }
+
+  let _currentRows = [...allRows];
+
+  function refresh() {
+    _currentRows = doSort(applyFilters(getTabRows()));
+    const tbody = document.getElementById('parTableBody');
+    if (tbody) tbody.innerHTML = renderRows(_currentRows);
+    refreshCount(_currentRows);
+  }
+
+  refresh();
+
+  // KPI card clicks → filter by status
+  document.querySelector('.par-kpi-grid')?.addEventListener('click', e => {
+    const card = e.target.closest('.par-kpi-card[data-tab]');
+    if (!card) return;
+    setActiveTab(card.dataset.tab);
+    refresh();
+  });
+
+  // Tab clicks
+  document.querySelector('.par-tab-bar')?.addEventListener('click', e => {
+    const btn = e.target.closest('.par-tab'); if (!btn) return;
+    setActiveTab(btn.dataset.status);
+    refresh();
+  });
+
+  // Status dropdown syncs with tabs
+  document.getElementById('parStatusFilter')?.addEventListener('change', e => {
+    setActiveTab(e.target.value || 'All');
+    refresh();
+  });
+
+  // Column sort (data-pfield attribute)
+  document.getElementById('parSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-pfield]'); if (!th) return;
+    const field = th.dataset.pfield;
+    if (_parSortCol === field) _parSortDir = _parSortDir === 'asc' ? 'desc' : 'asc';
+    else { _parSortCol = field; _parSortDir = 'asc'; }
+    document.querySelectorAll('#parSortRow .req-sort-icon').forEach(el => {
+      el.textContent = '⇅'; el.closest('th')?.classList.remove('req-sort-asc','req-sort-desc');
+    });
+    const icon = th.querySelector('.req-sort-icon');
+    if (icon) { icon.textContent = _parSortDir === 'asc' ? '↑' : '↓'; th.classList.add(_parSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc'); }
+    refresh();
+  });
+
+  // Other global filters
+  ['parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter',
+   'parStartDateFilter','parEndDateFilter']
+    .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
+
+  // Column-level filters
+  document.querySelectorAll('#parColFilterRow .req-cf').forEach(el =>
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+
+  // Clear all
+  document.getElementById('parClearBtn')?.addEventListener('click', () => {
+    ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter',
+     'parSponsorFilter','parStartDateFilter','parEndDateFilter']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => el.value = '');
+    _parSortCol = null; _parSortDir = 'asc';
+    setActiveTab('All');
+    document.querySelectorAll('#parSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
+    document.querySelectorAll('#parSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
+    refresh();
+  });
+
+  // Details modal
+  document.getElementById('parTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.req-detail-btn'); if (!btn) return;
+    const r = allRows[parseInt(btn.dataset.pidx)]; if (!r) return;
+    const fld = (label, val, full) => (val && val !== '—') ? `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
+      </div>` : '';
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    const srcLabel = r._source === 'crm' ? 'CRM' : 'Recruit';
+    document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${sColor};">Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;background:${sColor}18;color:${sColor};border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          <div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">App Source</div>
+            <div style="font-size:12px;font-weight:700;margin-top:3px;">${escH(srcLabel)}</div>
+          </div>
+          ${r.age && r.age !== '—' ? `<div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Age</div>
+            <div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--text-primary);">${escH(String(r.age))}</div>
+          </div>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Email', r.email, true)}
+          ${fld('First Name', r.firstName)}
+          ${fld('Last Name', r.lastName)}
+          ${fld('Gender', r.gender)}
+          ${fld('Country', r.country)}
+          ${fld('J1 Program Source', r.programSource)}
+          ${fld('Processing Sponsor', r.processingSponsor)}
+          ${fld('Hosting Company', r.hostCompany)}
+          ${fld('Department', r.department)}
+          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
+          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
+          ${fld('Program Type', r.programType)}
+          ${fld('Phone', r.phone)}
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  });
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay')?.classList.remove('active');
+  });
+};
+
+// ============================
+// PAGE: TALENT POOL
+// ============================
+pages.talentpool = async function () {
+  let recruitRows = [], crmRows = [], reqRows = [], errorMsg = null;
+  try {
+    const [rRes, cRes, qRes] = await Promise.allSettled([
+      safeJson('/api/recruit/j1-participants'),
+      safeJson('/api/crm/j1-participants'),
+      safeJson('/api/zoho/j1-requisition'),
+    ]);
+    if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
+    else errorMsg = rRes.reason?.message;
+    if (cRes.status === 'fulfilled') crmRows = cRes.value?.data || [];
+    if (qRes.status === 'fulfilled') reqRows = qRes.value?.data?.rows || [];
+  } catch (e) { errorMsg = e.message; }
+
+  // Filter to talent pool statuses only
+  const tpSet = new Set(TP_STATUSES);
+  const allPool = [
+    ...recruitRows.filter(r => tpSet.has(r.placementStatus)),
+    ...crmRows.filter(r => tpSet.has(r.placementStatus)),
+  ];
+  state.dataCache['tp-rows']    = allPool;
+  state.dataCache['tp-req-rows']= reqRows;
+
+  // KPI — openings from active requisitions only
+  const activeReq    = reqRows.filter(r => r[REQ_CI.status] === 'Active');
+  const totalOpenings= activeReq.reduce((s,r) => s + (parseInt(r[REQ_CI.slots])||0), 0);
+  const totalPool    = allPool.length;
+  const totalRemain  = Math.max(0, totalOpenings - totalPool);
+  const totalSalesCall = allPool.filter(r => r.placementStatus === 'Sales Call').length;
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED')||errorMsg.includes('401'));
+
+  // Filter dropdown options
+  const sources   = [...new Set(allPool.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const depts     = [...new Set(allPool.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
+  const countries = [...new Set(allPool.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
+  const sponsors  = [...new Set(allPool.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+
+  // Table sort header
+  const thSort = TP_TABLE_COLS.map(col =>
+    col.sortable
+      ? `<th data-tpfield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th style="white-space:nowrap;">${col.label}</th>`
+  ).join('') + '<th style="width:52px;"></th>';
+
+  // Column-level filters
+  const cfDropdowns = {
+    'placementStatus': [...TP_STATUSES],
+    'programSource':   sources,
+    'department':      depts,
+    'country':         countries,
+  };
+  const thFilter = TP_TABLE_COLS.map(col => {
+    const opts = cfDropdowns[col.field];
+    return `<th>${opts
+      ? `<select class="req-cf" data-tpfield="${escH(col.field)}"><option value="">All</option>${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}</select>`
+      : `<input class="req-cf req-col-f" data-tpfield="${escH(col.field)}" type="text" placeholder="—">`
+    }</th>`;
+  }).join('') + '<th></th>';
+
+  return `
+    <div class="req-page-header">
+      <h1>Talent Pool</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit + CRM</span>
+      <span class="req-page-sub">Recruit (${recruitRows.filter(r=>tpSet.has(r.placementStatus)).length}) + CRM (${crmRows.filter(r=>tpSet.has(r.placementStatus)).length}) · Pre-placement candidates</span>
+    </div>
+
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
+
+    <!-- Filter Bar (sticky) — very top -->
+    <div class="card req-filter-bar">
+      <select id="tpStatusFilter" class="req-gsel">
+        <option value="">All Statuses</option>
+        ${TP_STATUSES.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="tpSourceFilter" class="req-gsel">
+        <option value="">All J1 Sources</option>
+        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="tpDeptFilter" class="req-gsel">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
+      </select>
+      <select id="tpCountryFilter" class="req-gsel">
+        <option value="">All Countries</option>
+        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
+      </select>
+      <select id="tpSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <button id="tpClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="tpCount" class="req-count-badge">${allPool.length} candidates</span>
+    </div>
+
+    <!-- KPIs (4 widgets) -->
+    <div class="req-kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Openings</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;">${totalOpenings.toLocaleString()}</span>
+        <span class="req-kpi-sub">active requisitions</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Talent Pool</span>
+        <span class="req-kpi-value" style="color:#0891B2;" id="tpKpiPool">${totalPool.toLocaleString()}</span>
+        <span class="req-kpi-sub">pre-placement candidates</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Remaining</span>
+        <span class="req-kpi-value" style="color:${totalRemain > 0 ? '#D97706' : '#2D7A55'};" id="tpKpiRemain">${totalRemain.toLocaleString()}</span>
+        <span class="req-kpi-sub">openings still unfilled</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Sales Call</span>
+        <span class="req-kpi-value" style="color:#7C3AED;" id="tpKpiSalesCall">${totalSalesCall.toLocaleString()}</span>
+        <span class="req-kpi-sub">ready for employer review</span>
+      </div>
+    </div>
+
+    <!-- Chart — full width -->
+    <div class="card req-chart-card">
+      <div class="req-chart-title">Talent Pool vs Remaining by Department</div>
+      <canvas id="tpDeptChart"></canvas>
+    </div>
+
+    <!-- Table -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="tpMainTable">
+          <thead>
+            <tr id="tpSortRow">${thSort}</tr>
+            <tr id="tpColFilterRow">${thFilter}</tr>
+          </thead>
+          <tbody id="tpTableBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+pageEvents.talentpool = function () {
+  const allPool  = state.dataCache['tp-rows']     || [];
+  const reqRows  = state.dataCache['tp-req-rows'] || [];
+  if (!allPool.length) return;
+
+  // ── Helpers ───────────────────────────────────────────
+  function statusBadge(status) {
+    const color = PAR_STATUS_COLORS[status] || '#888';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${color}18;color:${color};border:1px solid ${color}40;white-space:nowrap;">${escH(status||'—')}</span>`;
+  }
+  function sourceBadge(src) {
+    const isRecruit = src === 'recruit';
+    const bg = isRecruit ? '#1B3A6B' : '#7C3AED';
+    const label = isRecruit ? 'Recruit' : 'CRM';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${bg}18;color:${bg};border:1px solid ${bg}40;white-space:nowrap;">${label}</span>`;
+  }
+  function cellContent(r, col) {
+    const v   = r[col.field];
+    const str = (v === null || v === undefined || v === '') ? '—' : String(v);
+    if (col.statusbadge) return statusBadge(str);
+    if (col.sourcebadge) return sourceBadge(str);
+    if (col.badge) return str === '—' ? str : `<span class="req-dept-badge">${escH(str)}</span>`;
+    return escH(str);
+  }
+  function applyFilters(base) {
+    const gSt  = document.getElementById('tpStatusFilter')?.value  || '';
+    const gSrc = document.getElementById('tpSourceFilter')?.value  || '';
+    const gDpt = document.getElementById('tpDeptFilter')?.value    || '';
+    const gCtry= document.getElementById('tpCountryFilter')?.value || '';
+    const gSp  = document.getElementById('tpSponsorFilter')?.value || '';
+    const colF = {};
+    document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => {
+      const v = el.value.trim(); if (v) colF[el.dataset.tpfield] = v.toLowerCase();
+    });
+    return base.filter(r => {
+      if (gSt   && r.placementStatus   !== gSt)   return false;
+      if (gSrc  && r.programSource     !== gSrc)  return false;
+      if (gDpt  && r.department        !== gDpt)  return false;
+      if (gCtry && r.country           !== gCtry) return false;
+      if (gSp   && r.processingSponsor !== gSp)   return false;
+      for (const [f, fv] of Object.entries(colF)) {
+        if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+  }
+  function doSort(rows) {
+    if (!_tpSortCol) return rows;
+    return [...rows].sort((a, b) => {
+      const av = String(a[_tpSortCol]||''), bv = String(b[_tpSortCol]||'');
+      const cmp = av.localeCompare(bv);
+      return _tpSortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+  function renderRows(subset) {
+    if (!subset.length) return `<tr><td colspan="${TP_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return subset.map(r => `<tr>${TP_TABLE_COLS.map(col =>
+      `<td>${cellContent(r, col)}</td>`
+    ).join('')}<td></td></tr>`).join('');
+  }
+  function refreshCount(rows) {
+    const el = document.getElementById('tpCount');
+    if (el) el.textContent = `${rows.length} of ${allPool.length} candidates`;
+  }
+  let _currentRows = [...allPool];
+  function refresh() {
+    _currentRows = doSort(applyFilters([...allPool]));
+    const tbody = document.getElementById('tpTableBody');
+    if (tbody) tbody.innerHTML = renderRows(_currentRows);
+    refreshCount(_currentRows);
+    updateCharts(_currentRows);
+  }
+
+  // ── Charts ────────────────────────────────────────────
+  let _tpDeptChart = null;
+
+  function buildChartData(rows) {
+    // Dept stacked bar — use active requisitions for openings
+    const deptPool = {}, deptOpen = {};
+    rows.forEach(r => {
+      const d = r.department || '—';
+      if (d !== '—') deptPool[d] = (deptPool[d]||0) + 1;
+    });
+    reqRows.filter(r => r[REQ_CI.status] === 'Active').forEach(r => {
+      const d = r[REQ_CI.dept] || '—';
+      if (d !== '—') deptOpen[d] = (deptOpen[d]||0) + (parseInt(r[REQ_CI.slots])||0);
+    });
+    const allDepts   = Object.keys(deptPool).filter(d => d !== '—')
+      .sort((a,b) => (deptPool[b]||0) - (deptPool[a]||0)).slice(0, 12);
+    const poolData   = allDepts.map(d => deptPool[d]  || 0);
+    const remainData = allDepts.map(d => Math.max(0, (deptOpen[d]||0) - (deptPool[d]||0)));
+    return { allDepts, poolData, remainData };
+  }
+
+  function initCharts(rows) {
+    const { allDepts, poolData, remainData } = buildChartData(rows);
+    const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+    const tickColor = isDark ? '#888' : '#666';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const font      = { family: 'Inter, sans-serif', size: 11 };
+
+    // Vertical stacked bar by Department — dept names on x-axis
+    const deptCtx = document.getElementById('tpDeptChart');
+    if (deptCtx) {
+      if (_tpDeptChart) _tpDeptChart.destroy();
+      _tpDeptChart = new Chart(deptCtx, {
+        type: 'bar',
+        plugins: [ChartDataLabels],
+        data: {
+          labels: allDepts,
+          datasets: [
+            { label: 'Talent Pool', data: poolData,   backgroundColor: '#1B3A6B',              stack: 'a' },
+            { label: 'Remaining',   data: remainData, backgroundColor: 'rgba(27,58,107,0.22)', stack: 'a' },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { font, boxWidth: 12, padding: 14 } },
+            datalabels: {
+              color: ctx => ctx.datasetIndex === 0 ? '#fff' : '#1B3A6B',
+              font: { size: 10, weight: '700' },
+              formatter: v => v > 0 ? v : '',
+              anchor: 'center', align: 'center',
+            },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: tickColor, font, maxRotation: 35, minRotation: 35 }, grid: { display: false } },
+            y: { stacked: true, ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
+          },
+        },
+      });
+    }
+  }
+
+  function updateCharts(rows) {
+    const { allDepts, poolData, remainData } = buildChartData(rows);
+    if (_tpDeptChart) {
+      _tpDeptChart.data.labels           = allDepts;
+      _tpDeptChart.data.datasets[0].data = poolData;
+      _tpDeptChart.data.datasets[1].data = remainData;
+      _tpDeptChart.update();
+    }
+  }
+
+  initCharts(allPool);
+  refresh();
+
+  // Status + all global filters trigger refresh
+  ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpSponsorFilter']
+    .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
+
+  // Column filters
+  document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el =>
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+
+  // Sort
+  document.getElementById('tpSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-tpfield]'); if (!th) return;
+    const field = th.dataset.tpfield;
+    if (_tpSortCol === field) _tpSortDir = _tpSortDir === 'asc' ? 'desc' : 'asc';
+    else { _tpSortCol = field; _tpSortDir = 'asc'; }
+    document.querySelectorAll('#tpSortRow .req-sort-icon').forEach(el => {
+      el.textContent = '⇅'; el.closest('th')?.classList.remove('req-sort-asc','req-sort-desc');
+    });
+    const icon = th.querySelector('.req-sort-icon');
+    if (icon) { icon.textContent = _tpSortDir === 'asc' ? '↑' : '↓'; th.classList.add(_tpSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc'); }
+    refresh();
+  });
+
+  // Clear
+  document.getElementById('tpClearBtn')?.addEventListener('click', () => {
+    ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpSponsorFilter']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => el.value = '');
+    _tpSortCol = null; _tpSortDir = 'asc';
+    document.querySelectorAll('#tpSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
+    document.querySelectorAll('#tpSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
+    refresh();
+  });
+};
+
+// ============================
+// PAGE: HOUSING (coming soon)
+// ============================
+pages.housing = async function () {
+  return lockedPage('housing');
+};
+
+// ============================
+// PAGE: RETURN HOME (coming soon)
+// ============================
+pages.returnhome = async function () {
+  return lockedPage('returnhome');
+};
+
+// ============================
+// PAGE: TASK (coming soon)
+// ============================
+pages.task = async function () {
+  return lockedPage('task');
 };
 
 // ============================
@@ -4024,193 +4580,105 @@ pages.marketing = async function () {
 // ============================
 // PAGE: TRAVEL
 // ============================
+
+// ── Travel page constants ─────────────────────────────────────
+const TRAVEL_TICKET_COLORS = {
+  'No Ticket': { color:'#6B7280', bg:'rgba(107,114,128,0.12)' },
+  'Requested': { color:'#D97706', bg:'rgba(217,119,6,0.12)'   },
+  'Booked':    { color:'#2563EB', bg:'rgba(37,99,235,0.12)'   },
+  'Issued':    { color:'#059669', bg:'rgba(5,150,105,0.12)'   },
+};
+function normalizeFlightStatus(raw) {
+  const s = (raw || '').trim();
+  if (!s || s === '—') return 'No Ticket';
+  if (/^requested$/i.test(s))  return 'Requested';
+  if (/book/i.test(s))         return 'Booked';
+  if (/issued?/i.test(s))      return 'Issued';
+  return s;
+}
+const TRAVEL_DEP_COLS = [
+  { label:'J1 App Status',   field:'placementStatus',  sortable:true,  statusbadge:true },
+  { label:'J1 Source',       field:'programSource',    sortable:true  },
+  { label:'First Name',      field:'firstName',        sortable:true  },
+  { label:'Last Name',       field:'lastName',         sortable:true  },
+  { label:'Program Start',   field:'programStart',     sortable:true,  datecol:true },
+  { label:'Flight Ticket',   field:'flightBooked',     sortable:true,  flightbadge:true },
+  { label:'Trip',            field:'_trip',            sortable:false },
+  { label:'Departure Date',  field:'departureDate',    sortable:true,  datecol:true },
+  { label:'Arrival Date',    field:'arrivalDate',      sortable:true,  datecol:true },
+  { label:'Airport Pick-Up', field:'airportPickup',    sortable:true  },
+  { label:'Airline',         field:'airline',          sortable:true  },
+  { label:'PNR Number',      field:'pnrNumber',        sortable:true  },
+];
+const TRAVEL_RET_COLS = [
+  { label:'J1 App Status',    field:'placementStatus',    sortable:true,  statusbadge:true },
+  { label:'J1 Source',        field:'programSource',      sortable:true  },
+  { label:'First Name',       field:'firstName',          sortable:true  },
+  { label:'Last Name',        field:'lastName',           sortable:true  },
+  { label:'Return Ticket',    field:'returnFlightStatus', sortable:true,  flightbadge:true },
+  { label:'Program End',      field:'programEnd',         sortable:true,  datecol:true },
+  { label:'Return Trip',      field:'_returnTrip',        sortable:false },
+  { label:'Return Departure', field:'returnDeparture',    sortable:true,  datecol:true },
+  { label:'Return Arrival',   field:'returnArrival',      sortable:true,  datecol:true },
+  { label:'Return Airline',   field:'returnAirline',      sortable:true  },
+];
+let _travelActiveTab = 'departure';
+let _travelSortCol   = null, _travelSortDir = 'asc';
+
 pages.travel = async function () {
-  const C       = DIVISION_COLORS.j1;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  _travelActiveTab = 'departure';
+  _travelSortCol   = null;
+  _travelSortDir   = 'asc';
 
-  // Resolve ticket category from actual Zoho field values:
-  //   Flight Ticket Status:  "" | "Requested" | "Ticket Issued"
-  //   Ticket Payment Status: "" | "Paid"
-  function resolveCategory(flightStatus, payStatus, daysUntil) {
-    const f = (flightStatus || '').toLowerCase().trim();
-    const p = (payStatus    || '').toLowerCase().trim();
-    if (f.includes('issued')) {
-      return (daysUntil !== null && daysUntil < 0) ? 'departed' : 'issued';
-    }
-    if (p === 'paid')         return 'paid';
-    if (f === 'requested')    return 'requested';
-    if (!f && !p)             return 'none';
-    return 'other';
-  }
-  // Keep legacy alias so the old ticketCategory(raw) calls below still work
-  function ticketCategory(raw) {
-    const s = (raw || '').toLowerCase().trim();
-    if (!s || s === 'n/a' || s === 'none' || s === 'no ticket' || s === 'not yet' || s === '-' || s === '—') return 'none';
-    if (/paid|payment/.test(s))                                return 'paid';
-    if (/issued|booked|confirmed|ticketed|e.?ticket/.test(s))  return 'issued';
-    if (/departed|checked.?in|in.?transit/.test(s))            return 'departed';
-    if (/cancel|refund/.test(s))                               return 'cancelled';
-    return 'other';
-  }
-
-  // Top pipeline cards — departure (first 4) + return ticket (last 2)
-  const STAGES = [
-    { key:'none',          label:'No Ticket',        icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
-    { key:'requested',     label:'Requested',        icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
-    { key:'issued',        label:'Issued',           icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
-    { key:'departed',      label:'Departed',         icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
-    { key:'ret_requested', label:'Rtn Requested',    icon:'📋', color:'#7C3AED', bg:'rgba(124,58,237,0.10)'  },
-    { key:'ret_issued',    label:'Rtn Issued',       icon:'🏠', color:'#0891B2', bg:'rgba(8,145,178,0.10)'   },
-  ];
-  // Full badge palette — used for ticket status badges in table & side panel
-  const BADGE_STAGES = [
-    { key:'none',      label:'No Ticket', icon:'🚫', color:'#B01A18', bg:'rgba(176,26,24,0.10)'   },
-    { key:'requested', label:'Requested', icon:'📋', color:'#B87A14', bg:'rgba(184,122,20,0.10)'  },
-    { key:'paid',      label:'Paid',      icon:'💳', color:'#6B47DC', bg:'rgba(107,71,220,0.10)'  },
-    { key:'issued',    label:'Issued',    icon:'✈️', color:'#059669', bg:'rgba(5,150,105,0.10)'   },
-    { key:'departed',  label:'Departed',  icon:'🛫', color:'#1B3A6B', bg:'rgba(27,58,107,0.10)'   },
-    { key:'other',     label:'Other',     icon:'🔄', color:'#64748B', bg:'rgba(100,116,139,0.10)' },
-  ];
-
-  // Parse columns+rows into structured objects — maps to J1 Participants field names
-  function parseRows(columns, rows) {
-    const fi = (pats) => {
-      for (const p of pats) {
-        const i = columns.findIndex(c => p.test(c));
-        if (i >= 0) return i;
-      }
-      return -1;
-    };
-    const idx = {
-      firstName:       fi([/^First Name$/i]),
-      lastName:        fi([/^Last Name$/i]),
-      name:            fi([/^Full Name$/i, /^full.?name$/i]),
-      host:            fi([/^Hosting Company$/i, /hosting.?company/i]),
-      departure:       fi([/^Departure Date$/i]),
-      returnDate:      fi([/^Return Departure Date$/i]),   // when they fly back home
-      flightStatus:    fi([/^Flight Ticket Status$/i]),
-      payStatus:       fi([/^Ticket Payment Status$/i]),
-      retFlightStatus: fi([/^Return Flight Ticket Status$/i]),
-      retPayStatus:    fi([/^Return Ticket Payment Status$/i]),
-      sponsor:         fi([/^Processing Sponsor$/i, /processing.?sponsor/i]),
-      airline:         fi([/^Airline$/i]),
-      flightNo:        fi([/^Airline PNR Number$/i]),
-      retAirline:      fi([/^Return Airline$/i]),
-      retFlightNo:     fi([/^Return Airline PNR Number$/i]),
-      country:         fi([/^Country$/i]),
-      appStatus:       fi([/^J1 Application Status$/i]),
-      job:             fi([/^Selected Job$/i]),
-      tripTo:          fi([/^Trip To$/i]),
-    };
-    const today = new Date(); today.setHours(0,0,0,0);
-    return rows.map((row, i) => {
-      const g = (k) => idx[k] >= 0 ? String(row[idx[k]] ?? '').trim() : '';
-      const first = g('firstName'), last = g('lastName');
-      const fullName = (first || last) ? `${first} ${last}`.trim() : g('name') || `Participant ${i+1}`;
-      const depRaw = g('departure'), retRaw = g('returnDate');
-      const flightStatus = g('flightStatus'), payStatus = g('payStatus');
-      const retFlightStatus = g('retFlightStatus'), retPayStatus = g('retPayStatus');
-      let daysUntil = null;
-      if (depRaw) {
-        const d = new Date(depRaw);
-        if (!isNaN(d)) { d.setHours(0,0,0,0); daysUntil = Math.floor((d - today) / 86400000); }
-      }
-      return {
-        fullName, host: g('host'), departure: depRaw, returnDate: retRaw,
-        flightStatus, payStatus, retFlightStatus, retPayStatus,
-        category:    resolveCategory(flightStatus,    payStatus,    daysUntil),
-        retCategory: resolveCategory(retFlightStatus, retPayStatus, null),
-        depLabel:    flightStatus || payStatus    || '',
-        retLabel:    retFlightStatus || retPayStatus || '',
-        sponsor: g('sponsor'), airline: g('airline'), flightNo: g('flightNo'),
-        retAirline: g('retAirline'), retFlightNo: g('retFlightNo'),
-        country: g('country'), appStatus: g('appStatus'), job: g('job'),
-        tripTo: g('tripTo'), daysUntil,
-        allFields: columns.map((c, ci) => [c, String(row[ci] ?? '')])
-      };
-    });
-  }
-
-  // Departure date cell: date + colour-coded urgency badge
-  function urgencyTag(daysUntil, depRaw) {
-    if (!depRaw) return '<span style="color:var(--text-muted,#aaa);">—</span>';
-    const color = daysUntil === null ? '#888'
-      : daysUntil < 0   ? '#64748B'
-      : daysUntil <= 7  ? '#B01A18'
-      : daysUntil <= 14 ? '#D97706'
-      : daysUntil <= 30 ? '#B87A14'
-      : '#059669';
-    const label = daysUntil === null   ? ''
-      : daysUntil < 0  ? `${Math.abs(daysUntil)}d ago`
-      : daysUntil === 0 ? 'Today!'
-      : `in ${daysUntil}d`;
-    return `<div style="font-weight:600;font-size:12px;line-height:1.4;">${depRaw}</div>`
-      + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
-  }
-
-  function ticketBadge(category, label) {
-    const stg = BADGE_STAGES.find(s => s.key === category) || BADGE_STAGES[BADGE_STAGES.length-1];
-    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
-      background:${stg.bg};color:${stg.color};white-space:nowrap;">
-      ${stg.icon} ${label || stg.label}
-    </span>`;
-  }
-
-  function rowHtml(p, dispIdx, origIdx) {
-    const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
-    const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
-    return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
-      <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
-      <td>
-        <strong>${p.fullName}</strong>
-        ${p.country ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.country}</div>` : ''}
-      </td>
-      <td style="font-size:13px;">${p.host || '—'}</td>
-      <td>${urgencyTag(p.daysUntil, p.departure)}</td>
-      <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
-      <td>${ticketBadge(p.category,    p.depLabel)}</td>
-      <td>${ticketBadge(p.retCategory, p.retLabel)}</td>
-      <td style="font-size:12px;">${p.sponsor || '—'}</td>
-      <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
-      <td>
-        <button class="travel-view-btn" data-idx="${origIdx}"
-          style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
-          font-size:11px;font-weight:700;color:${C};background:transparent;cursor:pointer;">
-          View
-        </button>
-      </td>
-    </tr>`;
-  }
-
-  // ── Fetch live data from server ──────────────────────────────
-  let columns = [], rows = [], viewName = '', errorMsg = null;
+  let rows = [], errorMsg = null;
   try {
-    const json = await safeJson('/api/zoho/j1-travel');
-    viewName = json.view || 'J1 Travel';
-    columns  = json.data?.columns || [];
-    rows     = json.data?.rows    || [];
+    const json = await safeJson('/api/recruit/j1-participants');
+    rows = json?.data || [];
   } catch (e) { errorMsg = e.message; }
 
-  const people   = parseRows(columns, rows);
-  const total    = people.length;
-  const counts = Object.fromEntries(STAGES.map(s => [s.key, 0]));
-  people.forEach(p => {
-    if (p.category in counts) counts[p.category]++;
-    if (p.retCategory === 'requested') counts.ret_requested++;
-    else if (p.retCategory === 'issued') counts.ret_issued++;
-  });
-  const authErr  = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
-  const sponsors = [...new Set(people.map(p => p.sponsor).filter(Boolean))].sort();
+  // Filter: hosting company not blank + HC Interview = Approved
+  const allRows = rows.filter(r =>
+    r.hostCompany && r.hostCompany !== '—' &&
+    r.hcInterviewStatus === 'Approved'
+  );
+  state.dataCache['travel-rows'] = allRows;
+
+  const total   = allRows.length;
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  // Build thead HTML for both tab column sets
+  function buildHeaders(cols) {
+    const th = cols.map(c =>
+      `<th data-travelfield="${c.field}" class="${c.sortable ? 'sortable' : ''}"
+        style="white-space:nowrap;padding:10px 12px;font-size:11px;font-weight:700;
+          text-transform:uppercase;letter-spacing:0.06em;cursor:${c.sortable?'pointer':'default'};
+          background:var(--bg-page,#f5f5f5);position:sticky;top:0;z-index:2;
+          box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);">
+        ${c.label}${c.sortable ? ' <span class="sort-arrow" style="opacity:0.4;">↕</span>' : ''}
+      </th>`).join('');
+    const tf = cols.map(c =>
+      `<th style="padding:4px 8px;background:var(--bg-page,#f5f5f5);position:sticky;top:36px;z-index:2;
+        box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);">
+        ${(c.field !== '_trip' && c.field !== '_returnTrip') ? `
+          <input data-travelcol="${c.field}" placeholder="Filter…" style="width:100%;
+            padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
+            font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">` : ''}
+      </th>`).join('');
+    return { th, tf };
+  }
+
+  const depH = buildHeaders(TRAVEL_DEP_COLS);
+  const retH = buildHeaders(TRAVEL_RET_COLS);
 
   return `
     <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
+      <div class="division-header" style="border-left-color:${DIVISION_COLORS.j1}">
         <h1>Travel</h1>
-        <p class="subtitle">J1 Travel &nbsp;·&nbsp; ticket status &amp; departure tracker &nbsp;·&nbsp; ${total} participants${viewName ? ' &nbsp;·&nbsp; <em>' + viewName + '</em>' : ''}</p>
+        <p class="subtitle">Host company approved &nbsp;·&nbsp; ${total} participants</p>
       </div>
     </div>
 
-    ${errorMsg && !people.length ? `
+    ${errorMsg && !allRows.length ? `
     <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
       background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
       border-radius:10px;margin-bottom:22px;">
@@ -4219,483 +4687,227 @@ pages.travel = async function () {
         <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
           ${authErr ? 'Server not connected' : 'Travel data unavailable'}
         </div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">
-          ${authErr
-            ? 'Start the Node.js server and <a href="/auth/zoho" style="color:#B01A18;font-weight:700;text-decoration:underline;">reconnect Zoho →</a>'
-            : errorMsg}
-        </div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">${errorMsg}</div>
       </div>
     </div>` : ''}
 
-    <!-- ── Ticket status pipeline — click any card to filter ── -->
-    <div style="display:flex;align-items:stretch;gap:0;margin-bottom:24px;overflow-x:auto;">
-      ${STAGES.map((s, i) => `
-        ${i > 0 ? '<div style="display:flex;align-items:center;padding:0 2px;color:var(--text-muted,#bbb);font-size:16px;flex-shrink:0;">›</div>' : ''}
-        <div class="travel-stage-card" data-stage="${s.key}"
-          style="flex:1;min-width:105px;padding:16px 10px;text-align:center;cursor:pointer;
-            background:${s.bg};border:1px solid ${s.color}30;transition:opacity 0.2s,box-shadow 0.15s;
-            border-radius:${i===0?'12px 0 0 12px':i===STAGES.length-1?'0 12px 12px 0':'0'};
-            border-left:${i>0?'none':'1px solid '+s.color+'30'};">
-          <div style="font-size:24px;line-height:1;margin-bottom:6px;">${s.icon}</div>
-          <div style="font-size:30px;font-weight:800;color:${s.color};line-height:1.1;">${counts[s.key]}</div>
-          <div style="font-size:10px;font-weight:700;color:${s.color};margin-top:5px;
-            text-transform:uppercase;letter-spacing:0.06em;line-height:1.4;">${s.label}</div>
-        </div>`).join('')}
-    </div>
-
-    <!-- ── Filter bar ── -->
-    <div class="card mb-24" style="padding:14px 20px;">
+    <!-- Sticky global filter bar -->
+    <div class="req-global-filter" style="position:sticky;top:0;z-index:20;
+      background:var(--bg-page,#f5f5f5);padding:10px 0;margin-bottom:0;
+      border-bottom:1px solid var(--border,#e5e7eb);">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
-        <input id="travelSearch" type="search" placeholder="🔍 Search name or host…"
-          style="flex:1;min-width:180px;max-width:260px;padding:7px 12px;
-            border:1.5px solid var(--border,#ddd);border-radius:8px;
-            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
-        <select id="travelStatusFilter"
-          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
-            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
-          <option value="">All Statuses</option>
-          ${STAGES.map(s => `<option value="${s.key}">${s.icon} ${s.label} (${counts[s.key]})</option>`).join('')}
+        <select id="travelTicketFilter" class="req-gsel">
+          <option value="">All Ticket Statuses</option>
+          <option value="No Ticket">No Ticket</option>
+          <option value="Requested">Requested</option>
+          <option value="Booked">Booked</option>
+          <option value="Issued">Issued</option>
         </select>
-        <select id="travelSponsorFilter"
-          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
-            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);
-            ${sponsors.length <= 1 ? 'display:none;' : ''}">
-          <option value="">All Sponsors</option>
-          ${sponsors.map(s => `<option value="${s}">${s}</option>`).join('')}
-        </select>
-        <select id="travelSort"
-          style="padding:7px 12px;border:1.5px solid var(--border,#ddd);border-radius:8px;
-            font-size:13px;background:var(--input-bg,#fff);color:var(--text,#111);">
-          <option value="dep_asc">↑ Departure — soonest first</option>
-          <option value="dep_desc">↓ Departure — latest first</option>
-          <option value="name_asc">A–Z Name</option>
-          <option value="urgent">🚨 Urgent — no ticket + soonest</option>
-        </select>
-        <button id="travelClearBtn"
-          style="padding:7px 14px;border:1.5px solid var(--border,#ddd);border-radius:8px;
-            font-size:12px;font-weight:600;cursor:pointer;
-            background:var(--input-bg,#fff);color:var(--text-muted,#888);">✕ Clear</button>
-        <span id="travelCount" style="margin-left:auto;font-size:12px;font-weight:600;
-          color:var(--text-muted,#888);">${total} participants</span>
+        <button id="travelClearBtn" class="req-clear-btn">✕ Clear</button>
+        <span id="travelCount" class="req-count-badge">${total} participants</span>
       </div>
     </div>
 
-    <!-- Data store for pageEvents -->
-    <script type="application/json" id="travelData">${JSON.stringify({ people, stages: STAGES, badgeStages: BADGE_STAGES })}<\/script>
+    <!-- Tab bar -->
+    <div class="par-tab-bar" style="margin-top:12px;">
+      <button class="par-tab active" data-travel-tab="departure">✈️ Departure Ticket</button>
+      <button class="par-tab" data-travel-tab="return">🏠 Return Ticket</button>
+    </div>
 
-    <!-- ── Table ── -->
-    <div class="card" style="overflow:hidden;">
-      <div class="table-wrap">
-        <table id="travelTable">
-          <thead><tr>
-            <th style="width:36px;">#</th>
-            <th>Name</th>
-            <th>Hosting Company</th>
-            <th>✈️ Departure</th>
-            <th>🏠 Return</th>
-            <th>Dep. Ticket</th>
-            <th>Return Ticket</th>
-            <th>Sponsor</th>
-            <th>Flight Info</th>
-            <th></th>
-          </tr></thead>
-          <tbody id="travelTbody">
-            ${people.length === 0
-              ? `<tr><td colspan="10" style="text-align:center;padding:56px 24px;
-                  color:var(--text-muted,#aaa);font-size:13px;">
-                  No travel data found — check server connection
-                </td></tr>`
-              : people.map((p, i) => rowHtml(p, i, i)).join('')}
-          </tbody>
+    <!-- Table -->
+    <div class="card req-table-card" style="margin-top:12px;">
+      <div class="req-table-outer">
+        <table id="travelMainTable">
+          <thead>
+            <tr id="travelSortRow">${depH.th}</tr>
+            <tr id="travelColFilterRow">${depH.tf}</tr>
+          </thead>
+          <tbody id="travelTableBody"></tbody>
         </table>
       </div>
-    </div>`;
+    </div>
+
+    <script type="application/json" id="travelDepHeaders">${JSON.stringify(depH)}<\/script>
+    <script type="application/json" id="travelRetHeaders">${JSON.stringify(retH)}<\/script>
+  `;
 };
 
-// ── Travel page events (filters, sort, side panel) ────────────
+// ── Travel page events ────────────────────────────────────────
 pageEvents.travel = function () {
-  const el = document.getElementById('travelData');
-  if (!el) return;
-  let parsed;
-  try { parsed = JSON.parse(el.textContent); } catch { return; }
+  const allRows = state.dataCache['travel-rows'] || [];
 
-  const { people, stages, badgeStages } = parsed;
-  const STAGES_MAP      = Object.fromEntries(stages.map(s => [s.key, s]));
-  const BADGE_STAGES_MAP = Object.fromEntries((badgeStages || stages).map(s => [s.key, s]));
-  const C = DIVISION_COLORS.j1;
-
-  const tbody    = document.getElementById('travelTbody');
-  const search   = document.getElementById('travelSearch');
-  const statSel  = document.getElementById('travelStatusFilter');
-  const sponSel  = document.getElementById('travelSponsorFilter');
-  const sortSel  = document.getElementById('travelSort');
-  const countEl  = document.getElementById('travelCount');
-  const clearBtn = document.getElementById('travelClearBtn');
-
-  function urgencyTag(daysUntil, depRaw) {
-    if (!depRaw) return '<span style="color:var(--text-muted,#aaa);">—</span>';
-    const color = daysUntil === null ? '#888'
-      : daysUntil < 0   ? '#64748B'
-      : daysUntil <= 7  ? '#B01A18'
-      : daysUntil <= 14 ? '#D97706'
-      : daysUntil <= 30 ? '#B87A14'
-      : '#059669';
-    const label = daysUntil === null   ? ''
-      : daysUntil < 0  ? `${Math.abs(daysUntil)}d ago`
-      : daysUntil === 0 ? 'Today!'
-      : `in ${daysUntil}d`;
-    return `<div style="font-weight:600;font-size:12px;line-height:1.4;">${depRaw}</div>`
-      + (label ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:${color}18;color:${color};">${label}</span>` : '');
+  function fmtDate(v) {
+    if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return `<span style="font-size:12px;">${v}</span>`;
+    return `<span style="font-size:12px;">${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>`;
   }
 
-  function ticketBadge(category, label) {
-    const stg = BADGE_STAGES_MAP[category] || (badgeStages || stages)[((badgeStages || stages).length-1)];
+  function statusBadgeTravel(s) {
+    if (!s || s === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const color = (typeof STATUS_COLORS !== 'undefined' && STATUS_COLORS[s]) || '#6B7280';
     return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
-      background:${stg.bg};color:${stg.color};white-space:nowrap;">
-      ${stg.icon} ${label || stg.label}
-    </span>`;
+      background:${color}1A;color:${color};white-space:nowrap;">${s}</span>`;
   }
 
-  function rowHtml(p, dispIdx, origIdx) {
-    const urgent = p.daysUntil !== null && p.daysUntil <= 14 && p.category === 'none';
-    const flight = [p.airline, p.flightNo].filter(Boolean).join(' · ');
-    return `<tr data-idx="${origIdx}" ${urgent ? 'style="background:rgba(176,26,24,0.04);"' : ''}>
-      <td style="color:var(--text-muted,#888);font-size:12px;">${dispIdx+1}</td>
-      <td>
-        <strong>${p.fullName}</strong>
-        ${p.country ? `<div style="font-size:11px;color:var(--text-muted,#888);">${p.country}</div>` : ''}
-      </td>
-      <td style="font-size:13px;">${p.host || '—'}</td>
-      <td>${urgencyTag(p.daysUntil, p.departure)}</td>
-      <td style="font-size:12px;color:var(--text-secondary,#555);">${p.returnDate || '—'}</td>
-      <td>${ticketBadge(p.category,    p.depLabel)}</td>
-      <td>${ticketBadge(p.retCategory, p.retLabel)}</td>
-      <td style="font-size:12px;">${p.sponsor || '—'}</td>
-      <td style="font-size:11px;color:var(--text-muted,#888);">${flight || '—'}</td>
-      <td>
-        <button class="travel-view-btn" data-idx="${origIdx}"
-          style="padding:4px 12px;border:1.5px solid ${C};border-radius:6px;
-          font-size:11px;font-weight:700;color:${C};background:transparent;cursor:pointer;">
-          View
-        </button>
-      </td>
-    </tr>`;
+  function flightBadge(raw) {
+    const s   = normalizeFlightStatus(raw);
+    const cfg = TRAVEL_TICKET_COLORS[s] || TRAVEL_TICKET_COLORS['No Ticket'];
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${cfg.bg};color:${cfg.color};white-space:nowrap;">${s}</span>`;
   }
 
-  function openPanel(p) {
-    const stg = BADGE_STAGES_MAP[p.category] || (badgeStages||stages)[(badgeStages||stages).length-1];
-    const urgColor = p.daysUntil === null ? '#888'
-      : p.daysUntil < 0   ? '#64748B'
-      : p.daysUntil <= 7  ? '#B01A18'
-      : p.daysUntil <= 14 ? '#D97706'
-      : p.daysUntil <= 30 ? '#B87A14'
-      : '#059669';
-    const urgLabel = p.daysUntil === null   ? ''
-      : p.daysUntil < 0  ? `${Math.abs(p.daysUntil)} days ago`
-      : p.daysUntil === 0 ? 'Today!'
-      : `in ${p.daysUntil} days`;
-
-    const retStg = BADGE_STAGES_MAP[p.retCategory] || (badgeStages||stages)[(badgeStages||stages).length-1];
-
-    document.getElementById('panelTitle').textContent = p.fullName || 'Participant';
-    document.getElementById('panelBody').innerHTML = `
-      <!-- Outbound ticket status -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 2px 12px;">
-        <div style="text-align:center;">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-            color:var(--text-muted,#888);margin-bottom:5px;">Departure Ticket</div>
-          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;
-            background:${stg.bg};color:${stg.color};">${stg.icon} ${p.depLabel || stg.label}</span>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-            color:var(--text-muted,#888);margin-bottom:5px;">Return Ticket</div>
-          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;
-            background:${retStg.bg};color:${retStg.color};">${retStg.icon} ${p.retLabel || retStg.label}</span>
-        </div>
-      </div>
-
-      <!-- Departure + Return date cards -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding:0 2px;">
-        <div style="padding:14px;background:var(--surface,#f5f5f5);border-radius:10px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-            color:var(--text-muted,#888);margin-bottom:5px;">✈️ Departure</div>
-          <div style="font-size:16px;font-weight:800;">${p.departure || '—'}</div>
-          ${urgLabel ? `<div style="font-size:11px;font-weight:700;color:${urgColor};margin-top:4px;">${urgLabel}</div>` : ''}
-        </div>
-        <div style="padding:14px;background:var(--surface,#f5f5f5);border-radius:10px;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
-            color:var(--text-muted,#888);margin-bottom:5px;">🏠 Return</div>
-          <div style="font-size:16px;font-weight:800;">${p.returnDate || '—'}</div>
-        </div>
-      </div>
-
-      <!-- Outbound flight info -->
-      ${(p.airline || p.flightNo) ? `
-      <div style="padding:10px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
-        margin-bottom:10px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;">🛩️</span>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--text-muted,#888);margin-bottom:2px;">OUTBOUND</div>
-          ${p.airline  ? `<div style="font-size:13px;font-weight:600;">${p.airline}</div>` : ''}
-          ${p.flightNo ? `<div style="font-size:11px;color:var(--text-muted,#888);font-family:monospace;">${p.flightNo}</div>` : ''}
-        </div>
-      </div>` : ''}
-      <!-- Return flight info -->
-      ${(p.retAirline || p.retFlightNo) ? `
-      <div style="padding:10px 14px;background:var(--surface,#f5f5f5);border-radius:10px;
-        margin-bottom:14px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;">🔄</span>
-        <div>
-          <div style="font-size:10px;font-weight:700;color:var(--text-muted,#888);margin-bottom:2px;">RETURN</div>
-          ${p.retAirline  ? `<div style="font-size:13px;font-weight:600;">${p.retAirline}</div>` : ''}
-          ${p.retFlightNo ? `<div style="font-size:11px;color:var(--text-muted,#888);font-family:monospace;">${p.retFlightNo}</div>` : ''}
-        </div>
-      </div>` : ''}
-
-      <div style="border-top:1px solid var(--border,#eee);padding-top:14px;">
-        ${(p.allFields || []).filter(([,v]) => v && v.trim() && v !== '0').map(([k,v]) => `
-          <div style="display:flex;padding:6px 4px;border-bottom:1px solid var(--border,#f0f0f0);">
-            <div style="font-size:11px;font-weight:600;color:var(--text-muted,#888);
-              min-width:130px;flex-shrink:0;">${k}</div>
-            <div style="font-size:12px;color:var(--text,#111);word-break:break-word;">${v}</div>
-          </div>`).join('')}
-      </div>`;
-
-    document.getElementById('sidePanel').classList.add('open');
-    document.getElementById('panelOverlay')?.classList.add('active');
+  function cellContent(r, col) {
+    const v = r[col.field];
+    if (col.field === '_trip') {
+      const from = r.tripFrom    && r.tripFrom    !== '—' ? r.tripFrom    : '—';
+      const to   = r.tripTo      && r.tripTo      !== '—' ? r.tripTo      : '—';
+      return `<span style="font-size:12px;">${from} → ${to}</span>`;
+    }
+    if (col.field === '_returnTrip') {
+      const from = r.returnTripFrom && r.returnTripFrom !== '—' ? r.returnTripFrom : '—';
+      const to   = r.returnTripTo   && r.returnTripTo   !== '—' ? r.returnTripTo   : '—';
+      return `<span style="font-size:12px;">${from} → ${to}</span>`;
+    }
+    if (col.statusbadge)  return statusBadgeTravel(v);
+    if (col.flightbadge)  return flightBadge(v);
+    if (col.datecol)      return fmtDate(v);
+    if (!v || v === '—')  return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    return `<span style="font-size:12px;">${v}</span>`;
   }
 
-  function attachViewBtns() {
-    tbody?.querySelectorAll('.travel-view-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = people[+btn.dataset.idx];
-        if (p) openPanel(p);
-      });
-    });
+  function buildRow(r, cols) {
+    return `<tr>${cols.map(col =>
+      `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
+    ).join('')}</tr>`;
   }
+
+  function getCols() {
+    return _travelActiveTab === 'departure' ? TRAVEL_DEP_COLS : TRAVEL_RET_COLS;
+  }
+  function getTicketField() {
+    return _travelActiveTab === 'departure' ? 'flightBooked' : 'returnFlightStatus';
+  }
+
+  const ticketSel = document.getElementById('travelTicketFilter');
+  const countEl   = document.getElementById('travelCount');
+  const clearBtn  = document.getElementById('travelClearBtn');
+  const tbody     = document.getElementById('travelTableBody');
+  const sortRow   = document.getElementById('travelSortRow');
+  const filterRow = document.getElementById('travelColFilterRow');
+  const depHeaders = JSON.parse(document.getElementById('travelDepHeaders')?.textContent || '{}');
+  const retHeaders = JSON.parse(document.getElementById('travelRetHeaders')?.textContent || '{}');
+
+  let colFilters = {};
 
   function applyFilters() {
-    const q      = (search?.value  || '').toLowerCase().trim();
-    const status = statSel?.value  || '';
-    const spon   = sponSel?.value  || '';
-    const sort   = sortSel?.value  || 'dep_asc';
+    const cols      = getCols();
+    const ticketVal = ticketSel?.value || '';
+    const ticketFld = getTicketField();
+    let filtered    = [...allRows];
 
-    let filtered = people.map((p, i) => ({ ...p, _orig: i }));
-    if (q)      filtered = filtered.filter(p => `${p.fullName} ${p.host}`.toLowerCase().includes(q));
-    if (status) {
-      if (status === 'ret_requested') filtered = filtered.filter(p => p.retCategory === 'requested');
-      else if (status === 'ret_issued') filtered = filtered.filter(p => p.retCategory === 'issued');
-      else filtered = filtered.filter(p => p.category === status);
+    if (ticketVal) {
+      filtered = filtered.filter(r => normalizeFlightStatus(r[ticketFld]) === ticketVal);
     }
-    if (spon)   filtered = filtered.filter(p => p.sponsor === spon);
 
-    const nullLast = (a, b, mul) => {
-      if (a === null && b === null) return 0;
-      if (a === null) return 1; if (b === null) return -1;
-      return (a - b) * mul;
-    };
-    filtered.sort((a, b) => {
-      if (sort === 'name_asc')  return a.fullName.localeCompare(b.fullName);
-      if (sort === 'dep_asc')   return nullLast(a.daysUntil, b.daysUntil,  1);
-      if (sort === 'dep_desc')  return nullLast(a.daysUntil, b.daysUntil, -1);
-      if (sort === 'urgent') {
-        const aU = a.category === 'none' ? 0 : 1, bU = b.category === 'none' ? 0 : 1;
-        if (aU !== bU) return aU - bU;
-        return nullLast(a.daysUntil, b.daysUntil, 1);
-      }
-      return 0;
+    Object.entries(colFilters).forEach(([field, val]) => {
+      if (!val) return;
+      const q = val.toLowerCase();
+      filtered = filtered.filter(r => {
+        if (field === '_trip')
+          return `${r.tripFrom||''} ${r.tripTo||''}`.toLowerCase().includes(q);
+        if (field === '_returnTrip')
+          return `${r.returnTripFrom||''} ${r.returnTripTo||''}`.toLowerCase().includes(q);
+        const fv = (field === 'flightBooked' || field === 'returnFlightStatus')
+          ? normalizeFlightStatus(r[field]) : String(r[field] || '');
+        return fv.toLowerCase().includes(q);
+      });
     });
+
+    if (_travelSortCol) {
+      const dir  = _travelSortDir === 'asc' ? 1 : -1;
+      const col  = cols.find(c => c.field === _travelSortCol);
+      filtered.sort((a, b) => {
+        const aV = a[_travelSortCol] || '';
+        const bV = b[_travelSortCol] || '';
+        if (col?.datecol) {
+          const aD = aV ? new Date(aV).getTime() : 0;
+          const bD = bV ? new Date(bV).getTime() : 0;
+          return (aD - bD) * dir;
+        }
+        return String(aV).localeCompare(String(bV)) * dir;
+      });
+    }
 
     if (!tbody) return;
     tbody.innerHTML = filtered.length === 0
-      ? `<tr><td colspan="9" style="text-align:center;padding:52px;color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
-      : filtered.map((p, di) => rowHtml(p, di, p._orig)).join('');
+      ? `<tr><td colspan="${cols.length}" style="text-align:center;padding:52px;
+          color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
+      : filtered.map(r => buildRow(r, cols)).join('');
 
-    if (countEl) countEl.textContent = filtered.length === people.length
-      ? `${people.length} participants`
-      : `${filtered.length} of ${people.length}`;
-
-    attachViewBtns();
+    if (countEl) countEl.textContent = filtered.length === allRows.length
+      ? `${allRows.length} participants`
+      : `${filtered.length} of ${allRows.length}`;
   }
 
-  // Pipeline stage card → click to filter by that status
-  document.querySelectorAll('.travel-stage-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const stage = card.dataset.stage;
-      const active = statSel.value === stage;
-      statSel.value = active ? '' : stage;
-      document.querySelectorAll('.travel-stage-card').forEach(c => {
-        c.style.boxShadow = '';
-        c.style.opacity   = active ? '1' : (c.dataset.stage === stage ? '1' : '0.55');
+  function attachSortListeners() {
+    document.querySelectorAll('#travelSortRow th[data-travelfield]').forEach(th => {
+      if (!th.classList.contains('sortable')) return;
+      th.addEventListener('click', () => {
+        const field = th.dataset.travelfield;
+        if (_travelSortCol === field) {
+          _travelSortDir = _travelSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          _travelSortCol = field;
+          _travelSortDir = 'asc';
+        }
+        document.querySelectorAll('#travelSortRow .sort-arrow').forEach(a => a.textContent = '↕');
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) arrow.textContent = _travelSortDir === 'asc' ? '↑' : '↓';
+        applyFilters();
       });
-      if (active) document.querySelectorAll('.travel-stage-card').forEach(c => c.style.opacity = '1');
-      else card.style.boxShadow = `0 0 0 3px ${(STAGES_MAP[stage] || BADGE_STAGES_MAP[stage])?.color || '#888'}`;
-      applyFilters();
     });
-  });
+  }
 
-  [search, statSel, sponSel, sortSel].forEach(el => el?.addEventListener('input', applyFilters));
+  function attachColFilterListeners() {
+    document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        colFilters[inp.dataset.travelcol] = inp.value.trim();
+        applyFilters();
+      });
+    });
+  }
+
+  function switchTab(tab) {
+    _travelActiveTab = tab;
+    _travelSortCol   = null;
+    _travelSortDir   = 'asc';
+    colFilters       = {};
+    const headers = tab === 'departure' ? depHeaders : retHeaders;
+    if (sortRow)   sortRow.innerHTML   = headers.th || '';
+    if (filterRow) filterRow.innerHTML = headers.tf || '';
+    document.querySelectorAll('.par-tab[data-travel-tab]').forEach(btn =>
+      btn.classList.toggle('active', btn.dataset.travelTab === tab));
+    attachSortListeners();
+    attachColFilterListeners();
+    applyFilters();
+  }
+
+  document.querySelectorAll('.par-tab[data-travel-tab]').forEach(btn =>
+    btn.addEventListener('click', () => switchTab(btn.dataset.travelTab)));
+
+  ticketSel?.addEventListener('change', applyFilters);
 
   clearBtn?.addEventListener('click', () => {
-    if (search)  search.value  = '';
-    if (statSel) statSel.value = '';
-    if (sponSel) sponSel.value = '';
-    if (sortSel) sortSel.value = 'dep_asc';
-    document.querySelectorAll('.travel-stage-card').forEach(c => { c.style.boxShadow = ''; c.style.opacity = '1'; });
+    if (ticketSel) ticketSel.value = '';
+    colFilters = {};
+    document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
     applyFilters();
   });
 
-  document.getElementById('panelClose')?.addEventListener('click', () => {
-    document.getElementById('sidePanel')?.classList.remove('open');
-    document.getElementById('panelOverlay')?.classList.remove('active');
-  });
-  document.getElementById('panelOverlay')?.addEventListener('click', () => {
-    document.getElementById('sidePanel')?.classList.remove('open');
-    document.getElementById('panelOverlay')?.classList.remove('active');
-  });
-
-  // Initial render with default sort (soonest departure first)
+  attachSortListeners();
+  attachColFilterListeners();
   applyFilters();
-};
-
-// ============================
-// PAGE: SETTINGS
-// ============================
-pages.settings = async function () {
-  const divs = [
-    {key:'cruise',label:'Cruise Line Recruitment'},
-    {key:'j1',    label:'J1 Cultural Exchange'},
-    {key:'marine',label:'Marine Travel'},
-    {key:'visa',  label:'Visa Services'}
-  ];
-  const users = [
-    { name:'CTI IT Team', email:'CTI-IT-Team@cti-usa.com', role:'Administrator' }
-  ];
-  return `
-    <div class="page-header"><h1>Settings</h1>
-      <p class="subtitle">Configure your CTI Group Command Center</p></div>
-
-    <div class="settings-section"><h3>Company Information</h3>
-      <div class="settings-grid">
-        <div class="settings-field"><label>Company Name</label>
-          <input value="CTI Group Worldwide Services, Inc."></div>
-        <div class="settings-field"><label>Phone</label>
-          <input value="+1 954-568-5900"></div>
-        <div class="settings-field"><label>Email</label>
-          <input value="info@cti-usa.com"></div>
-        <div class="settings-field"><label>Website</label>
-          <input value="www.cti-usa.com"></div>
-      </div>
-      <div class="settings-field"><label>Address</label>
-        <input value="6600 NW 16th St, Suite 8, Plantation, FL 33313, USA"></div>
-      <div style="margin-top:12px;">
-        <button class="btn btn-primary" onclick="showToast('Company info saved.')">Save Changes</button>
-      </div>
-    </div>
-
-    <div class="settings-section"><h3>Divisions</h3>
-      ${divs.map(d => `<div class="toggle-row"><span>${d.label}</span>
-        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
-      </div>`).join('')}
-    </div>
-
-    <div class="settings-section"><h3>Users &amp; Access</h3>
-      <div class="table-wrap" style="margin-bottom:14px;">
-        <table><thead><tr>
-          <th>Name</th><th>Email</th><th>Role</th><th>Actions</th>
-        </tr></thead>
-        <tbody>${users.map(u => `<tr>
-          <td><strong>${u.name}</strong></td>
-          <td>${u.email}</td>
-          <td><span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:12px;
-            background:rgba(27,58,107,0.12);color:#1B3A6B;">${u.role}</span></td>
-          <td><button class="btn-sm"
-            onclick="showToast('Contact CTI-IT-Team@cti-usa.com to modify user access.','info')">
-            Edit</button></td>
-        </tr>`).join('')}</tbody></table>
-      </div>
-      <button class="btn btn-secondary"
-        onclick="showToast('Contact CTI-IT-Team@cti-usa.com to request new user access.','info')">
-        + Invite User
-      </button>
-    </div>
-
-    <div class="settings-section"><h3>Data Management</h3>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-secondary" onclick="showToast('Import dialog opened.','info')">Import CSV</button>
-        <button class="btn btn-secondary" onclick="showToast('Cache cleared.','success')">Clear Cache</button>
-      </div>
-    </div>
-
-    <div class="settings-section"><h3>Appearance</h3>
-      <div class="toggle-row">
-        <span>Dark Mode</span>
-        <label class="toggle">
-          <input type="checkbox" id="darkModeToggle" ${state.theme==='dark'?'checked':''}>
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-    </div>`;
-};
-
-pageEvents.settings = function () {
-  document.getElementById('darkModeToggle')?.addEventListener('change', e => {
-    applyTheme(e.target.checked ? 'dark' : 'light');
-  });
-};
-
-// ── Social Media Disclosure form submit ───────────────────────
-pageEvents.socialmedia = function () {
-  const form = document.getElementById('smForm');
-  if (!form) return;
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = document.getElementById('smSubmitBtn');
-    const msg = document.getElementById('smFormMsg');
-    btn.disabled = true;
-    btn.textContent = 'Submitting…';
-
-    const val = id => (document.getElementById('sm_' + id)?.value || '').trim();
-    const chk = id => document.getElementById('sm_' + id)?.checked || false;
-
-    const payload = {
-      firstName: val('firstName'), lastName: val('lastName'),
-      email: val('email'), phone: val('phone'),
-      nationality: val('nationality'), hostingCompany: val('hostingCompany'),
-      startDate: val('startDate'), endDate: val('endDate'),
-      platform: val('platform'), username: val('username'),
-      privacySetting: val('privacySetting'),
-      confirmedAccurate: chk('confirmedAccurate'),
-      noProhibitedContent: chk('noProhibitedContent'),
-      termsAgreed: chk('termsAgreed'),
-      signature: val('signature')
-    };
-
-    try {
-      const res = await fetch('/api/social-media-disclosure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast('Disclosure submitted and saved to Excel! ✅', 'success');
-        form.reset();
-        msg.style.display = 'none';
-      } else {
-        msg.textContent = data.error || 'Submission failed.';
-        msg.style.display = 'inline';
-        msg.style.color = '#B01A18';
-      }
-    } catch {
-      msg.textContent = 'Server not available — run node server.js locally to save submissions.';
-      msg.style.display = 'inline';
-      msg.style.color = '#B87A14';
-    }
-    btn.disabled = false;
-    btn.textContent = 'Submit Disclosure';
-  });
 };
 
 // ── Marketing video playlist click ────────────────────────────
@@ -4739,6 +4951,11 @@ function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('active');
 }
+function toggleSidebarCollapse() {
+  const sb = document.getElementById('sidebar');
+  const collapsed = sb.classList.toggle('collapsed');
+  localStorage.setItem('cti-sidebar-collapsed', collapsed ? '1' : '0');
+}
 
 // ============================
 // INIT
@@ -4767,6 +4984,14 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('theme-toggle').addEventListener('click', () => {
     applyTheme(state.theme === 'light' ? 'dark' : 'light');
   });
+
+  // Restore sidebar collapse state
+  if (localStorage.getItem('cti-sidebar-collapsed') === '1') {
+    document.getElementById('sidebar').classList.add('collapsed');
+  }
+
+  // Collapse toggle button
+  document.getElementById('sidebarCollapseBtn')?.addEventListener('click', toggleSidebarCollapse);
 
   // Hamburger
   document.getElementById('hamburger').addEventListener('click', () => {
@@ -4804,7 +5029,7 @@ document.addEventListener('DOMContentLoaded', function () {
     history.replaceState({}, '', '/');
   }
 
-  showPage('interntainee');
+  showPage('requisition');
 
   // ── Auto-refresh every 10 minutes ────────────────────────────────────────
   const AUTO_REFRESH_MS = 10 * 60 * 1000;  // 10 minutes

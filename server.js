@@ -207,19 +207,26 @@ async function fetchViewData(wsId, viewId, headers) {
 // ============================
 loadTokens();
 app.use(express.json());
+
+// ── Optional HTTP Basic Auth (set BASIC_AUTH_USER + BASIC_AUTH_PASS in .env) ─
+const BASIC_USER = process.env.BASIC_AUTH_USER;
+const BASIC_PASS = process.env.BASIC_AUTH_PASS;
+if (BASIC_USER && BASIC_PASS) {
+  app.use((req, res, next) => {
+    // Skip for local OAuth flow routes
+    if (req.path.startsWith('/auth/') || req.path === '/callback' || req.path === '/health') return next();
+    const auth = req.headers.authorization || '';
+    if (auth.startsWith('Basic ')) {
+      const [u, p] = Buffer.from(auth.slice(6), 'base64').toString().split(':');
+      if (u === BASIC_USER && p === BASIC_PASS) return next();
+    }
+    res.setHeader('WWW-Authenticate', 'Basic realm="CTI Group Command Center"');
+    res.status(401).send('🔒 Authentication required');
+  });
+  console.log('🔒 Basic Auth enabled');
+}
+
 app.use(express.static(path.join(__dirname)));
-
-// ── Ensure all unmatched /api/* routes return JSON, never HTML ────────────────
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: `No API route: ${req.method} ${req.path}` });
-});
-
-// ── Global error handler — always JSON ───────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, _next) => {
-  console.error('Unhandled error:', err.message);
-  res.status(500).json({ error: err.message || 'Internal server error' });
-});
 
 // ============================
 // OAUTH ROUTES
@@ -227,23 +234,26 @@ app.use((err, req, res, _next) => {
 
 app.get('/auth/zoho', (req, res) => {
   const scopes = [
-    // Zoho Analytics — read only (data comes from clean analytics tables)
+    // Zoho Analytics — read + metadata
     'ZohoAnalytics.data.read',
     'ZohoAnalytics.metadata.read',
     // Zoho Recruit — CREATE, READ, UPDATE (no DELETE)
-    'ZohoRecruit.modules.READ',
-    'ZohoRecruit.modules.CREATE',
-    'ZohoRecruit.modules.UPDATE',
+    'ZohoRecruit.modules.ALL',
     'ZohoRecruit.settings.READ',
+    'ZohoRecruit.bulk.READ',
     // Zoho CRM — CREATE, READ, UPDATE (no DELETE)
-    'ZohoCRM.modules.READ',
-    'ZohoCRM.modules.CREATE',
-    'ZohoCRM.modules.UPDATE',
+    'ZohoCRM.modules.ALL',
     'ZohoCRM.settings.READ',
+    'ZohoCRM.bulk.READ',
+    'ZohoCRM.users.READ',
     // Zoho Sheet — CREATE, READ, UPDATE (no DELETE)
     'ZohoSheet.dataAPI.READ',
     'ZohoSheet.dataAPI.CREATE',
     'ZohoSheet.dataAPI.UPDATE',
+    // Zoho WorkDrive — read-only for file/folder discovery
+    'WorkDrive.workspace.READ',
+    'WorkDrive.files.READ',
+    'WorkDrive.links.READ',
   ].join(',');
 
   const url = `${ZOHO_ACCOUNTS}/oauth/v2/auth?` +
@@ -420,7 +430,9 @@ async function fetchSheetRecords(resourceId, sheetName) {
       throw new Error(`Sheet API error ${r.data.error_code}: ${r.data.error_message}`);
     }
 
-    const page = r.data?.records?.row || [];
+    // Zoho Sheet returns records as a plain array (not records.row)
+    const raw  = r.data?.records;
+    const page = Array.isArray(raw) ? raw : (raw?.row || []);
     allRows    = allRows.concat(page);
     if (page.length < pageSize) break;   // last page
     startIdx  += pageSize;
@@ -428,9 +440,10 @@ async function fetchSheetRecords(resourceId, sheetName) {
 
   if (!allRows.length) return { columns: [], rows: [] };
 
-  // Column names = keys of first row, excluding Zoho's auto "No." counter column
-  const columns  = Object.keys(allRows[0]).filter(k => k !== 'No.');
-  const dataRows = allRows.map(row => columns.map(col => String(row[col] ?? '')));
+  // Exclude Zoho's auto-added meta keys
+  const SKIP_KEYS = new Set(['No.', 'row_index', 'ROWNO']);
+  const columns   = Object.keys(allRows[0]).filter(k => !SKIP_KEYS.has(k));
+  const dataRows  = allRows.map(row => columns.map(col => String(row[col] ?? '')));
   return { columns, rows: dataRows };
 }
 
@@ -439,7 +452,7 @@ async function fetchSheetRecords(resourceId, sheetName) {
 // https://sheet.zoho.com/sheet/open/l9728edc6734e53cd4bf0a5566639f8a90b48
 // ─────────────────────────────────────────────────────────────────────────────
 const PLACEMENT_SHEET_ID   = process.env.PLACEMENT_SHEET_ID   || 'l9728edc6734e53cd4bf0a5566639f8a90b48';
-const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'placement';
+const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'Placement';   // exact tab name (case-sensitive)
 
 app.get('/api/zoho/j1-placements', async (req, res) => {
   try {
@@ -462,7 +475,7 @@ app.get('/api/zoho/j1-placements', async (req, res) => {
 // https://sheet.zoho.com/sheet/open/2lr3n52a29b81f88c47618df49092afd2b286
 // ─────────────────────────────────────────────────────────────────────────────
 const VISA_SHEET_ID   = process.env.VISA_SHEET_ID   || '2lr3n52a29b81f88c47618df49092afd2b286';
-const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'j1 visa log';
+const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'J1 Visa Log';   // exact tab name (case-sensitive)
 
 app.get('/api/zoho/j1-visa', async (req, res) => {
   try {
@@ -487,19 +500,20 @@ app.get('/api/zoho/j1-visa', async (req, res) => {
 
 // Column display map: [display label, getter from mapJobRecord result]
 const REQ_COL_MAP = [
-  ['Hosting Company',      j => j.hostingCompany],
-  ['Department',           j => j.department],
-  ['Position Name',        j => j.positionName],
-  ['Requisition',          j => String(j.numPositions || '')],
-  ['Client Name',          j => j.clientName],
-  ['J1 Program Type',      j => j.j1ProgramType],
-  ['Requisition Status',   j => j.status],
-  ['Contract Length',      j => j.contractLength],
-  ['Salary',               j => j.salary],
-  ['City',                 j => [j.city, j.state].filter(v => v && v !== '—').join(', ') || '—'],
-  ['Target Date',          j => j.targetDate  || ''],
-  ['Date Opened',          j => j.dateOpened  || ''],
-  ['Housing Availability', j => j.housingAvail],
+  ['Hosting Company',      j => j.hostingCompany],                                          // 0
+  ['Department',           j => j.department],                                              // 1
+  ['Position Name',        j => j.positionName],                                           // 2
+  ['Requisition',          j => String(j.numPositions || '')],                             // 3
+  ['Client Name',          j => j.clientName],                                             // 4
+  ['J1 Program Type',      j => j.j1ProgramType],                                         // 5
+  ['Requisition Status',   j => j.status],                                                 // 6
+  ['Contract Length',      j => j.contractLength],                                         // 7
+  ['Salary',               j => j.salary],                                                 // 8
+  ['City',                 j => [j.city, j.state].filter(v => v && v !== '—').join(', ') || '—'], // 9
+  ['Target Date',          j => j.targetDate  || ''],                                      // 10
+  ['Date Opened',          j => j.dateOpened  || ''],                                      // 11
+  ['Housing Availability', j => j.housingAvail],                                           // 12
+  ['Payment Frequency',    j => j.paymentFrequency],                                       // 13
 ];
 
 app.get('/api/zoho/j1-requisition', async (req, res) => {
@@ -694,25 +708,27 @@ const RECRUIT_FIELDS = {
   programType:        'Program_Option',
   programStart:       'Program_Start_Date',
   programEnd:         'Program_End_Date',
+  department:         'Department',
   selectedJob:        'Select_a_Job',
   hostCompany:        'Hosting_Company_2',
   processingSponsor:  'Processing_Sponsor',
   sponsorStatus:      'Sponsor_Interview_Status',
   hcInterviewStatus:  'Hosting_Company_Interview_Status',
   housingAvailability:'Housing_Availability',
-  housingLandlord:    'Housing_Landlord',
+  housingLandlord:    'Housing_Name',                             // API name verified — label is "Housing Landlord"
   housingPaymentInit: 'Initial_Housing_Payment_Before_Departure',
-  housingPaymentMo:   'Monthly_Housing_Payment',
+  housingPaymentMo:   'Housing_Price',                            // API name verified — label is "Monthly Housing Payment"
   housingAddress:     'Housing_Address',
   visaStatus:         'J1_Visa_Status',
   visaExpiredDate:    'J1_Visa_Expired_Date',
   visaAppointment:    'J1_Visa_Appointment_Date',
+  visaPaymentDate:    'J1_Visa_Payment_Date',
   visaNumber:         'J1_Visa_Number',
   refLetterStatus:    'Reference_Letter_Status',
   flightBooked:       'Flight_Ticket_Status',
   ticketPayStatus:    'Ticket_Payment_Status',
   ticketPricing:      'Ticket_Pricing',
-  ticketPayMethod:    'Ticket_Payment_Method',
+  ticketPayMethod:    'Flight_Ticket_Payment_Method',             // API name verified
   airline:            'Airline',
   pnrNumber:          'PNR_Number',
   tripFrom:           'Trip_From',
@@ -721,7 +737,7 @@ const RECRUIT_FIELDS = {
   arrivalDate:        'Arrival_Date',
   airportGateway:     'Airport_Gateway',
   airportPickup:      'Airport_Pick_Up',
-  transportCost:      'Transportation_Cost',
+  transportCost:      'Currency_1',                               // API name verified — label is "Transportation Cost"
   returnFlightStatus: 'Returning_Flight_Ticket_Status',
   returnDeparture:    'Returning_Departure_Date',
   returnArrival:      'Returning_Arrival_Date',
@@ -730,8 +746,8 @@ const RECRUIT_FIELDS = {
   returnTripFrom:     'Returning_Trip_From',
   returnTripTo:       'Returning_Trip_To',
   returnGateway:      'Returning_Airport_Gateway',
-  returnTicketPrice:  'Return_Ticket_Price',
-  returnTicketPayStatus: 'Return_Ticket_Payment_Status',
+  returnTicketPrice:  'Returning_Ticket_Pricing',                  // API name verified
+  returnTicketPayStatus: 'Returning_Ticket_Payment_Status',       // API name verified
   returnTransportCost:'Return_Transportation_Cost',
 };
 
@@ -741,12 +757,14 @@ const CRM_FIELDS = {
   lastName:               'Last_Name',
   email:                  'Email',
   country:                'Country',
-  phone:                  'Phone',
+  phone:                  'Phone_Number',
   gender:                 'Gender',
   appStatus:              'J1_Application_Status',
   programSource:          'J1_Program_Source',
   programType:            'Program_Option',
   hostCompany:            'Hosting_Company',
+  department:             'Department',
+  processingSponsor:      'Processing_Sponsor',
   age:                    'Age',
   positionApplied:        'Position_Applied',
   permanentAddress:       'Permanent_Address',
@@ -772,7 +790,7 @@ const JOB_FIELDS = {
   targetDate:        'Target_Date',
   dateOpened:        'Date_Opened',
   contractLength:    'Contract_Length',
-  j1ProgramType:     'J1_Program_Type',
+  j1ProgramType:     'xx',                 // API name discovered via /api/discover/recruit/fields/Job_Openings
   clientName:        'Client_Name',
 };
 
@@ -872,6 +890,7 @@ function mapRecruitRecord(r) {
     programSource:       r[F.programSources]     || '—',
     placementStatus:     r[F.appStatus]          || '—',
     processingSponsor:   r[F.processingSponsor]  || '—',
+    department:          r[F.department]         || '—',
     selectedJob:         r[F.selectedJob]        || '—',
     hostCompany:         r[F.hostCompany]        || '—',
     programStart:        r[F.programStart]       || null,
@@ -885,9 +904,11 @@ function mapRecruitRecord(r) {
     housingPaymentMo:    r[F.housingPaymentMo]   || null,
     housingAddress:      r[F.housingAddress]     || '—',
     ds2019End:           r[F.visaExpiredDate]    || null,
+    visaExpiredDate:     r[F.visaExpiredDate]    || null,
     visaStatus:          r[F.visaStatus]         || '—',
     visaNumber:          r[F.visaNumber]         || '—',
     visaAppointment:     r[F.visaAppointment]    || null,
+    visaPaymentDate:     r[F.visaPaymentDate]    || null,
     refLetterStatus:     r[F.refLetterStatus]    || '—',
     flightBooked:        r[F.flightBooked]       || '—',
     ticketPayStatus:     r[F.ticketPayStatus]    || '—',
@@ -937,6 +958,8 @@ function mapCRMRecord(r) {
     consultationCallNotes:  r[CF.consultationCallNotes]  || '—',
     programType:            r[CF.programType]            || '—',
     programSource:          r[CF.programSource]          || '—',
+    department:             r[CF.department]             || '—',
+    processingSponsor:      r[CF.processingSponsor]      || '—',
     eligiblePrograms:       arr(r[CF.eligiblePrograms]),
     placementStatus:        r[CF.appStatus]              || '—',
     hostCompany:            r[CF.hostCompany]            || '—',
@@ -976,12 +999,16 @@ function mapJobRecord(r) {
 // GET all J1 Participants from Recruit
 app.get('/api/recruit/j1-participants', async (req, res) => {
   try {
+    const cached = getCached('recruit-j1-participants');
+    if (cached) return res.json(cached);
     const fields  = Object.values(RECRUIT_FIELDS).join(',');
     const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
     const records = await fetchAllPages(recruitGet, module, fields);
     const data    = records.map(mapRecruitRecord);
+    const payload = { source: 'recruit', count: data.length, data };
+    setCached('recruit-j1-participants', payload);
     console.log(`✅ Recruit J1 Participants: ${data.length} records`);
-    res.json({ source: 'recruit', count: data.length, data });
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('Recruit J1 Participants error:', err.response?.data || err.message);
@@ -992,12 +1019,16 @@ app.get('/api/recruit/j1-participants', async (req, res) => {
 // GET Job Openings from Recruit
 app.get('/api/recruit/job-openings', async (req, res) => {
   try {
+    const cached = getCached('recruit-job-openings');
+    if (cached) return res.json(cached);
     const fields  = Object.values(JOB_FIELDS).join(',');
     const module  = process.env.RECRUIT_JOB_MODULE || 'Job_Openings';
     const records = await fetchAllPages(recruitGet, module, fields);
     const data    = records.map(mapJobRecord);
+    const payload = { source: 'recruit', count: data.length, data };
+    setCached('recruit-job-openings', payload);
     console.log(`✅ Recruit Job Openings: ${data.length} records`);
-    res.json({ source: 'recruit', count: data.length, data });
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('Recruit Job Openings error:', err.response?.data || err.message);
@@ -1050,12 +1081,16 @@ app.patch('/api/recruit/:module/:id', async (req, res) => {
 // GET all J1 Participants from CRM
 app.get('/api/crm/j1-participants', async (req, res) => {
   try {
+    const cached = getCached('crm-j1-participants');
+    if (cached) return res.json(cached);
     const fields  = Object.values(CRM_FIELDS).join(',');
     const module  = process.env.CRM_J1_MODULE || 'J1_Participants1';
     const records = await fetchAllPages(crmGet, module, fields);
     const data    = records.map(mapCRMRecord);
+    const payload = { source: 'crm', count: data.length, data };
+    setCached('crm-j1-participants', payload);
     console.log(`✅ CRM J1 Participants: ${data.length} records`);
-    res.json({ source: 'crm', count: data.length, data });
+    res.json(payload);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
     console.error('CRM J1 Participants error:', err.response?.data || err.message);
@@ -1349,6 +1384,283 @@ app.get('/api/make-snapshot', async (req, res) => {
 });
 
 // ============================
+// DISCOVERY ENDPOINTS
+// Enumerate every module, field, and worksheet available in this Zoho account
+// ============================
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+async function listRecruitModules(token) {
+  const r = await axios.get(`${ZOHO_RECRUIT}/settings/modules`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return (r.data?.modules || []).map(m => ({
+    apiName: m.api_name,
+    label:   m.singular_label || m.plural_label || m.api_name,
+    id:      m.id,
+  }));
+}
+
+async function listCRMModules(token) {
+  const r = await axios.get(`${ZOHO_CRM}/settings/modules`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return (r.data?.modules || []).map(m => ({
+    apiName: m.api_name,
+    label:   m.singular_label || m.plural_label || m.api_name,
+    id:      m.id,
+    editable: m.editable,
+  }));
+}
+
+async function listRecruitFields(token, module) {
+  const r = await axios.get(`${ZOHO_RECRUIT}/settings/fields`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    params:  { module }
+  });
+  return (r.data?.fields || []).map(f => ({
+    apiName:  f.api_name,
+    label:    f.field_label,
+    type:     f.data_type,
+    required: f.system_mandatory || false,
+  }));
+}
+
+async function listCRMFields(token, module) {
+  const r = await axios.get(`${ZOHO_CRM}/settings/fields`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    params:  { module }
+  });
+  return (r.data?.fields || []).map(f => ({
+    apiName:  f.api_name,
+    label:    f.field_label,
+    type:     f.data_type,
+    required: f.system_mandatory || false,
+  }));
+}
+
+async function listWorksheets(token, resourceId) {
+  const body = new URLSearchParams();
+  body.set('method', 'worksheet.list');
+  const r = await axios.post(`${ZOHO_SHEET}/${resourceId}`, body.toString(), {
+    headers: {
+      Authorization:  `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    }
+  });
+  if (r.data?.status === 'failure') {
+    throw new Error(`Sheet API ${r.data.error_code}: ${r.data.error_message}`);
+  }
+  // API returns worksheet_names array or worksheets array
+  return r.data?.worksheet_names
+      || (r.data?.worksheets || []).map(w => w.worksheet_name || w.name || w)
+      || [];
+}
+
+async function listAllSpreadsheets(token) {
+  try {
+    const r = await axios.get(`${ZOHO_SHEET}/spreadsheets`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    return (r.data?.spreadsheets || r.data?.workbooks || []).map(s => ({
+      id:   s.resource_id || s.spreadsheet_id || s.id,
+      name: s.spreadsheet_name || s.name,
+    }));
+  } catch (e) {
+    return { error: e.response?.data || e.message };
+  }
+}
+
+async function listWorkDriveSheets(token) {
+  try {
+    const WORKDRIVE = 'https://workdrive.zoho.com/api/v1';
+    // List files filtered to Zoho Sheet type
+    const r = await axios.get(`${WORKDRIVE}/files`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      params:  { filter_type: 'zsheet' }
+    });
+    return (r.data?.data || []).map(f => ({
+      id:   f.id,
+      name: f.attributes?.name || f.name,
+      type: f.attributes?.type || f.type,
+    }));
+  } catch (e) {
+    return { error: e.response?.data || e.message };
+  }
+}
+
+// ── GET /api/discover/sheets/:resource_id/raw-fetch ──────────────────────
+// Debug: shows the raw Zoho Sheet API response for worksheet.records.fetch
+app.get('/api/discover/sheets/:resource_id/raw-fetch', async (req, res) => {
+  try {
+    const token      = await ensureValidToken();
+    const sheetName  = req.query.sheet || 'J1 Visa Log';
+    const body       = new URLSearchParams();
+    body.set('method',          'worksheet.records.fetch');
+    body.set('worksheet_name',  sheetName);
+    body.set('header_row',      '1');
+    body.set('start_row_index', '0');
+    body.set('row_count',       '5');   // just first 5 rows for debug
+    const r = await axios.post(
+      `${ZOHO_SHEET}/${req.params.resource_id}`, body.toString(),
+      { headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    res.json({ requestedSheet: sheetName, response: r.data });
+  } catch (err) {
+    res.status(500).json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/recruit/modules ─────────────────────────────────────
+app.get('/api/discover/recruit/modules', async (req, res) => {
+  try {
+    const token   = await ensureValidToken();
+    const modules = await listRecruitModules(token);
+    console.log(`🔍 Recruit modules: ${modules.length}`);
+    res.json({ count: modules.length, modules });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/recruit/fields/:module ──────────────────────────────
+app.get('/api/discover/recruit/fields/:module', async (req, res) => {
+  try {
+    const token  = await ensureValidToken();
+    const fields = await listRecruitFields(token, req.params.module);
+    console.log(`🔍 Recruit ${req.params.module} fields: ${fields.length}`);
+    res.json({ module: req.params.module, count: fields.length, fields });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/crm/modules ─────────────────────────────────────────
+app.get('/api/discover/crm/modules', async (req, res) => {
+  try {
+    const token   = await ensureValidToken();
+    const modules = await listCRMModules(token);
+    console.log(`🔍 CRM modules: ${modules.length}`);
+    res.json({ count: modules.length, modules });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/crm/fields/:module ──────────────────────────────────
+app.get('/api/discover/crm/fields/:module', async (req, res) => {
+  try {
+    const token  = await ensureValidToken();
+    const fields = await listCRMFields(token, req.params.module);
+    console.log(`🔍 CRM ${req.params.module} fields: ${fields.length}`);
+    res.json({ module: req.params.module, count: fields.length, fields });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/sheets ──────────────────────────────────────────────
+// Lists all spreadsheets accessible in this account
+app.get('/api/discover/sheets', async (req, res) => {
+  try {
+    const token      = await ensureValidToken();
+    const [direct, workdrive] = await Promise.all([
+      listAllSpreadsheets(token),
+      listWorkDriveSheets(token),
+    ]);
+    res.json({ direct, workdrive });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover/sheets/:resource_id/worksheets ─────────────────────
+// Lists all worksheets (tabs) inside a spreadsheet
+app.get('/api/discover/sheets/:resource_id/worksheets', async (req, res) => {
+  try {
+    const token      = await ensureValidToken();
+    const worksheets = await listWorksheets(token, req.params.resource_id);
+    res.json({ resource_id: req.params.resource_id, count: worksheets.length, worksheets });
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message, details: err.response?.data });
+  }
+});
+
+// ── GET /api/discover ─────────────────────────────────────────────────────
+// Full account discovery — all modules + all sheet tabs in one call
+app.get('/api/discover', async (req, res) => {
+  try {
+    const token = await ensureValidToken();
+
+    const [
+      recruitModRes, crmModRes,
+      spreadsheetRes, workdriveRes,
+      visaWsRes, placementWsRes,
+    ] = await Promise.allSettled([
+      listRecruitModules(token),
+      listCRMModules(token),
+      listAllSpreadsheets(token),
+      listWorkDriveSheets(token),
+      listWorksheets(token, VISA_SHEET_ID),
+      listWorksheets(token, PLACEMENT_SHEET_ID),
+    ]);
+
+    const ok = r => r.status === 'fulfilled' ? r.value : { error: r.reason?.response?.data || r.reason?.message };
+
+    const report = {
+      generatedAt: new Date().toISOString(),
+      recruit: {
+        modules:      ok(recruitModRes),
+        moduleCount:  recruitModRes.status === 'fulfilled' ? recruitModRes.value.length : 0,
+      },
+      crm: {
+        modules:     ok(crmModRes),
+        moduleCount: crmModRes.status === 'fulfilled' ? crmModRes.value.length : 0,
+      },
+      sheets: {
+        allSpreadsheets: ok(spreadsheetRes),
+        workdrive:       ok(workdriveRes),
+        knownSheets: {
+          visa: {
+            resource_id: VISA_SHEET_ID,
+            env_tab:     VISA_SHEET_NAME,
+            worksheets:  ok(visaWsRes),
+          },
+          placement: {
+            resource_id: PLACEMENT_SHEET_ID,
+            env_tab:     PLACEMENT_SHEET_NAME,
+            worksheets:  ok(placementWsRes),
+          },
+        },
+      },
+    };
+
+    console.log(`✅ Discovery complete — ${report.recruit.moduleCount} Recruit modules, ${report.crm.moduleCount} CRM modules`);
+    res.json(report);
+  } catch (err) {
+    res.status(err.message === 'NOT_AUTHENTICATED' ? 401 : 500)
+       .json({ error: err.message });
+  }
+});
+
+// ── Ensure all unmatched /api/* routes return JSON, never HTML ────────────────
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `No API route: ${req.method} ${req.path}` });
+});
+
+// ── Global error handler — always JSON ───────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
+// ============================
 // START SERVER
 // ============================
 app.listen(PORT, () => {
@@ -1362,5 +1674,51 @@ app.listen(PORT, () => {
     console.log(`   → Visit http://localhost:${PORT}/auth/zoho to authorize\n`);
   } else {
     console.log('\n✅ Zoho Analytics connected\n');
+    // Warm up cache on startup
+    warmUpCaches();
   }
 });
+
+// ── Proactive 10-minute data refresh ─────────────────────────
+async function warmUpCaches() {
+  console.log('🔄 Warming up data caches...');
+  try {
+    const [rRes, cRes, jRes] = await Promise.allSettled([
+      fetchAllPages(recruitGet, process.env.RECRUIT_J1_MODULE || 'J1_Participants',
+        Object.values(RECRUIT_FIELDS).join(',')),
+      fetchAllPages(crmGet, process.env.CRM_J1_MODULE || 'J1_Participants1',
+        Object.values(CRM_FIELDS).join(',')),
+      fetchAllPages(recruitGet, process.env.RECRUIT_JOB_MODULE || 'Job_Openings',
+        Object.values(JOB_FIELDS).join(',')),
+    ]);
+    if (rRes.status === 'fulfilled') {
+      const data = rRes.value.map(mapRecruitRecord);
+      setCached('recruit-j1-participants', { source:'recruit', count:data.length, data });
+      console.log(`✅ Recruit J1 Participants: ${data.length} records`);
+    } else { console.warn('⚠️  Recruit J1:', rRes.reason?.message); }
+
+    if (cRes.status === 'fulfilled') {
+      const data = cRes.value.map(mapCRMRecord);
+      setCached('crm-j1-participants', { source:'crm', count:data.length, data });
+      console.log(`✅ CRM J1 Participants: ${data.length} records`);
+    } else { console.warn('⚠️  CRM J1:', cRes.reason?.message); }
+
+    if (jRes.status === 'fulfilled') {
+      const data = jRes.value.map(mapJobRecord);
+      setCached('recruit-job-openings', { source:'recruit', count:data.length, data });
+      console.log(`✅ Job Openings: ${data.length} records`);
+    } else { console.warn('⚠️  Job Openings:', jRes.reason?.message); }
+
+    console.log('✅ Cache warm-up complete\n');
+  } catch (e) {
+    console.error('❌ Cache warm-up error:', e.message);
+  }
+}
+
+// Refresh all caches every 10 minutes
+setInterval(() => {
+  if (tokens.refreshToken) {
+    console.log(`\n🔄 [${new Date().toLocaleTimeString()}] Auto-refreshing Zoho data...`);
+    warmUpCaches();
+  }
+}, CACHE_TTL);
