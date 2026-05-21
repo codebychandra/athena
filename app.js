@@ -904,6 +904,17 @@ pages.j1visa = async function () {
 
   const cfDropdowns = { visaStatus: visaStatuses, country: countries };
   const thFilter = VISA_TABLE_COLS.map(col => {
+    if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;">
+      <div style="display:flex;gap:2px;align-items:center;">
+        <select class="req-cf req-cf-date-cond" data-visafield="${escH(col.field)}"
+          title="Before / On or Before / On / On or After / After"
+          style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;">
+          <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
+        </select>
+        <input type="date" class="req-cf req-cf-date-val" data-visafield="${escH(col.field)}"
+          style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
+      </div>
+    </th>`;
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<select class="req-cf" data-visafield="${escH(col.field)}"><option value="">All</option>${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}</select>`
@@ -1021,6 +1032,18 @@ pageEvents.j1visa = function () {
     return escH(str);
   }
 
+  function readVisaDateFilters() {
+    const out = {};
+    document.querySelectorAll('#visaColFilterRow .req-cf-date-val').forEach(input => {
+      const val = input.value; if (!val) return;
+      const field  = input.dataset.visafield;
+      const condEl = document.querySelector(`#visaColFilterRow .req-cf-date-cond[data-visafield="${field}"]`);
+      const cond   = condEl?.value; if (!cond) return;
+      out[field] = { cond, val };
+    });
+    return out;
+  }
+
   function applyFilters(base) {
     const gSt    = document.getElementById('visaStatusFilter')?.value  || '';
     const gCtry  = document.getElementById('visaCountryFilter')?.value || '';
@@ -1028,8 +1051,10 @@ pageEvents.j1visa = function () {
     const gYear  = document.getElementById('visaApptYear')?.value      || '';
     const colF   = {};
     document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el => {
+      if (el.classList.contains('req-cf-date-cond') || el.classList.contains('req-cf-date-val')) return;
       const v = el.value.trim(); if (v) colF[el.dataset.visafield] = v.toLowerCase();
     });
+    const dateColF = readVisaDateFilters();
     return base.filter(r => {
       if (gSt   && r.visaStatus !== gSt)   return false;
       if (gCtry && r.country    !== gCtry) return false;
@@ -1043,6 +1068,16 @@ pageEvents.j1visa = function () {
       }
       for (const [f, fv] of Object.entries(colF)) {
         if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+      }
+      for (const [field, { cond, val }] of Object.entries(dateColF)) {
+        const rd = parseDateStr(String(r[field] || ''));
+        const fd = new Date(val + 'T00:00:00');
+        if (!rd) return false;
+        if (cond === 'lt'  && !(rd <  fd)) return false;
+        if (cond === 'lte' && !(rd <= fd)) return false;
+        if (cond === 'eq'  && rd.toISOString().slice(0,10) !== val) return false;
+        if (cond === 'gte' && !(rd >= fd)) return false;
+        if (cond === 'gt'  && !(rd >  fd)) return false;
       }
       return true;
     });
@@ -1106,9 +1141,18 @@ pageEvents.j1visa = function () {
   ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', refresh));
 
-  // Column filters
+  // Column filters (text, dropdowns, date cond+val)
   document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el =>
     el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+  // Auto-clear date value when condition is reset to blank
+  document.querySelectorAll('#visaColFilterRow .req-cf-date-cond').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (!sel.value) {
+        const v = document.querySelector(`#visaColFilterRow .req-cf-date-val[data-visafield="${sel.dataset.visafield}"]`);
+        if (v) v.value = '';
+      }
+    });
+  });
 
   // Sort
   document.getElementById('visaSortRow')?.addEventListener('click', e => {
@@ -2022,10 +2066,14 @@ pages.participant = async function () {
         <option value="">All Sponsors</option>
         ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
       </select>
-      <label class="par-date-label" for="parStartDateFilter">Start ≥</label>
-      <input type="date" id="parStartDateFilter" class="req-gsel par-date-input">
-      <label class="par-date-label" for="parEndDateFilter">End ≤</label>
-      <input type="date" id="parEndDateFilter" class="req-gsel par-date-input">
+      <span class="par-date-label">Start</span>
+      <select id="parStartDateCond" class="req-gsel" style="width:46px;padding:4px 2px;font-size:12px;text-align:center;" title="Before / On or Before / On / On or After / After">
+        <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
+      </select><input type="date" id="parStartDateFilter" class="req-gsel par-date-input">
+      <span class="par-date-label">End</span>
+      <select id="parEndDateCond" class="req-gsel" style="width:46px;padding:4px 2px;font-size:12px;text-align:center;" title="Before / On or Before / On / On or After / After">
+        <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
+      </select><input type="date" id="parEndDateFilter" class="req-gsel par-date-input">
       <button id="parClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="parCount" class="req-count-badge">${rawRows.length} participants</span>
     </div>
@@ -2122,10 +2170,13 @@ pageEvents.participant = function () {
     const gDpt  = document.getElementById('parDeptFilter')?.value     || '';
     const gCtry = document.getElementById('parCountryFilter')?.value  || '';
     const gSp   = document.getElementById('parSponsorFilter')?.value  || '';
-    const gsD   = document.getElementById('parStartDateFilter')?.value || '';
-    const geD   = document.getElementById('parEndDateFilter')?.value   || '';
+    const gsD     = document.getElementById('parStartDateFilter')?.value  || '';
+    const gsDCond = document.getElementById('parStartDateCond')?.value    || '';
+    const geD     = document.getElementById('parEndDateFilter')?.value    || '';
+    const geDCond = document.getElementById('parEndDateCond')?.value      || '';
     const colF  = {};
     document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => {
+      if (el.classList.contains('req-cf-date-cond') || el.classList.contains('req-cf-date-val')) return;
       const v = el.value.trim();
       if (v && el.dataset.pfield !== 'placementStatus') colF[el.dataset.pfield] = v.toLowerCase();
     });
@@ -2136,8 +2187,8 @@ pageEvents.participant = function () {
       if (gDpt  && r.department        !== gDpt)  return false;
       if (gCtry && r.country           !== gCtry) return false;
       if (gSp   && r.processingSponsor !== gSp)   return false;
-      if (gsD) { const fd = new Date(gsD), rd = parseDateStr(r.programStart); if (!rd || rd < fd) return false; }
-      if (geD) { const fd = new Date(geD), rd = parseDateStr(r.programEnd);   if (!rd || rd > fd) return false; }
+      if (gsD && gsDCond && !applyDateColFilter(r, 'programStart', gsDCond, gsD)) return false;
+      if (geD && geDCond && !applyDateColFilter(r, 'programEnd',   geDCond, geD)) return false;
       for (const [field, fv] of Object.entries(colF)) {
         if (field === 'eligiblePrograms') {
           const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim().toLowerCase());
@@ -2197,8 +2248,10 @@ pageEvents.participant = function () {
     const gDpt = document.getElementById('parDeptFilter')?.value    || '';
     const gCtry= document.getElementById('parCountryFilter')?.value || '';
     const gSp  = document.getElementById('parSponsorFilter')?.value || '';
-    const gsD  = document.getElementById('parStartDateFilter')?.value || '';
-    const geD  = document.getElementById('parEndDateFilter')?.value   || '';
+    const gsD     = document.getElementById('parStartDateFilter')?.value  || '';
+    const gsDCond = document.getElementById('parStartDateCond')?.value    || '';
+    const geD     = document.getElementById('parEndDateFilter')?.value    || '';
+    const geDCond = document.getElementById('parEndDateCond')?.value      || '';
     const colF = {};
     document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => {
       if (el.classList.contains('req-cf-date-cond') || el.classList.contains('req-cf-date-val')) return;
@@ -2214,14 +2267,8 @@ pageEvents.participant = function () {
       if (gDpt  && r.department        !== gDpt)  return false;
       if (gCtry && r.country           !== gCtry) return false;
       if (gSp   && r.processingSponsor !== gSp)   return false;
-      if (gsD) {
-        const fd = new Date(gsD), rd = parseDateStr(r.programStart);
-        if (!rd || rd < fd) return false;
-      }
-      if (geD) {
-        const fd = new Date(geD), rd = parseDateStr(r.programEnd);
-        if (!rd || rd > fd) return false;
-      }
+      if (gsD && gsDCond && !applyDateColFilter(r, 'programStart', gsDCond, gsD)) return false;
+      if (geD && geDCond && !applyDateColFilter(r, 'programEnd',   geDCond, geD)) return false;
       for (const [field, fv] of Object.entries(colF)) {
         if (field === 'eligiblePrograms') {
           // Multi-value: check if selected program appears in comma-split list
@@ -2309,7 +2356,7 @@ pageEvents.participant = function () {
 
   // Other global filters
   ['parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter',
-   'parStartDateFilter','parEndDateFilter']
+   'parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
     .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
 
   // Column-level filters (text, dropdowns, date condition+value)
@@ -2319,7 +2366,7 @@ pageEvents.participant = function () {
   // Clear all
   document.getElementById('parClearBtn')?.addEventListener('click', () => {
     ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter',
-     'parSponsorFilter','parStartDateFilter','parEndDateFilter']
+     'parSponsorFilter','parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => el.value = '');
     _parSortCol = null; _parSortDir = 'asc';
@@ -3005,22 +3052,35 @@ pages.travel = async function () {
 
   // Build thead HTML for both tab column sets
   function buildHeaders(cols) {
+    const stickyTh = `background:var(--bg-page,#f5f5f5);position:sticky;z-index:2;box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);`;
     const th = cols.map(c =>
       `<th data-travelfield="${c.field}" class="${c.sortable ? 'sortable' : ''}"
         style="white-space:nowrap;padding:10px 12px;font-size:11px;font-weight:700;
           text-transform:uppercase;letter-spacing:0.06em;cursor:${c.sortable?'pointer':'default'};
-          background:var(--bg-page,#f5f5f5);position:sticky;top:0;z-index:2;
-          box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);">
+          top:0;${stickyTh}">
         ${c.label}${c.sortable ? ' <span class="sort-arrow" style="opacity:0.4;">↕</span>' : ''}
       </th>`).join('');
-    const tf = cols.map(c =>
-      `<th style="padding:4px 8px;background:var(--bg-page,#f5f5f5);position:sticky;top:36px;z-index:2;
-        box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);">
-        ${(c.field !== '_trip' && c.field !== '_returnTrip') ? `
-          <input data-travelcol="${c.field}" placeholder="Filter…" style="width:100%;
-            padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
-            font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">` : ''}
-      </th>`).join('');
+    const tf = cols.map(c => {
+      const skipField = c.field === '_trip' || c.field === '_returnTrip';
+      const cellStyle = `padding:4px 8px;top:36px;${stickyTh}`;
+      if (skipField) return `<th style="${cellStyle}"></th>`;
+      if (c.datecol) return `<th style="min-width:170px;padding:2px 4px;top:36px;${stickyTh}">
+        <div style="display:flex;gap:2px;align-items:center;">
+          <select class="req-cf req-cf-date-cond" data-travelcol="${c.field}"
+            title="Before / On or Before / On / On or After / After"
+            style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;">
+            <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
+          </select>
+          <input type="date" class="req-cf req-cf-date-val" data-travelcol="${c.field}"
+            style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
+        </div>
+      </th>`;
+      return `<th style="${cellStyle}">
+        <input data-travelcol="${c.field}" placeholder="Filter…" style="width:100%;
+          padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
+          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
+      </th>`;
+    }).join('');
     return { th, tf };
   }
 
@@ -3169,6 +3229,22 @@ pageEvents.travel = function () {
 
     Object.entries(colFilters).forEach(([field, val]) => {
       if (!val) return;
+      // Date column filter: val is {cond, val}
+      if (val && typeof val === 'object' && val.cond) {
+        const { cond, val: dVal } = val;
+        const fd = new Date(dVal + 'T00:00:00');
+        filtered = filtered.filter(r => {
+          const rd = r[field] ? new Date(r[field]) : null;
+          if (!rd || isNaN(rd.getTime())) return false;
+          if (cond === 'lt')  return rd <  fd;
+          if (cond === 'lte') return rd <= fd;
+          if (cond === 'eq')  return rd.toISOString().slice(0,10) === dVal;
+          if (cond === 'gte') return rd >= fd;
+          if (cond === 'gt')  return rd >  fd;
+          return true;
+        });
+        return;
+      }
       const q = val.toLowerCase();
       filtered = filtered.filter(r => {
         if (field === '_trip')
@@ -3227,9 +3303,30 @@ pageEvents.travel = function () {
   }
 
   function attachColFilterListeners() {
-    document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => {
+    // Text inputs
+    document.querySelectorAll('#travelColFilterRow input[data-travelcol]:not(.req-cf-date-val)').forEach(inp => {
       inp.addEventListener('input', () => {
         colFilters[inp.dataset.travelcol] = inp.value.trim();
+        applyFilters();
+      });
+    });
+    // Date condition selects
+    document.querySelectorAll('#travelColFilterRow .req-cf-date-cond').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const field = sel.dataset.travelcol;
+        const valEl = document.querySelector(`#travelColFilterRow .req-cf-date-val[data-travelcol="${field}"]`);
+        if (!sel.value && valEl) { valEl.value = ''; delete colFilters[field]; }
+        else if (valEl?.value) colFilters[field] = { cond: sel.value, val: valEl.value };
+        applyFilters();
+      });
+    });
+    // Date value inputs
+    document.querySelectorAll('#travelColFilterRow .req-cf-date-val').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const field = inp.dataset.travelcol;
+        const condEl = document.querySelector(`#travelColFilterRow .req-cf-date-cond[data-travelcol="${field}"]`);
+        if (inp.value && condEl?.value) colFilters[field] = { cond: condEl.value, val: inp.value };
+        else delete colFilters[field];
         applyFilters();
       });
     });
@@ -3259,6 +3356,7 @@ pageEvents.travel = function () {
     if (ticketSel) ticketSel.value = '';
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
+    document.querySelectorAll('#travelColFilterRow select[data-travelcol]').forEach(sel => sel.value = '');
     applyFilters();
   });
 
