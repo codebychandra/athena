@@ -1927,6 +1927,13 @@ pages.participant = async function () {
   const depts     = [...new Set(rawRows.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
   const countries = [...new Set(rawRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
   const sponsors  = [...new Set(rawRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  // Eligible Programs: multi-value field — collect all individual values
+  const eligibleSet = new Set();
+  rawRows.forEach(r => {
+    if (r.eligiblePrograms && r.eligiblePrograms !== '—')
+      r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet.add(t); });
+  });
+  const eligibleOpts = [...eligibleSet].sort();
   const authErr   = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED')||errorMsg.includes('401'));
 
   // Tab bar: All + each status + Total Placement
@@ -1952,9 +1959,15 @@ pages.participant = async function () {
     'department':        depts,
     'country':           countries,
     'processingSponsor': sponsors,
+    'eligiblePrograms':  eligibleOpts,
   };
+  const DATE_COND_OPTS = `<option value="">—</option><option value="lt">Before</option><option value="lte">On / Before</option><option value="eq">On</option><option value="gte">On / After</option><option value="gt">After</option>`;
   const thFilter = PAR_TABLE_COLS.map(col => {
-    if (col.money || col.datecol || col.sourcebadge) return '<th></th>';
+    if (col.money || col.sourcebadge) return '<th></th>';
+    if (col.datecol) return `<th style="min-width:130px;padding:2px 4px;">
+      <select class="req-cf req-cf-date-cond" data-pfield="${escH(col.field)}" style="width:100%;margin-bottom:2px;">${DATE_COND_OPTS}</select>
+      <input type="date" class="req-cf req-cf-date-val" data-pfield="${escH(col.field)}" style="width:100%;padding:1px 4px;">
+    </th>`;
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<select class="req-cf" data-pfield="${escH(col.field)}"><option value="">All</option>${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}</select>`
@@ -2106,6 +2119,7 @@ pageEvents.participant = function () {
       if (v && el.dataset.pfield !== 'placementStatus') colF[el.dataset.pfield] = v.toLowerCase();
     });
 
+    const dateColF = readDateColFilters('parColFilterRow');
     const base = allRows.filter(r => {
       if (gSrc  && r.programSource     !== gSrc)  return false;
       if (gDpt  && r.department        !== gDpt)  return false;
@@ -2114,7 +2128,15 @@ pageEvents.participant = function () {
       if (gsD) { const fd = new Date(gsD), rd = parseDateStr(r.programStart); if (!rd || rd < fd) return false; }
       if (geD) { const fd = new Date(geD), rd = parseDateStr(r.programEnd);   if (!rd || rd > fd) return false; }
       for (const [field, fv] of Object.entries(colF)) {
-        if (!String(r[field] || '').toLowerCase().includes(fv)) return false;
+        if (field === 'eligiblePrograms') {
+          const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim().toLowerCase());
+          if (!progs.includes(fv)) return false;
+        } else {
+          if (!String(r[field] || '').toLowerCase().includes(fv)) return false;
+        }
+      }
+      for (const [field, { cond, val }] of Object.entries(dateColF)) {
+        if (!applyDateColFilter(r, field, cond, val)) return false;
       }
       return true;
     });
@@ -2134,6 +2156,29 @@ pageEvents.participant = function () {
     });
   }
 
+  function readDateColFilters(rowId) {
+    const out = {};
+    document.querySelectorAll(`#${rowId} .req-cf-date-val`).forEach(input => {
+      const val = input.value; if (!val) return;
+      const field   = input.dataset.pfield;
+      const condEl  = document.querySelector(`#${rowId} .req-cf-date-cond[data-pfield="${field}"]`);
+      out[field] = { cond: condEl?.value || 'gte', val };
+    });
+    return out;
+  }
+
+  function applyDateColFilter(r, field, cond, val) {
+    const fd = new Date(val + 'T00:00:00');
+    const rd = parseDateStr(String(r[field] || ''));
+    if (!rd) return false;
+    if (cond === 'lt')  return rd <  fd;
+    if (cond === 'lte') return rd <= fd;
+    if (cond === 'eq')  return rd.toISOString().slice(0,10) === val;
+    if (cond === 'gte') return rd >= fd;
+    if (cond === 'gt')  return rd >  fd;
+    return true;
+  }
+
   function applyFilters(base) {
     const gSt  = document.getElementById('parStatusFilter')?.value  || '';
     const gSrc = document.getElementById('parSourceFilter')?.value  || '';
@@ -2144,15 +2189,17 @@ pageEvents.participant = function () {
     const geD  = document.getElementById('parEndDateFilter')?.value   || '';
     const colF = {};
     document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => {
+      if (el.classList.contains('req-cf-date-cond') || el.classList.contains('req-cf-date-val')) return;
       const v = el.value.trim(); if (v) colF[el.dataset.pfield] = v.toLowerCase();
     });
+    const dateColF = readDateColFilters('parColFilterRow');
     return base.filter(r => {
       if (gSt) {
         if (gSt === 'Total Placement') { if (!PAR_PLACEMENT_STATUSES.has(r.placementStatus)) return false; }
         else if (r.placementStatus !== gSt) return false;
       }
       if (gSrc  && r.programSource     !== gSrc)  return false;
-      if (gDpt  && r.department         !== gDpt)  return false;
+      if (gDpt  && r.department        !== gDpt)  return false;
       if (gCtry && r.country           !== gCtry) return false;
       if (gSp   && r.processingSponsor !== gSp)   return false;
       if (gsD) {
@@ -2164,8 +2211,16 @@ pageEvents.participant = function () {
         if (!rd || rd > fd) return false;
       }
       for (const [field, fv] of Object.entries(colF)) {
-        const val = String(r[field] || '');
-        if (!val.toLowerCase().includes(fv)) return false;
+        if (field === 'eligiblePrograms') {
+          // Multi-value: check if selected program appears in comma-split list
+          const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim().toLowerCase());
+          if (!progs.includes(fv)) return false;
+        } else {
+          if (!String(r[field] || '').toLowerCase().includes(fv)) return false;
+        }
+      }
+      for (const [field, { cond, val }] of Object.entries(dateColF)) {
+        if (!applyDateColFilter(r, field, cond, val)) return false;
       }
       return true;
     });
@@ -2245,7 +2300,7 @@ pageEvents.participant = function () {
    'parStartDateFilter','parEndDateFilter']
     .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
 
-  // Column-level filters
+  // Column-level filters (text, dropdowns, date condition+value)
   document.querySelectorAll('#parColFilterRow .req-cf').forEach(el =>
     el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
 
@@ -2260,6 +2315,16 @@ pageEvents.participant = function () {
     document.querySelectorAll('#parSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
     document.querySelectorAll('#parSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
     refresh();
+  });
+  // Also clear date column filters when condition resets to blank
+  document.querySelectorAll('#parColFilterRow .req-cf-date-cond').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (!sel.value) {
+        const valInput = document.querySelector(`#parColFilterRow .req-cf-date-val[data-pfield="${sel.dataset.pfield}"]`);
+        if (valInput) valInput.value = '';
+      }
+      refresh();
+    });
   });
 
   // Details modal
