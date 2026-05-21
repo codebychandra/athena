@@ -2422,7 +2422,12 @@ pages.talentpool = async function () {
   const sources   = [...new Set(allPool.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
   const depts     = [...new Set(allPool.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
   const countries = [...new Set(allPool.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
-  const sponsors  = [...new Set(allPool.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const eligibleSet2 = new Set();
+  allPool.forEach(r => {
+    if (r.eligiblePrograms && r.eligiblePrograms !== '—')
+      r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet2.add(t); });
+  });
+  const eligibleOpts2 = [...eligibleSet2].sort();
 
   // Table sort header
   const thSort = TP_TABLE_COLS.map(col =>
@@ -2476,9 +2481,9 @@ pages.talentpool = async function () {
         <option value="">All Countries</option>
         ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
       </select>
-      <select id="tpSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      <select id="tpEligibleFilter" class="req-gsel">
+        <option value="">All Eligible Programs</option>
+        ${eligibleOpts2.map(p=>`<option value="${escH(p)}">${escH(p)}</option>`).join('')}
       </select>
       <button id="tpClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="tpCount" class="req-count-badge">${allPool.length} candidates</span>
@@ -2511,7 +2516,7 @@ pages.talentpool = async function () {
     <!-- Chart — full width -->
     <div class="card req-chart-card">
       <div class="req-chart-title">Talent Pool vs Remaining by Department</div>
-      <canvas id="tpDeptChart"></canvas>
+      <canvas id="tpDeptChart" style="height:300px;max-height:300px;"></canvas>
     </div>
 
     <!-- Table -->
@@ -2557,17 +2562,20 @@ pageEvents.talentpool = function () {
     const gSrc = document.getElementById('tpSourceFilter')?.value  || '';
     const gDpt = document.getElementById('tpDeptFilter')?.value    || '';
     const gCtry= document.getElementById('tpCountryFilter')?.value || '';
-    const gSp  = document.getElementById('tpSponsorFilter')?.value || '';
+    const gEp  = document.getElementById('tpEligibleFilter')?.value || '';
     const colF = {};
     document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => {
       const v = el.value.trim(); if (v) colF[el.dataset.tpfield] = v.toLowerCase();
     });
     return base.filter(r => {
-      if (gSt   && r.placementStatus   !== gSt)   return false;
-      if (gSrc  && r.programSource     !== gSrc)  return false;
-      if (gDpt  && r.department        !== gDpt)  return false;
-      if (gCtry && r.country           !== gCtry) return false;
-      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gSt   && r.placementStatus !== gSt)   return false;
+      if (gSrc  && r.programSource   !== gSrc)  return false;
+      if (gDpt  && r.department      !== gDpt)  return false;
+      if (gCtry && r.country         !== gCtry) return false;
+      if (gEp) {
+        const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim());
+        if (!progs.includes(gEp)) return false;
+      }
       for (const [f, fv] of Object.entries(colF)) {
         if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
       }
@@ -2644,7 +2652,7 @@ pageEvents.talentpool = function () {
           ],
         },
         options: {
-          responsive: true, maintainAspectRatio: true,
+          responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { position: 'bottom', labels: { font, boxWidth: 12, padding: 14 } },
             datalabels: {
@@ -2655,9 +2663,10 @@ pageEvents.talentpool = function () {
             },
           },
           scales: {
-            x: { stacked: true, ticks: { color: tickColor, font, maxRotation: 35, minRotation: 35 }, grid: { display: false } },
+            x: { stacked: true, ticks: { color: tickColor, font, maxRotation: 45, minRotation: 30 }, grid: { display: false } },
             y: { stacked: true, ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
           },
+          datasets: { bar: { minBarLength: 4, barPercentage: 0.6, categoryPercentage: 0.75 } },
         },
       });
     }
@@ -2677,7 +2686,7 @@ pageEvents.talentpool = function () {
   refresh();
 
   // Status + all global filters trigger refresh
-  ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpSponsorFilter']
+  ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpEligibleFilter']
     .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
 
   // Column filters
@@ -2700,7 +2709,7 @@ pageEvents.talentpool = function () {
 
   // Clear
   document.getElementById('tpClearBtn')?.addEventListener('click', () => {
-    ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpSponsorFilter']
+    ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpEligibleFilter']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => el.value = '');
     _tpSortCol = null; _tpSortDir = 'asc';
