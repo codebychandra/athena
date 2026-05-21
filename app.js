@@ -2516,12 +2516,12 @@ pages.talentpool = async function () {
     <!-- Charts row -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="card req-chart-card">
-        <div class="req-chart-title">Talent Pool vs Remaining by Department</div>
-        <canvas id="tpDeptChart" style="height:300px;max-height:300px;"></canvas>
+        <div class="req-chart-title">Talent Pool vs Remaining by Department <span style="font-size:10px;font-weight:400;color:var(--text-muted);margin-left:6px;">right-click for data</span></div>
+        <canvas id="tpDeptChart" style="height:340px;max-height:340px;"></canvas>
       </div>
       <div class="card req-chart-card">
-        <div class="req-chart-title">Sales Call by Department</div>
-        <canvas id="tpSalesCallChart" style="height:300px;max-height:300px;"></canvas>
+        <div class="req-chart-title">Sales Call by Department <span style="font-size:10px;font-weight:400;color:var(--text-muted);margin-left:6px;">right-click for data</span></div>
+        <canvas id="tpSalesCallChart" style="height:340px;max-height:340px;"></canvas>
       </div>
     </div>
 
@@ -2647,22 +2647,49 @@ pageEvents.talentpool = function () {
     return { allDepts, poolData, remainData, scDepts, scData };
   }
 
+  // Right-click popup — shows the full data table for any chart instance
+  function showTpChartPopup(chart, title, e) {
+    document.querySelectorAll('.req-ctx-popup').forEach(p => p.remove());
+    if (!chart) return;
+    const labels   = chart.data.labels   || [];
+    const datasets = chart.data.datasets || [];
+    const rowsHtml = labels.map((lbl, i) =>
+      `<tr><td>${escH(String(lbl))}</td>${datasets.map(ds =>
+        `<td style="text-align:right;font-weight:600;">${(ds.data[i] || 0).toLocaleString()}</td>`
+      ).join('')}</tr>`
+    ).join('');
+    const popup = document.createElement('div');
+    popup.className = 'req-ctx-popup';
+    popup.innerHTML = `
+      <div class="req-ctx-popup-hdr">
+        <span>${escH(title)}</span>
+        <button class="req-ctx-popup-close">✕</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Department</th>
+          ${datasets.map(ds => `<th style="text-align:right;">${escH(ds.label || '')}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    popup.style.left = Math.min(e.clientX, window.innerWidth  - 440) + 'px';
+    popup.style.top  = Math.min(e.clientY, window.innerHeight - 380) + 'px';
+    document.body.appendChild(popup);
+    popup.querySelector('.req-ctx-popup-close').onclick = () => popup.remove();
+    setTimeout(() => {
+      const close = ev => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('mousedown', close); } };
+      document.addEventListener('mousedown', close);
+    }, 100);
+  }
+
   function initCharts(rows) {
     const { allDepts, poolData, remainData, scDepts, scData } = buildChartData(rows);
     const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
     const tickColor = isDark ? '#888' : '#666';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
     const font      = { family: 'Inter, sans-serif', size: 11 };
-    const chartOpts = {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        x: { ticks: { color: tickColor, font, maxRotation: 45, minRotation: 30 }, grid: { display: false } },
-        y: { ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
-      },
-      datasets: { bar: { minBarLength: 4, barPercentage: 0.6, categoryPercentage: 0.75 } },
-    };
 
-    // Chart 1 — Talent Pool vs Remaining stacked bar
+    // Chart 1 — Talent Pool vs Remaining horizontal stacked bar
     const deptCtx = document.getElementById('tpDeptChart');
     if (deptCtx) {
       if (_tpDeptChart) _tpDeptChart.destroy();
@@ -2677,7 +2704,8 @@ pageEvents.talentpool = function () {
           ],
         },
         options: {
-          ...chartOpts,
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { position: 'bottom', labels: { font, boxWidth: 12, padding: 14 } },
             datalabels: {
@@ -2687,12 +2715,16 @@ pageEvents.talentpool = function () {
               anchor: 'center', align: 'center',
             },
           },
-          scales: { ...chartOpts.scales, x: { ...chartOpts.scales.x, stacked: true }, y: { ...chartOpts.scales.y, stacked: true } },
+          scales: {
+            y: { stacked: true, ticks: { color: tickColor, font }, grid: { display: false } },
+            x: { stacked: true, ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
+          },
+          datasets: { bar: { minBarLength: 4, barPercentage: 0.7, categoryPercentage: 0.8 } },
         },
       });
     }
 
-    // Chart 2 — Sales Call by Department
+    // Chart 2 — Sales Call by Department horizontal bar
     const scCtx = document.getElementById('tpSalesCallChart');
     if (scCtx) {
       if (_tpSalesCallChart) _tpSalesCallChart.destroy();
@@ -2706,7 +2738,8 @@ pageEvents.talentpool = function () {
           ],
         },
         options: {
-          ...chartOpts,
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
             datalabels: {
@@ -2716,6 +2749,11 @@ pageEvents.talentpool = function () {
               anchor: 'center', align: 'center',
             },
           },
+          scales: {
+            y: { ticks: { color: tickColor, font }, grid: { display: false } },
+            x: { ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
+          },
+          datasets: { bar: { minBarLength: 4, barPercentage: 0.7, categoryPercentage: 0.8 } },
         },
       });
     }
@@ -2738,6 +2776,14 @@ pageEvents.talentpool = function () {
 
   initCharts(allPool);
   refresh();
+
+  // Right-click → data popup
+  document.getElementById('tpDeptChart')?.addEventListener('contextmenu', e => {
+    e.preventDefault(); showTpChartPopup(_tpDeptChart, 'Talent Pool vs Remaining by Department', e);
+  });
+  document.getElementById('tpSalesCallChart')?.addEventListener('contextmenu', e => {
+    e.preventDefault(); showTpChartPopup(_tpSalesCallChart, 'Sales Call by Department', e);
+  });
 
   // Status + all global filters trigger refresh
   ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpEligibleFilter']
