@@ -2081,7 +2081,11 @@ pageEvents.participant = function () {
 
   function refreshCount(rows) {
     const el = document.getElementById('parCount');
-    if (el) el.textContent = `${rows.length} of ${allRows.length} participants`;
+    if (!el) return;
+    const total = allRows.length;
+    el.textContent = rows.length === total
+      ? `${total} participants`
+      : `${rows.length} of ${total} participants`;
   }
 
   // Recount tab badges based on current non-status global filters
