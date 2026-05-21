@@ -2438,10 +2438,11 @@ pages.talentpool = async function () {
 
   // Column-level filters
   const cfDropdowns = {
-    'placementStatus': [...TP_STATUSES],
-    'programSource':   sources,
-    'department':      depts,
-    'country':         countries,
+    'placementStatus':  [...TP_STATUSES],
+    'programSource':    sources,
+    'department':       depts,
+    'country':          countries,
+    'eligiblePrograms': eligibleOpts2,
   };
   const thFilter = TP_TABLE_COLS.map(col => {
     const opts = cfDropdowns[col.field];
@@ -2583,7 +2584,12 @@ pageEvents.talentpool = function () {
         if (!progs.includes(gEp)) return false;
       }
       for (const [f, fv] of Object.entries(colF)) {
-        if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+        if (f === 'eligiblePrograms') {
+          const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim().toLowerCase());
+          if (!progs.includes(fv)) return false;
+        } else {
+          if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+        }
       }
       return true;
     });
