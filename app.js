@@ -3583,7 +3583,7 @@ pages.travel = async function () {
     </div>
 
     <!-- KPI Widgets -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div class="card" style="padding:16px 20px;">
         <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-bottom:12px;letter-spacing:0.05em;text-transform:uppercase;">✈️ Departure Ticket</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
