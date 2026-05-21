@@ -864,8 +864,11 @@ pages.j1visa = async function () {
   else errorMsg = rRes.reason?.message;
   if (cRes.status === 'fulfilled') crmRows = cRes.value?.data || [];
 
-  // Filter: visa status not blank
-  const allRows = [...recruitRows, ...crmRows].filter(r => r.visaStatus && r.visaStatus !== '—');
+  // Filter: active status only + visa status not blank
+  const _parActiveSet = new Set(PAR_STATUSES);
+  const allRows = [...recruitRows, ...crmRows].filter(r =>
+    _parActiveSet.has(r.placementStatus) && r.visaStatus && r.visaStatus !== '—'
+  );
   state.dataCache['visa-rows'] = allRows;
   _visaSortCol = null; _visaSortDir = 'asc';
 
@@ -2796,8 +2799,10 @@ pages.travel = async function () {
     rows = json?.data || [];
   } catch (e) { errorMsg = e.message; }
 
-  // Filter: hosting company not blank + HC Interview = Approved
+  // Filter: active status only + hosting company not blank + HC Interview = Approved
+  const _parActiveSet = new Set(PAR_STATUSES);
   const allRows = rows.filter(r =>
+    _parActiveSet.has(r.placementStatus) &&
     r.hostCompany && r.hostCompany !== '—' &&
     r.hcInterviewStatus === 'Approved'
   );
