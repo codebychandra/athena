@@ -2084,6 +2084,48 @@ pageEvents.participant = function () {
     if (el) el.textContent = `${rows.length} of ${allRows.length} participants`;
   }
 
+  // Recount tab badges based on current non-status global filters
+  function refreshTabCounts() {
+    const gSrc  = document.getElementById('parSourceFilter')?.value   || '';
+    const gDpt  = document.getElementById('parDeptFilter')?.value     || '';
+    const gCtry = document.getElementById('parCountryFilter')?.value  || '';
+    const gSp   = document.getElementById('parSponsorFilter')?.value  || '';
+    const gsD   = document.getElementById('parStartDateFilter')?.value || '';
+    const geD   = document.getElementById('parEndDateFilter')?.value   || '';
+    const colF  = {};
+    document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => {
+      const v = el.value.trim();
+      if (v && el.dataset.pfield !== 'placementStatus') colF[el.dataset.pfield] = v.toLowerCase();
+    });
+
+    const base = allRows.filter(r => {
+      if (gSrc  && r.programSource     !== gSrc)  return false;
+      if (gDpt  && r.department        !== gDpt)  return false;
+      if (gCtry && r.country           !== gCtry) return false;
+      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gsD) { const fd = new Date(gsD), rd = parseDateStr(r.programStart); if (!rd || rd < fd) return false; }
+      if (geD) { const fd = new Date(geD), rd = parseDateStr(r.programEnd);   if (!rd || rd > fd) return false; }
+      for (const [field, fv] of Object.entries(colF)) {
+        if (!String(r[field] || '').toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+
+    const counts = {};
+    PAR_STATUSES.forEach(s => { counts[s] = 0; });
+    base.forEach(r => { const s = r.placementStatus || ''; if (s in counts) counts[s]++; });
+    const totalPlacement = (counts['USA Onboard'] || 0) + (counts['Program Completed'] || 0);
+
+    document.querySelectorAll('.par-tab').forEach(btn => {
+      const s  = btn.dataset.status;
+      const el = btn.querySelector('.par-tab-count');
+      if (!el) return;
+      if (s === 'All')             el.textContent = base.length;
+      else if (s === 'Total Placement') el.textContent = totalPlacement;
+      else                         el.textContent = counts[s] ?? 0;
+    });
+  }
+
   function applyFilters(base) {
     const gSt  = document.getElementById('parStatusFilter')?.value  || '';
     const gSrc = document.getElementById('parSourceFilter')?.value  || '';
@@ -2150,6 +2192,7 @@ pageEvents.participant = function () {
     const tbody = document.getElementById('parTableBody');
     if (tbody) tbody.innerHTML = renderRows(_currentRows);
     refreshCount(_currentRows);
+    refreshTabCounts();
   }
 
   refresh();
