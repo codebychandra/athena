@@ -3058,14 +3058,6 @@ pages.housing = async function () {
     </th>`;
   }).join('') + `<th style="top:36px;${stickyTh}"></th>`;
 
-  const kpiCard = (id, label, val, color, sub) => `
-    <div class="card" style="padding:18px 22px;min-width:130px;flex:1;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-        color:var(--text-muted,#888);margin-bottom:6px;">${label}</div>
-      <div id="${id}" style="font-size:30px;font-weight:800;color:${color};line-height:1;">${val}</div>
-      <div style="font-size:10px;color:var(--text-muted,#aaa);margin-top:4px;">${sub}</div>
-    </div>`;
-
   return `
     <div class="page-header">
       <div class="division-header" style="border-left-color:${DIVISION_COLORS.j1}">
@@ -3078,22 +3070,42 @@ pages.housing = async function () {
     <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
       background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
       border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
+      <span style="font-size:18px;">${authErr ? '🔑' : '⚠️'}</span>
       <div>
-        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
+        <div style="font-size:13px;font-weight:700;color:#B01A18;margin-bottom:4px;">
           ${authErr ? 'Server not connected' : 'Housing data unavailable'}
         </div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">${errorMsg}</div>
+        <div style="font-size:12px;color:var(--text-secondary,#555);">${errorMsg}</div>
       </div>
     </div>` : ''}
 
     <!-- KPI Widgets -->
-    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-      ${kpiCard('hsgKpiTotal',     'Total',           total,     DIVISION_COLORS.j1, 'Host-approved participants')}
-      ${kpiCard('hsgKpiCTI',       'CTI Housing',     ctiHoused, '#2D7A55',          'On-board & completed · CTI')}
-      ${kpiCard('hsgKpiDemand',    'Housing Demand',  demand,    '#EA580C',          'Stage 2–4 · non-host')}
-      ${kpiCard('hsgKpiOpen',      'Open Units',      openUnits, '#6B7280',          'No inventory tracked yet')}
-      ${kpiCard('hsgKpiRemaining', 'Remaining',       remaining, remaining > 0 ? '#B01A18' : '#2D7A55', 'Demand − open units')}
+    <div class="req-kpi-grid" style="grid-template-columns:repeat(5,1fr);">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total</span>
+        <span class="req-kpi-value" style="color:${DIVISION_COLORS.j1};" id="hsgKpiTotal">${total.toLocaleString()}</span>
+        <span class="req-kpi-sub">host-approved participants</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">CTI Housing</span>
+        <span class="req-kpi-value" style="color:#2D7A55;" id="hsgKpiCTI">${ctiHoused.toLocaleString()}</span>
+        <span class="req-kpi-sub">on-board &amp; completed · CTI</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Housing Demand</span>
+        <span class="req-kpi-value" style="color:#EA580C;" id="hsgKpiDemand">${demand.toLocaleString()}</span>
+        <span class="req-kpi-sub">stage 2–4 · non-host</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Open Units</span>
+        <span class="req-kpi-value" style="color:#6B7280;" id="hsgKpiOpen">${openUnits.toLocaleString()}</span>
+        <span class="req-kpi-sub">no inventory tracked yet</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Remaining</span>
+        <span class="req-kpi-value" style="color:${remaining > 0 ? '#B01A18' : '#2D7A55'};" id="hsgKpiRemaining">${remaining.toLocaleString()}</span>
+        <span class="req-kpi-sub">demand − open units</span>
+      </div>
     </div>
 
     <!-- Global filters (sticky) -->
@@ -3204,9 +3216,9 @@ pageEvents.housing = function () {
     return rows.map((r, i) => `
       <tr style="cursor:pointer;">
         ${HOUSING_TABLE_COLS.map(col =>
-          `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
+          `<td style="padding:6px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
         ).join('')}
-        <td style="padding:8px 6px;border-bottom:1px solid var(--border,#eee);text-align:center;">
+        <td style="padding:6px 6px;border-bottom:1px solid var(--border,#eee);text-align:center;">
           <button class="hsg-detail-btn" data-hsgidx="${allRows.indexOf(r)}"
             style="font-size:11px;padding:3px 10px;border-radius:6px;
               border:1px solid var(--border,#ddd);background:var(--bg-card,#fff);
