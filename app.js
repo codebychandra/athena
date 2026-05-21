@@ -1961,12 +1961,23 @@ pages.participant = async function () {
     'processingSponsor': sponsors,
     'eligiblePrograms':  eligibleOpts,
   };
-  const DATE_COND_OPTS = `<option value="">—</option><option value="lt">Before</option><option value="lte">On / Before</option><option value="eq">On</option><option value="gte">On / After</option><option value="gt">After</option>`;
   const thFilter = PAR_TABLE_COLS.map(col => {
     if (col.money || col.sourcebadge) return '<th></th>';
-    if (col.datecol) return `<th style="min-width:130px;padding:2px 4px;">
-      <select class="req-cf req-cf-date-cond" data-pfield="${escH(col.field)}" style="width:100%;margin-bottom:2px;">${DATE_COND_OPTS}</select>
-      <input type="date" class="req-cf req-cf-date-val" data-pfield="${escH(col.field)}" style="width:100%;padding:1px 4px;">
+    if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;">
+      <div style="display:flex;gap:2px;align-items:center;">
+        <select class="req-cf req-cf-date-cond" data-pfield="${escH(col.field)}"
+          title="Before / On or Before / On / On or After / After"
+          style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;">
+          <option value="">–</option>
+          <option value="lt" title="Before">&lt;</option>
+          <option value="lte" title="On or Before">≤</option>
+          <option value="eq" title="On">=</option>
+          <option value="gte" title="On or After">≥</option>
+          <option value="gt" title="After">&gt;</option>
+        </select>
+        <input type="date" class="req-cf req-cf-date-val" data-pfield="${escH(col.field)}"
+          style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
+      </div>
     </th>`;
     const opts = cfDropdowns[col.field];
     return `<th>${opts
@@ -2160,9 +2171,10 @@ pageEvents.participant = function () {
     const out = {};
     document.querySelectorAll(`#${rowId} .req-cf-date-val`).forEach(input => {
       const val = input.value; if (!val) return;
-      const field   = input.dataset.pfield;
-      const condEl  = document.querySelector(`#${rowId} .req-cf-date-cond[data-pfield="${field}"]`);
-      out[field] = { cond: condEl?.value || 'gte', val };
+      const field  = input.dataset.pfield;
+      const condEl = document.querySelector(`#${rowId} .req-cf-date-cond[data-pfield="${field}"]`);
+      const cond   = condEl?.value; if (!cond) return; // condition must be chosen
+      out[field] = { cond, val };
     });
     return out;
   }
