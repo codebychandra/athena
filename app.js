@@ -1245,7 +1245,7 @@ const PAR_TABLE_COLS = [
   { label:'Last Name',         field:'lastName',          sortable:true                                  },
   { label:'Country',           field:'country',           sortable:true                                  },
   { label:'Department',        field:'department',        sortable:true,  badge:true                     },
-  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:false                                 },
+  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:true                                  },
   { label:'Sponsor',           field:'processingSponsor', sortable:true                                  },
   { label:'Hosting Company',   field:'hostCompany',       sortable:true                                  },
   { label:'Start Date',        field:'programStart',      sortable:true,  datecol:true                   },
@@ -1278,7 +1278,7 @@ const VISA_TABLE_COLS = [
   { label:'J1 Source',         field:'programSource',    sortable:true                    },
   { label:'First Name',        field:'firstName',        sortable:true                    },
   { label:'Last Name',         field:'lastName',         sortable:true                    },
-  { label:'Eligible Programs', field:'eligiblePrograms', sortable:false                   },
+  { label:'Eligible Programs', field:'eligiblePrograms', sortable:true                    },
   { label:'Country',           field:'country',          sortable:true                    },
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
   { label:'Visa Status',       field:'visaStatus',       sortable:true,  visabadge:true   },
@@ -1298,7 +1298,7 @@ const TP_TABLE_COLS = [
   { label:'Last Name',         field:'lastName',          sortable:true                    },
   { label:'Country',           field:'country',           sortable:true                    },
   { label:'Department',        field:'department',        sortable:true,  badge:true        },
-  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:false                   },
+  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:true                    },
   { label:'App Source',        field:'_source',           sortable:true,  sourcebadge:true  },
 ];
 let _tpSortCol   = null;
