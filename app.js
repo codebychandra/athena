@@ -873,22 +873,26 @@ pages.j1visa = async function () {
   _visaSortCol = null; _visaSortDir = 'asc';
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const totalVisa  = allRows.length;
-  const cntApproved= allRows.filter(r => r.visaStatus === 'Approved').length;
-  const cntRejected= allRows.filter(r => /rejected/i.test(r.visaStatus)).length;
-  const cntPending = allRows.filter(r => /pending/i.test(r.visaStatus)).length;
-  const cntUpcoming= allRows.filter(r => {
+  const totalVisa   = allRows.length;
+  const cntApproved = allRows.filter(r => r.visaStatus === 'Approved').length;
+  // Cumulative rejections: Rejected 1st=1, Pending 2nd=1, Rejected 2nd=2, Pending 3rd=2, Rejected 3rd=3
+  const cntRejected = allRows.reduce((s, r) => s + visaRejectionCount(r.visaStatus), 0);
+  const cntPending  = allRows.filter(r => /pending/i.test(r.visaStatus)).length;
+  const cntUpcoming = allRows.filter(r => {
     if (!r.visaAppointment || r.visaAppointment === '—') return false;
     const d = new Date(r.visaAppointment);
     return !isNaN(d.getTime()) && d >= today;
   }).length;
-  const successRate = (cntApproved + cntRejected) > 0
-    ? Math.round(cntApproved / (cntApproved + cntRejected) * 100) : null;
+  // Success rate: approved / (approved + people currently in any rejected status)
+  const cntRejPeople = allRows.filter(r => /rejected/i.test(r.visaStatus)).length;
+  const successRate  = (cntApproved + cntRejPeople) > 0
+    ? Math.round(cntApproved / (cntApproved + cntRejPeople) * 100) : null;
   const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED')||errorMsg.includes('401'));
 
   // Filter dropdown options
   const visaStatuses = [...new Set(allRows.map(r=>r.visaStatus).filter(v=>v&&v!=='—'))].sort();
   const countries    = [...new Set(allRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
+  const sponsors     = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
   // Month/Year options from appointment dates
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const apptDates = allRows.map(r=>r.visaAppointment).filter(v=>v&&v!=='—').map(v=>new Date(v)).filter(d=>!isNaN(d));
@@ -952,6 +956,10 @@ pages.j1visa = async function () {
         <option value="">All Countries</option>
         ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
       </select>
+      <select id="visaSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
       <button id="visaClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="visaCount" class="req-count-badge">${allRows.length} records</span>
     </div>
@@ -966,12 +974,12 @@ pages.j1visa = async function () {
       <div class="req-kpi-card">
         <span class="req-kpi-label">Approved</span>
         <span class="req-kpi-value" style="color:#2D7A55;" id="visaKpiApproved">${cntApproved.toLocaleString()}</span>
-        <span class="req-kpi-sub">visa approved</span>
+        <span class="req-kpi-sub">participants approved</span>
       </div>
       <div class="req-kpi-card">
-        <span class="req-kpi-label">Rejected</span>
+        <span class="req-kpi-label">Rejections</span>
         <span class="req-kpi-value" style="color:#B01A18;" id="visaKpiRejected">${cntRejected.toLocaleString()}</span>
-        <span class="req-kpi-sub">visa rejected</span>
+        <span class="req-kpi-sub">total rejection events</span>
       </div>
       <div class="req-kpi-card">
         <span class="req-kpi-label">Pending</span>
@@ -1023,11 +1031,36 @@ pageEvents.j1visa = function () {
     if (isNaN(d.getTime())) return String(v);
     return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
   }
+
+  // Journey trail — infer full step sequence from current status
+  const VISA_JOURNEY_MAP = {
+    'Pending':               [['Pending','p']],
+    'Approved':              [['Approved','a']],
+    'Rejected 1st Attempt':  [['Pending','p'],['Rej. 1st','r']],
+    'Pending 2nd Interview': [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p']],
+    'Rejected 2nd Attempt':  [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r']],
+    'Pending 3rd Interview': [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p']],
+    'Rejected 3rd Attempt':  [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p'],['Rej. 3rd','r']],
+  };
+  function journeyBadges(status) {
+    const steps = VISA_JOURNEY_MAP[status];
+    if (!steps) return visaBadge(status); // fallback for unknown statuses
+    const tc = t => t==='a' ? '#2D7A55' : t==='r' ? '#B01A18' : '#D97706';
+    return steps.map(([lbl, t], i) => {
+      const isLast = i === steps.length - 1;
+      const c = tc(t);
+      const badge = `<span title="${escH(status)}" style="display:inline-block;padding:1px 5px;border-radius:10px;font-size:9px;font-weight:700;background:${c}${isLast?'22':'0f'};color:${c};border:1px solid ${c}${isLast?'55':'25'};white-space:nowrap;">${escH(lbl)}</span>`;
+      return i < steps.length - 1
+        ? badge + '<span style="color:#bbb;font-size:9px;margin:0 1px;">›</span>'
+        : badge;
+    }).join('');
+  }
+
   function cellContent(r, col) {
     const v   = r[col.field];
     const str = (v === null || v === undefined || v === '') ? '—' : String(v);
     if (col.statusbadge) return statusBadge(str);
-    if (col.visabadge)   return visaBadge(str);
+    if (col.journeycol)  return str === '—' ? '—' : journeyBadges(str);
     if (col.datecol)     return fmtDate(str);
     return escH(str);
   }
@@ -1047,6 +1080,7 @@ pageEvents.j1visa = function () {
   function applyFilters(base) {
     const gSt    = document.getElementById('visaStatusFilter')?.value  || '';
     const gCtry  = document.getElementById('visaCountryFilter')?.value || '';
+    const gSp    = document.getElementById('visaSponsorFilter')?.value || '';
     const gMonth = document.getElementById('visaApptMonth')?.value     || '';
     const gYear  = document.getElementById('visaApptYear')?.value      || '';
     const colF   = {};
@@ -1056,8 +1090,9 @@ pageEvents.j1visa = function () {
     });
     const dateColF = readVisaDateFilters();
     return base.filter(r => {
-      if (gSt   && r.visaStatus !== gSt)   return false;
-      if (gCtry && r.country    !== gCtry) return false;
+      if (gSt   && r.visaStatus        !== gSt)   return false;
+      if (gCtry && r.country           !== gCtry) return false;
+      if (gSp   && r.processingSponsor !== gSp)   return false;
       if (gMonth !== '' || gYear !== '') {
         const appt = r.visaAppointment;
         if (!appt || appt === '—') return false;
@@ -1102,16 +1137,17 @@ pageEvents.j1visa = function () {
   }
 
   function updateKpis(rows) {
-    const today   = new Date(); today.setHours(0,0,0,0);
-    const approved= rows.filter(r => r.visaStatus === 'Approved').length;
-    const rejected= rows.filter(r => /rejected/i.test(r.visaStatus)).length;
-    const pending = rows.filter(r => /pending/i.test(r.visaStatus)).length;
-    const upcoming= rows.filter(r => {
+    const today      = new Date(); today.setHours(0,0,0,0);
+    const approved   = rows.filter(r => r.visaStatus === 'Approved').length;
+    const rejected   = rows.reduce((s, r) => s + visaRejectionCount(r.visaStatus), 0); // total events
+    const rejPeople  = rows.filter(r => /rejected/i.test(r.visaStatus)).length;
+    const pending    = rows.filter(r => /pending/i.test(r.visaStatus)).length;
+    const upcoming   = rows.filter(r => {
       if (!r.visaAppointment || r.visaAppointment === '—') return false;
       const d = new Date(r.visaAppointment);
       return !isNaN(d.getTime()) && d >= today;
     }).length;
-    const rate = (approved + rejected) > 0 ? Math.round(approved/(approved+rejected)*100) : null;
+    const rate = (approved + rejPeople) > 0 ? Math.round(approved/(approved+rejPeople)*100) : null;
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('visaKpiTotal',    rows.length.toLocaleString());
     set('visaKpiApproved', approved.toLocaleString());
@@ -1138,7 +1174,7 @@ pageEvents.j1visa = function () {
   refresh();
 
   // Filters
-  ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter'].forEach(id =>
+  ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter','visaSponsorFilter'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', refresh));
 
   // Column filters (text, dropdowns, date cond+val)
@@ -1170,7 +1206,7 @@ pageEvents.j1visa = function () {
 
   // Clear
   document.getElementById('visaClearBtn')?.addEventListener('click', () => {
-    ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter','visaSponsorFilter'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el => el.value = '');
     _visaSortCol = null; _visaSortDir = 'asc';
     document.querySelectorAll('#visaSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
@@ -1273,6 +1309,15 @@ function visaStatusColor(s) {
   if (/pending/i.test(s)) return '#D97706';
   return '#6B7280';
 }
+// Returns the cumulative number of rejection EVENTS implied by a visa status.
+// "Pending 2nd Interview" = 1 prior rejection; "Rejected 3rd Attempt" = 3 rejections.
+function visaRejectionCount(status) {
+  if (!status || status === '—') return 0;
+  if (status === 'Rejected 1st Attempt' || status === 'Pending 2nd Interview') return 1;
+  if (status === 'Rejected 2nd Attempt' || status === 'Pending 3rd Interview') return 2;
+  if (status === 'Rejected 3rd Attempt') return 3;
+  return 0;
+}
 const VISA_TABLE_COLS = [
   { label:'J1 App Status',     field:'placementStatus',  sortable:true,  statusbadge:true },
   { label:'J1 Source',         field:'programSource',    sortable:true                    },
@@ -1281,7 +1326,7 @@ const VISA_TABLE_COLS = [
   { label:'Eligible Programs', field:'eligiblePrograms', sortable:true                    },
   { label:'Country',           field:'country',          sortable:true                    },
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
-  { label:'Visa Status',       field:'visaStatus',       sortable:true,  visabadge:true   },
+  { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true  },
   { label:'Payment Date',      field:'visaPaymentDate',  sortable:true,  datecol:true     },
   { label:'Appointment Date',  field:'visaAppointment',  sortable:true,  datecol:true     },
   { label:'Expired Date',      field:'visaExpiredDate',  sortable:true,  datecol:true     },
