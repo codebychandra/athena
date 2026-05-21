@@ -3032,54 +3032,31 @@ pages.housing = async function () {
     housingAvailability: housingOpts,
   };
 
-  const stickyTh = `background:var(--bg-page,#f5f5f5);position:sticky;z-index:2;box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);`;
-
   const thRow = HOUSING_TABLE_COLS.map(c =>
-    `<th data-hfield="${c.field}" class="${c.sortable?'sortable':''}"
-      style="white-space:nowrap;padding:10px 12px;font-size:11px;font-weight:700;
-        text-transform:uppercase;letter-spacing:0.06em;cursor:${c.sortable?'pointer':'default'};
-        top:0;${stickyTh}">
-      ${c.label}${c.sortable?' <span class="sort-arrow" style="opacity:0.4;">↕</span>':''}
-    </th>`
-  ).join('') + `<th style="width:40px;top:0;${stickyTh}"></th>`;
+    c.sortable
+      ? `<th data-hfield="${c.field}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${c.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th style="white-space:nowrap;">${c.label}</th>`
+  ).join('') + '<th style="width:40px;"></th>';
 
   const cfRow = HOUSING_TABLE_COLS.map(c => {
-    const opts      = cfDropdowns[c.field];
-    const cellStyle = `padding:4px 8px;top:36px;${stickyTh}`;
-    if (opts) return `<th style="${cellStyle}">
-      <select class="req-cf hcf-sel" data-hfield="${escH(c.field)}"
-        style="width:100%;padding:3px 4px;border:1px solid var(--border,#ddd);border-radius:5px;
-          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
-        <option value="">All</option>
-        ${opts.map(o=>`<option value="${escH(o)}">${escH(o)}</option>`).join('')}
-      </select></th>`;
-    return `<th style="${cellStyle}">
-      <input class="req-cf hcf-inp" data-hfield="${escH(c.field)}" placeholder="Filter…"
-        style="width:100%;padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
-          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
-    </th>`;
-  }).join('') + `<th style="top:36px;${stickyTh}"></th>`;
+    const opts = cfDropdowns[c.field];
+    return `<th>${opts
+      ? `<select class="req-cf hcf-sel" data-hfield="${escH(c.field)}"><option value="">All</option>${opts.map(o=>`<option value="${escH(o)}">${escH(o)}</option>`).join('')}</select>`
+      : `<input class="req-cf hcf-inp req-col-f" data-hfield="${escH(c.field)}" type="text" placeholder="—">`
+    }</th>`;
+  }).join('') + '<th></th>';
 
   return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${DIVISION_COLORS.j1}">
-        <h1>Housing</h1>
-        <p class="subtitle">Host-company approved · ${total} participants</p>
-      </div>
+    <div class="req-page-header">
+      <h1>Housing</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">${total} host-company approved participants</span>
     </div>
 
-    ${errorMsg && !allRows.length ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
-      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
-      border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:18px;">${authErr ? '🔑' : '⚠️'}</span>
-      <div>
-        <div style="font-size:13px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr ? 'Server not connected' : 'Housing data unavailable'}
-        </div>
-        <div style="font-size:12px;color:var(--text-secondary,#555);">${errorMsg}</div>
-      </div>
-    </div>` : ''}
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
 
     <!-- KPI Widgets -->
     <div class="req-kpi-grid" style="grid-template-columns:repeat(5,1fr);">
@@ -3133,7 +3110,7 @@ pages.housing = async function () {
     </div>
 
     <!-- Table -->
-    <div class="card req-table-card" style="margin-top:12px;">
+    <div class="card req-table-card">
       <div class="req-table-outer">
         <table id="housingMainTable">
           <thead>
@@ -3268,7 +3245,8 @@ pageEvents.housing = function () {
     });
     document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el => el.value = '');
     _housingSortCol = null; _housingSortDir = 'asc';
-    document.querySelectorAll('#housingSortRow .sort-arrow').forEach(a => a.textContent='↕');
+    document.querySelectorAll('#housingSortRow .req-sort-icon').forEach(a => a.textContent='⇅');
+    document.querySelectorAll('#housingSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
     refresh();
   });
 
@@ -3278,9 +3256,11 @@ pageEvents.housing = function () {
     const field = th.dataset.hfield;
     if (_housingSortCol === field) _housingSortDir = _housingSortDir === 'asc' ? 'desc' : 'asc';
     else { _housingSortCol = field; _housingSortDir = 'asc'; }
-    document.querySelectorAll('#housingSortRow .sort-arrow').forEach(a => a.textContent='↕');
-    const arrow = th.querySelector('.sort-arrow');
-    if (arrow) arrow.textContent = _housingSortDir === 'asc' ? '↑' : '↓';
+    document.querySelectorAll('#housingSortRow .req-sort-icon').forEach(a => a.textContent='⇅');
+    document.querySelectorAll('#housingSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
+    const icon = th.querySelector('.req-sort-icon');
+    if (icon) icon.textContent = _housingSortDir === 'asc' ? '↑' : '↓';
+    th.classList.add(_housingSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc');
     refresh();
   });
 
