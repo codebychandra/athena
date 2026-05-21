@@ -3451,9 +3451,9 @@ const TRAVEL_DEP_COLS = [
   { label:'Trip',            field:'_trip',            sortable:false },
   { label:'Departure Date',  field:'departureDate',    sortable:true,  datecol:true },
   { label:'Arrival Date',    field:'arrivalDate',      sortable:true,  datecol:true },
-  { label:'Airport Pick-Up', field:'airportPickup',    sortable:true  },
   { label:'Airline',         field:'airline',          sortable:true  },
   { label:'PNR Number',      field:'pnrNumber',        sortable:true  },
+  { label:'Airport Pick-Up', field:'airportPickup',    sortable:true  },
 ];
 const TRAVEL_RET_COLS = [
   { label:'J1 App Status',    field:'placementStatus',    sortable:true,  statusbadge:true },
@@ -3488,7 +3488,25 @@ pages.travel = async function () {
     r.hostCompany && r.hostCompany !== '—' &&
     r.hcInterviewStatus === 'Approved'
   );
-  state.dataCache['travel-rows'] = allRows;
+
+  // Tab-specific row sets
+  const depRows = allRows.filter(r => r.programStart && r.programStart !== '—');
+  const retRows = allRows.filter(r => r.programEnd   && r.programEnd   !== '—');
+  state.dataCache['travel-rows']     = allRows;
+  state.dataCache['travel-dep-rows'] = depRows;
+  state.dataCache['travel-ret-rows'] = retRows;
+
+  // Initial KPI counts (unfiltered)
+  function _trvTicketCounts(arr, field) {
+    return {
+      total:     arr.length,
+      issued:    arr.filter(r => normalizeFlightStatus(r[field]) === 'Issued').length,
+      requested: arr.filter(r => normalizeFlightStatus(r[field]) === 'Requested').length,
+      noTicket:  arr.filter(r => normalizeFlightStatus(r[field]) === 'No Ticket').length,
+    };
+  }
+  const depKpi = _trvTicketCounts(depRows, 'flightBooked');
+  const retKpi = _trvTicketCounts(retRows, 'returnFlightStatus');
 
   const total   = allRows.length;
   const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
@@ -3564,6 +3582,28 @@ pages.travel = async function () {
       <span id="travelCount" class="req-count-badge">${total} participants</span>
     </div>
 
+    <!-- KPI Widgets -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0;">
+      <div class="card" style="padding:16px 20px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-bottom:12px;letter-spacing:0.05em;text-transform:uppercase;">✈️ Departure Ticket</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div class="req-kpi-card"><div class="req-kpi-label">Total</div><div class="req-kpi-value" id="depKpiTotal">${depKpi.total}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Issued</div><div class="req-kpi-value" id="depKpiIssued">${depKpi.issued}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Requested</div><div class="req-kpi-value" id="depKpiRequested">${depKpi.requested}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Unassigned</div><div class="req-kpi-value" id="depKpiNoTicket">${depKpi.noTicket}</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px 20px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-bottom:12px;letter-spacing:0.05em;text-transform:uppercase;">🏠 Return Ticket</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div class="req-kpi-card"><div class="req-kpi-label">Total</div><div class="req-kpi-value" id="retKpiTotal">${retKpi.total}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Issued</div><div class="req-kpi-value" id="retKpiIssued">${retKpi.issued}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Requested</div><div class="req-kpi-value" id="retKpiRequested">${retKpi.requested}</div></div>
+          <div class="req-kpi-card"><div class="req-kpi-label">Unassigned</div><div class="req-kpi-value" id="retKpiNoTicket">${retKpi.noTicket}</div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab bar -->
     <div class="par-tab-bar">
       <button class="par-tab active" data-travel-tab="departure">✈️ Departure Ticket</button>
@@ -3590,7 +3630,9 @@ pages.travel = async function () {
 
 // ── Travel page events ────────────────────────────────────────
 pageEvents.travel = function () {
-  const allRows = state.dataCache['travel-rows'] || [];
+  const allRows    = state.dataCache['travel-rows']     || [];
+  const depAllRows = state.dataCache['travel-dep-rows'] || [];
+  const retAllRows = state.dataCache['travel-ret-rows'] || [];
 
   function fmtDate(v) {
     if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
@@ -3654,6 +3696,33 @@ pageEvents.travel = function () {
 
   let colFilters = {};
 
+  function updateKpis(gSt, gSrc, gSp) {
+    function applyGlobal(rows) {
+      let r = [...rows];
+      if (gSt)  r = r.filter(x => x.placementStatus   === gSt);
+      if (gSrc) r = r.filter(x => x.programSource     === gSrc);
+      if (gSp)  r = r.filter(x => x.processingSponsor === gSp);
+      return r;
+    }
+    function counts(rows, field) {
+      return {
+        total:     rows.length,
+        issued:    rows.filter(r => normalizeFlightStatus(r[field]) === 'Issued').length,
+        requested: rows.filter(r => normalizeFlightStatus(r[field]) === 'Requested').length,
+        noTicket:  rows.filter(r => normalizeFlightStatus(r[field]) === 'No Ticket').length,
+      };
+    }
+    const dc = counts(applyGlobal(depAllRows), 'flightBooked');
+    const rc = counts(applyGlobal(retAllRows), 'returnFlightStatus');
+    const upd = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    upd('depKpiTotal', dc.total);  upd('depKpiIssued', dc.issued);  upd('depKpiRequested', dc.requested);  upd('depKpiNoTicket', dc.noTicket);
+    upd('retKpiTotal', rc.total);  upd('retKpiIssued', rc.issued);  upd('retKpiRequested', rc.requested);  upd('retKpiNoTicket', rc.noTicket);
+  }
+
+  function getTabRows() {
+    return _travelActiveTab === 'departure' ? depAllRows : retAllRows;
+  }
+
   function applyFilters() {
     const cols      = getCols();
     const gSt       = document.getElementById('travelStatusFilter')?.value  || '';
@@ -3661,7 +3730,7 @@ pageEvents.travel = function () {
     const gSp       = document.getElementById('travelSponsorFilter')?.value || '';
     const ticketVal = ticketSel?.value || '';
     const ticketFld = getTicketField();
-    let filtered    = [...allRows];
+    let filtered    = [...getTabRows()];
 
     if (gSt)  filtered = filtered.filter(r => r.placementStatus   === gSt);
     if (gSrc) filtered = filtered.filter(r => r.programSource     === gSrc);
@@ -3721,9 +3790,12 @@ pageEvents.travel = function () {
           color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
       : filtered.map(r => buildRow(r, cols)).join('');
 
-    if (countEl) countEl.textContent = filtered.length === allRows.length
-      ? `${allRows.length} participants`
-      : `${filtered.length} of ${allRows.length}`;
+    const tabBase = getTabRows();
+    if (countEl) countEl.textContent = filtered.length === tabBase.length
+      ? `${tabBase.length} participants`
+      : `${filtered.length} of ${tabBase.length}`;
+
+    updateKpis(gSt, gSrc, gSp);
   }
 
   function attachSortListeners() {
