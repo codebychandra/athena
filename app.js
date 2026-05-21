@@ -906,7 +906,25 @@ pages.j1visa = async function () {
       : `<th style="white-space:nowrap;">${col.label}</th>`
   ).join('') + '<th style="width:52px;"></th>';
 
-  const cfDropdowns = { visaStatus: visaStatuses, country: countries };
+  const sources    = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const placStats  = [...new Set(allRows.map(r=>r.placementStatus).filter(v=>v&&v!=='—'))].sort();
+  const refLetters = [...new Set(allRows.map(r=>r.refLetterStatus).filter(v=>v&&v!=='—'))].sort();
+  const visaEligSet = new Set();
+  allRows.forEach(r => {
+    if (r.eligiblePrograms && r.eligiblePrograms !== '—')
+      r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) visaEligSet.add(t); });
+  });
+  const visaEligOpts = [...visaEligSet].sort();
+
+  const cfDropdowns = {
+    placementStatus:  placStats,
+    programSource:    sources,
+    eligiblePrograms: visaEligOpts,
+    country:          countries,
+    processingSponsor:sponsors,
+    visaStatus:       visaStatuses,
+    refLetterStatus:  refLetters,
+  };
   const thFilter = VISA_TABLE_COLS.map(col => {
     if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;">
       <div style="display:flex;gap:2px;align-items:center;">
@@ -1102,7 +1120,12 @@ pageEvents.j1visa = function () {
         if (gYear  !== '' && d.getFullYear() !== parseInt(gYear))  return false;
       }
       for (const [f, fv] of Object.entries(colF)) {
-        if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+        if (f === 'eligiblePrograms') {
+          const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim().toLowerCase());
+          if (!progs.some(p => p.includes(fv))) return false;
+        } else {
+          if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+        }
       }
       for (const [field, { cond, val }] of Object.entries(dateColF)) {
         const rd = parseDateStr(String(r[field] || ''));
