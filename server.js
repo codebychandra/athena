@@ -396,96 +396,6 @@ async function allViewsList(headers, workspaces) {
   return list;
 }
 
-// ── Zoho Sheet helper — fetch all rows from a named worksheet ──────────────
-// Paginates using start_row_index + row_count until all rows are loaded.
-async function fetchSheetRecords(resourceId, sheetName) {
-  const token    = await ensureValidToken();
-  let allRows    = [];
-  let startIdx   = 0;
-  const pageSize = 1000;
-
-  while (true) {
-    // Zoho Sheet API v2 requires POST with application/x-www-form-urlencoded body
-    const body = new URLSearchParams();
-    body.set('method',          'worksheet.records.fetch');
-    body.set('worksheet_name',  sheetName);
-    body.set('header_row',      '1');
-    body.set('start_row_index', String(startIdx));
-    body.set('row_count',       String(pageSize));
-
-    const r    = await axios.post(`${ZOHO_SHEET}/${resourceId}`, body.toString(), {
-      headers: {
-        Authorization:  `Zoho-oauthtoken ${token}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      }
-    });
-
-    if (r.data?.status === 'failure') {
-      throw new Error(`Sheet API error ${r.data.error_code}: ${r.data.error_message}`);
-    }
-
-    // Zoho Sheet returns records as a plain array (not records.row)
-    const raw  = r.data?.records;
-    const page = Array.isArray(raw) ? raw : (raw?.row || []);
-    allRows    = allRows.concat(page);
-    if (page.length < pageSize) break;   // last page
-    startIdx  += pageSize;
-  }
-
-  if (!allRows.length) return { columns: [], rows: [] };
-
-  // Exclude Zoho's auto-added meta keys
-  const SKIP_KEYS = new Set(['No.', 'row_index', 'ROWNO']);
-  const columns   = Object.keys(allRows[0]).filter(k => !SKIP_KEYS.has(k));
-  const dataRows  = allRows.map(row => columns.map(col => String(row[col] ?? '')));
-  return { columns, rows: dataRows };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// J1 PLACEMENT — source: Zoho Sheet "J1 Placement Report"
-// https://sheet.zoho.com/sheet/open/l9728edc6734e53cd4bf0a5566639f8a90b48
-// ─────────────────────────────────────────────────────────────────────────────
-const PLACEMENT_SHEET_ID   = process.env.PLACEMENT_SHEET_ID   || 'l9728edc6734e53cd4bf0a5566639f8a90b48';
-const PLACEMENT_SHEET_NAME = process.env.PLACEMENT_SHEET_NAME || 'Placement';   // exact tab name (case-sensitive)
-
-app.get('/api/zoho/j1-placements', async (req, res) => {
-  try {
-    const cached = getCached('j1-placements');
-    if (cached) return res.json(cached);
-    const data = await fetchSheetRecords(PLACEMENT_SHEET_ID, PLACEMENT_SHEET_NAME);
-    console.log(`✅ J1 Placements (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
-    const payload = { source: 'zoho-sheet', view: PLACEMENT_SHEET_NAME, data };
-    setCached('j1-placements', payload);
-    res.json(payload);
-  } catch (err) {
-    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error('J1 Placements fetch error:', err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// J1 VISA — source: Zoho Sheet "J1 Visa Log"
-// https://sheet.zoho.com/sheet/open/2lr3n52a29b81f88c47618df49092afd2b286
-// ─────────────────────────────────────────────────────────────────────────────
-const VISA_SHEET_ID   = process.env.VISA_SHEET_ID   || '2lr3n52a29b81f88c47618df49092afd2b286';
-const VISA_SHEET_NAME = process.env.VISA_SHEET_NAME || 'J1 Visa Log';   // exact tab name (case-sensitive)
-
-app.get('/api/zoho/j1-visa', async (req, res) => {
-  try {
-    const cached = getCached('j1-visa');
-    if (cached) return res.json(cached);
-    const data = await fetchSheetRecords(VISA_SHEET_ID, VISA_SHEET_NAME);
-    console.log(`✅ J1 Visa (Sheet): ${data.rows.length} rows, ${data.columns.length} cols`);
-    const payload = { source: 'zoho-sheet', view: VISA_SHEET_NAME, data };
-    setCached('j1-visa', payload);
-    res.json(payload);
-  } catch (err) {
-    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error('J1 Visa fetch error:', err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
-  }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // J1 REQUISITION — source: Zoho Recruit "Job_Openings" module
@@ -540,134 +450,6 @@ app.get('/api/zoho/j1-requisition', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// J1 TRAVEL — source: Zoho Recruit "J1_Participants" module
-// Filter: J1_Application_Status IN ('Stage 4','USA Onboard','Program Completed')
-//         AND Processing_Sponsor IS NOT NULL/empty
-// Sort:   Program_Start_Date DESC
-// ─────────────────────────────────────────────────────────────────────────────
-
-const J1_TRAVEL_INCLUDE = new Set(['Stage 4', 'USA Onboard', 'Program Completed']);
-
-// Column display map: [display label, getter from mapRecruitRecord result]
-const TRAVEL_COL_MAP = [
-  ['J1 Application Status',       r => r.placementStatus],
-  ['J1 Program Sources',          r => r.programSource],
-  ['Full Name',                   r => r.name],
-  ['Email',                       r => r.email],
-  ['Selected Job',                r => r.selectedJob],
-  ['Program Start Date',          r => r.programStart   || ''],
-  ['Program End Date',            r => r.programEnd     || ''],
-  ['Processing Sponsor',          r => r.processingSponsor],
-  ['Hosting Company',             r => r.hostCompany],
-  ['Trip From',                   r => r.tripFrom],
-  ['Trip To',                     r => r.tripTo],
-  ['Departure Date',              r => r.departureDate  || ''],
-  ['Arrival Date',                r => r.arrivalDate    || ''],
-  ['Airport Gateway',             r => r.airportGateway],
-  ['Airport Pick-Up',             r => r.airportPickup],
-  ['Flight Ticket Status',        r => r.flightBooked],
-  ['Ticket Pricing',              r => r.ticketPricing != null ? String(r.ticketPricing) : ''],
-  ['Ticket Payment Method',       r => r.ticketPayMethod],
-  ['Ticket Payment Status',       r => r.ticketPayStatus],
-  ['Airline',                     r => r.airline],
-  ['Airline PNR Number',          r => r.pnrNumber],
-  ['Transportation Cost',         r => r.transportCost != null ? String(r.transportCost) : ''],
-  ['Return Trip From',            r => r.returnTripFrom],
-  ['Return Trip To',              r => r.returnTripTo],
-  ['Return Airport Gateway',      r => r.returnGateway],
-  ['Return Departure Date',       r => r.returnDeparture || ''],
-  ['Return Arrival Date',         r => r.returnArrival   || ''],
-  ['Return Flight Ticket Status', r => r.returnFlightStatus],
-  ['Return Ticket Price',         r => r.returnTicketPrice != null ? String(r.returnTicketPrice) : ''],
-  ['Return Ticket Payment Status',r => r.returnTicketPayStatus],
-  ['Return Airline',              r => r.returnAirline],
-  ['Return Airline PNR Number',   r => r.returnPNR],
-  ['Return Transportation Cost',  r => r.returnTransportCost != null ? String(r.returnTransportCost) : ''],
-];
-
-app.get('/api/zoho/j1-travel', async (req, res) => {
-  try {
-    const cached = getCached('j1-travel');
-    if (cached) return res.json(cached);
-
-    const fields  = Object.values(RECRUIT_FIELDS).join(',');
-    const module  = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
-    const records = await fetchAllPages(recruitGet, module, fields);
-    const allRecs = records.map(mapRecruitRecord);
-
-    // Filter: status IN ('Stage 4','USA Onboard','Program Completed') AND sponsor set
-    const filtered = allRecs.filter(r =>
-      J1_TRAVEL_INCLUDE.has(r.placementStatus) &&
-      r.processingSponsor && r.processingSponsor !== '—'
-    );
-
-    // Sort: programStart DESC
-    filtered.sort((a, b) => String(b.programStart || '').localeCompare(String(a.programStart || '')));
-
-    const columns = TRAVEL_COL_MAP.map(([label]) => label);
-    const rows    = filtered.map(r => TRAVEL_COL_MAP.map(([, get]) => String(get(r) ?? '')));
-
-    console.log(`✅ J1 Travel (Recruit): ${rows.length}/${allRecs.length} participants, ${columns.length} cols`);
-    const payload = { source: 'zoho-recruit', view: 'J1 Participants', data: { columns, rows } };
-    setCached('j1-travel', payload);
-    res.json(payload);
-  } catch (err) {
-    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error('J1 Travel fetch error:', err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
-  }
-});
-
-// (Legacy Analytics endpoints retained below for reference — no longer used by dashboard)
-app.get('/api/zoho/j1-travel-analytics-legacy', async (req, res) => {
-  try {
-    const token      = await ensureValidToken();
-    const headers    = await zohoHeaders(token);
-    const workspaces = await getAllWorkspaces(token);
-    if (!workspaces.length) return res.status(404).json({ error: 'No workspaces found' });
-
-    const found = await findZohoView(headers, workspaces, v =>
-      v.viewName === 'J1 Participants' ||
-      v.viewName.toLowerCase().includes('j1 participant')
-    );
-    if (!found) return res.status(404).json({ error: 'J1 Participants table not found' });
-
-    const raw     = await fetchViewData(found.ws.workspaceId, found.view.viewId, headers);
-    const allData = typeof raw === 'string' ? parseCSV(raw) : (raw?.columns ? raw : parseCSV(String(raw || '')));
-    const allCols = allData.columns || [];
-    const allRows = allData.rows    || [];
-
-    // WHERE "J1 Application Status" IN ('Stage 4','USA Onboard','Program Completed')
-    //   AND "Processing Sponsor" IS NOT NULL AND TRIM("Processing Sponsor") <> ''
-    const appIdx      = allCols.indexOf('J1 Application Status');
-    const sponsorIdx  = allCols.indexOf('Processing Sponsor');
-    const filtered    = allRows.filter(r => {
-      const appStatus = String(r[appIdx]     ?? '').trim();
-      const sponsor   = String(r[sponsorIdx] ?? '').trim();
-      return J1_TRAVEL_INCLUDE.has(appStatus) && sponsor !== '';
-    });
-
-    // ORDER BY "Program Start Date" DESC
-    const startIdx = allCols.indexOf('Program Start Date');
-    filtered.sort((a, b) =>
-      String(b[startIdx] ?? '').localeCompare(String(a[startIdx] ?? ''))
-    );
-
-    // SELECT only the columns defined in the QueryTable SQL
-    const showIdx = J1_TRAVEL_SHOW_COLS.map(c => allCols.indexOf(c));
-    const columns = J1_TRAVEL_SHOW_COLS.filter((_, i) => showIdx[i] >= 0);
-    const validIdx = showIdx.filter(i => i >= 0);
-    const rows = filtered.map(r => validIdx.map(i => String(r[i] ?? '')));
-
-    console.log(`✅ J1 Travel: ${rows.length}/${allRows.length} participants (${allRows.length - rows.length} excluded), ${columns.length} cols`);
-    res.json({ source: 'zoho', workspace: found.ws.workspaceName, view: 'J1 Travel', data: { columns, rows } });
-  } catch (err) {
-    const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error('J1 Travel fetch error:', err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
-  }
-});
 
 // Generic view data fetch by IDs (uses fetchViewData for async-export support)
 app.get('/api/zoho/workspaces/:wsId/views/:viewId/data', async (req, res) => {
@@ -1254,56 +1036,6 @@ app.get('/api/all-participants', async (req, res) => {
   }
 });
 
-// ============================
-// SOCIAL MEDIA DISCLOSURE — save to Excel
-// ============================
-const XLSX       = require('xlsx');
-const EXCEL_FILE = path.join(__dirname, 'social_media_disclosures.xlsx');
-
-function getOrCreateWorkbook() {
-  if (fs.existsSync(EXCEL_FILE)) {
-    return XLSX.readFile(EXCEL_FILE);
-  }
-  const wb = XLSX.utils.book_new();
-  const headers = [
-    'Submitted At','First Name','Last Name','Email','Phone','Nationality',
-    'Hosting Company','Program Start','Program End',
-    'Platform','Username',
-    'Privacy Setting','Confirmed Accurate','No Prohibited Content',
-    'Terms Agreed','Typed Signature'
-  ];
-  const ws = XLSX.utils.aoa_to_sheet([headers]);
-  ws['!cols'] = headers.map(() => ({ wch: 22 }));
-  XLSX.utils.book_append_sheet(wb, ws, 'Disclosures');
-  XLSX.writeFile(wb, EXCEL_FILE);
-  return wb;
-}
-
-app.post('/api/social-media-disclosure', (req, res) => {
-  try {
-    const d   = req.body;
-    const wb  = getOrCreateWorkbook();
-    const ws  = wb.Sheets['Disclosures'];
-    const row = [
-      new Date().toLocaleString(),
-      d.firstName, d.lastName, d.email, d.phone, d.nationality,
-      d.hostingCompany, d.startDate, d.endDate,
-      d.platform, d.username,
-      d.privacySetting,
-      d.confirmedAccurate ? 'Yes' : 'No',
-      d.noProhibitedContent ? 'Yes' : 'No',
-      d.termsAgreed ? 'Yes' : 'No',
-      d.signature
-    ];
-    XLSX.utils.sheet_add_aoa(ws, [row], { origin: -1 });
-    XLSX.writeFile(wb, EXCEL_FILE);
-    console.log(`📋 Social media disclosure saved — ${d.firstName} ${d.lastName}`);
-    res.json({ success: true, message: 'Disclosure submitted successfully.' });
-  } catch (err) {
-    console.error('Disclosure save error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // ── Cache clear (force immediate re-fetch from Zoho) ──────────────────────────
 app.get('/api/cache/clear', (req, res) => {
@@ -1312,70 +1044,6 @@ app.get('/api/cache/clear', (req, res) => {
   res.json({ success: true, message: 'Cache cleared — next request will fetch fresh data from Zoho' });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAKE SNAPSHOT — fetch all 4 live endpoints → write offline data to data.js
-// Visit http://localhost:3000/api/make-snapshot to regenerate GitHub Pages data
-// ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/make-snapshot', async (req, res) => {
-  try {
-    const today   = new Date().toISOString().slice(0, 10);
-    const port    = process.env.PORT || 3000;
-    const base    = `http://localhost:${port}`;
-    const report  = {};
-
-    // Fetch all 4 data endpoints in parallel
-    const [travelRes, reqRes, visaRes, placementRes] = await Promise.allSettled([
-      axios.get(`${base}/api/zoho/j1-travel`,       { timeout: 120000 }),
-      axios.get(`${base}/api/zoho/j1-requisition`,  { timeout: 60000  }),
-      axios.get(`${base}/api/zoho/j1-visa`,         { timeout: 60000  }),
-      axios.get(`${base}/api/zoho/j1-placements`,   { timeout: 60000  }),
-    ]);
-
-    // Map: JS variable name → fetched { columns, rows } data
-    const snapshots = [
-      { varName: 'J1_TRAVEL_OFFLINE_DATA',      result: travelRes      },
-      { varName: 'J1_REQUISITION_OFFLINE_DATA',  result: reqRes         },
-      { varName: 'J1_VISA_OFFLINE_DATA',         result: visaRes        },
-      { varName: 'J1_PLACEMENT_OFFLINE_DATA',    result: placementRes   },
-    ];
-
-    const dataJsPath = path.join(__dirname, 'data.js');
-    let content = fs.readFileSync(dataJsPath, 'utf8');
-
-    for (const { varName, result } of snapshots) {
-      if (result.status !== 'fulfilled') {
-        report[varName] = `SKIPPED — fetch failed: ${result.reason?.message}`;
-        continue;
-      }
-      const data = result.value?.data?.data;   // { columns, rows }
-      if (!data?.rows?.length) {
-        report[varName] = 'SKIPPED — no rows returned';
-        continue;
-      }
-
-      const json     = JSON.stringify(data);
-      const newBlock = `window.${varName} = ${json};`;
-
-      // Replace existing assignment (single-line or multi-line object)
-      const regex = new RegExp(`window\\.${varName}\\s*=[\\s\\S]+?;(?=\\s*\\n|\\s*$)`);
-      if (regex.test(content)) {
-        content = content.replace(regex, newBlock);
-        report[varName] = `updated — ${data.rows.length} rows`;
-      } else {
-        content += `\n// ${varName} snapshot (auto-generated ${today})\n${newBlock}\n`;
-        report[varName] = `appended — ${data.rows.length} rows`;
-      }
-    }
-
-    fs.writeFileSync(dataJsPath, content, 'utf8');
-    console.log(`✅ Snapshot written to data.js on ${today}`, report);
-    res.json({ success: true, date: today, snapshots: report });
-
-  } catch (err) {
-    console.error('make-snapshot error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // ============================
 // DISCOVERY ENDPOINTS
@@ -1586,7 +1254,7 @@ app.get('/api/discover/sheets/:resource_id/worksheets', async (req, res) => {
 });
 
 // ── GET /api/discover ─────────────────────────────────────────────────────
-// Full account discovery — all modules + all sheet tabs in one call
+// Full account discovery — all modules + spreadsheets in one call
 app.get('/api/discover', async (req, res) => {
   try {
     const token = await ensureValidToken();
@@ -1594,14 +1262,11 @@ app.get('/api/discover', async (req, res) => {
     const [
       recruitModRes, crmModRes,
       spreadsheetRes, workdriveRes,
-      visaWsRes, placementWsRes,
     ] = await Promise.allSettled([
       listRecruitModules(token),
       listCRMModules(token),
       listAllSpreadsheets(token),
       listWorkDriveSheets(token),
-      listWorksheets(token, VISA_SHEET_ID),
-      listWorksheets(token, PLACEMENT_SHEET_ID),
     ]);
 
     const ok = r => r.status === 'fulfilled' ? r.value : { error: r.reason?.response?.data || r.reason?.message };
@@ -1619,18 +1284,6 @@ app.get('/api/discover', async (req, res) => {
       sheets: {
         allSpreadsheets: ok(spreadsheetRes),
         workdrive:       ok(workdriveRes),
-        knownSheets: {
-          visa: {
-            resource_id: VISA_SHEET_ID,
-            env_tab:     VISA_SHEET_NAME,
-            worksheets:  ok(visaWsRes),
-          },
-          placement: {
-            resource_id: PLACEMENT_SHEET_ID,
-            env_tab:     PLACEMENT_SHEET_NAME,
-            worksheets:  ok(placementWsRes),
-          },
-        },
       },
     };
 
