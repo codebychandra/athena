@@ -2001,9 +2001,14 @@ thead th.sortable:hover {
   font-size: 11px;
   min-width: 900px;
 }
+.req-table-outer thead {
+  /* Ensures the entire header group always paints above tbody rows during scroll */
+  position: relative;
+  z-index: 5;
+}
 .req-table-outer thead th {
   position: sticky;
-  background-color: var(--bg-page);
+  background: var(--bg-page);
   font-size: 10px;
   padding: 7px 10px;
   white-space: nowrap;
@@ -2017,11 +2022,11 @@ thead th.sortable:hover {
 }
 .req-table-outer thead tr:nth-child(2) th {
   top: 31px; /* height of first header row (10px font × 1.4 lh + 7+7 padding + 1 border) */
-  background-color: var(--bg-card);
+  background: var(--bg-card) !important;
   padding: 3px 5px;
   border-bottom: 2px solid var(--border);
   z-index: 4;
-  box-shadow: inset 0 0 0 999px var(--bg-card); /* force opaque cell */
+  box-shadow: inset 0 0 0 999px var(--bg-card) !important; /* force opaque cell */
 }
 .req-table-outer tbody td {
   padding: 6px 10px;
