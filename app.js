@@ -2513,10 +2513,16 @@ pages.talentpool = async function () {
       </div>
     </div>
 
-    <!-- Chart — full width -->
-    <div class="card req-chart-card">
-      <div class="req-chart-title">Talent Pool vs Remaining by Department</div>
-      <canvas id="tpDeptChart" style="height:300px;max-height:300px;"></canvas>
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card req-chart-card">
+        <div class="req-chart-title">Talent Pool vs Remaining by Department</div>
+        <canvas id="tpDeptChart" style="height:300px;max-height:300px;"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-chart-title">Sales Call by Department</div>
+        <canvas id="tpSalesCallChart" style="height:300px;max-height:300px;"></canvas>
+      </div>
     </div>
 
     <!-- Table -->
@@ -2611,9 +2617,10 @@ pageEvents.talentpool = function () {
 
   // ── Charts ────────────────────────────────────────────
   let _tpDeptChart = null;
+  let _tpSalesCallChart = null;
 
   function buildChartData(rows) {
-    // Dept stacked bar — use active requisitions for openings
+    // Chart 1 — Talent Pool vs Remaining stacked bar
     const deptPool = {}, deptOpen = {};
     rows.forEach(r => {
       const d = r.department || '—';
@@ -2627,17 +2634,35 @@ pageEvents.talentpool = function () {
       .sort((a,b) => (deptPool[b]||0) - (deptPool[a]||0)).slice(0, 12);
     const poolData   = allDepts.map(d => deptPool[d]  || 0);
     const remainData = allDepts.map(d => Math.max(0, (deptOpen[d]||0) - (deptPool[d]||0)));
-    return { allDepts, poolData, remainData };
+
+    // Chart 2 — Sales Call by Department
+    const scDept = {};
+    rows.filter(r => r.placementStatus === 'Sales Call').forEach(r => {
+      const d = r.department || '—';
+      if (d !== '—') scDept[d] = (scDept[d]||0) + 1;
+    });
+    const scDepts = Object.keys(scDept).sort((a,b) => scDept[b] - scDept[a]);
+    const scData  = scDepts.map(d => scDept[d]);
+
+    return { allDepts, poolData, remainData, scDepts, scData };
   }
 
   function initCharts(rows) {
-    const { allDepts, poolData, remainData } = buildChartData(rows);
+    const { allDepts, poolData, remainData, scDepts, scData } = buildChartData(rows);
     const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
     const tickColor = isDark ? '#888' : '#666';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
     const font      = { family: 'Inter, sans-serif', size: 11 };
+    const chartOpts = {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: tickColor, font, maxRotation: 45, minRotation: 30 }, grid: { display: false } },
+        y: { ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
+      },
+      datasets: { bar: { minBarLength: 4, barPercentage: 0.6, categoryPercentage: 0.75 } },
+    };
 
-    // Vertical stacked bar by Department — dept names on x-axis
+    // Chart 1 — Talent Pool vs Remaining stacked bar
     const deptCtx = document.getElementById('tpDeptChart');
     if (deptCtx) {
       if (_tpDeptChart) _tpDeptChart.destroy();
@@ -2652,7 +2677,7 @@ pageEvents.talentpool = function () {
           ],
         },
         options: {
-          responsive: true, maintainAspectRatio: false,
+          ...chartOpts,
           plugins: {
             legend: { position: 'bottom', labels: { font, boxWidth: 12, padding: 14 } },
             datalabels: {
@@ -2662,23 +2687,52 @@ pageEvents.talentpool = function () {
               anchor: 'center', align: 'center',
             },
           },
-          scales: {
-            x: { stacked: true, ticks: { color: tickColor, font, maxRotation: 45, minRotation: 30 }, grid: { display: false } },
-            y: { stacked: true, ticks: { display: false }, border: { display: false }, grid: { color: gridColor } },
+          scales: { ...chartOpts.scales, x: { ...chartOpts.scales.x, stacked: true }, y: { ...chartOpts.scales.y, stacked: true } },
+        },
+      });
+    }
+
+    // Chart 2 — Sales Call by Department
+    const scCtx = document.getElementById('tpSalesCallChart');
+    if (scCtx) {
+      if (_tpSalesCallChart) _tpSalesCallChart.destroy();
+      _tpSalesCallChart = new Chart(scCtx, {
+        type: 'bar',
+        plugins: [ChartDataLabels],
+        data: {
+          labels: scDepts,
+          datasets: [
+            { label: 'Sales Call', data: scData, backgroundColor: '#7C3AED' },
+          ],
+        },
+        options: {
+          ...chartOpts,
+          plugins: {
+            legend: { display: false },
+            datalabels: {
+              color: '#fff',
+              font: { size: 10, weight: '700' },
+              formatter: v => v > 0 ? v : '',
+              anchor: 'center', align: 'center',
+            },
           },
-          datasets: { bar: { minBarLength: 4, barPercentage: 0.6, categoryPercentage: 0.75 } },
         },
       });
     }
   }
 
   function updateCharts(rows) {
-    const { allDepts, poolData, remainData } = buildChartData(rows);
+    const { allDepts, poolData, remainData, scDepts, scData } = buildChartData(rows);
     if (_tpDeptChart) {
       _tpDeptChart.data.labels           = allDepts;
       _tpDeptChart.data.datasets[0].data = poolData;
       _tpDeptChart.data.datasets[1].data = remainData;
       _tpDeptChart.update();
+    }
+    if (_tpSalesCallChart) {
+      _tpSalesCallChart.data.labels           = scDepts;
+      _tpSalesCallChart.data.datasets[0].data = scData;
+      _tpSalesCallChart.update();
     }
   }
 
