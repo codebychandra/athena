@@ -3021,11 +3021,13 @@ pages.housing = async function () {
   const sources     = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
   const sponsors    = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
   const housingOpts = [...new Set(allRows.map(r=>r.housingAvailability).filter(v=>v&&v!=='—'))].sort();
+  const countries   = [...new Set(allRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
 
   // — Column filter dropdowns —
   const cfDropdowns = {
     placementStatus:     [...PAR_STATUSES],
     programSource:       sources,
+    country:             countries,
     processingSponsor:   sponsors,
     housingAvailability: housingOpts,
   };
@@ -3109,34 +3111,25 @@ pages.housing = async function () {
     </div>
 
     <!-- Global filters (sticky) -->
-    <div class="req-global-filter" style="position:sticky;top:0;z-index:20;
-      background:var(--bg-page,#f5f5f5);padding:10px 0;margin-bottom:0;
-      border-bottom:1px solid var(--border,#e5e7eb);">
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
-
-        <select id="hsgStatusFilter" class="req-gsel">
-          <option value="">All J1 Statuses</option>
-          ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-        </select>
-
-        <select id="hsgSourceFilter" class="req-gsel">
-          <option value="">All Sources</option>
-          ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-        </select>
-
-        <select id="hsgSponsorFilter" class="req-gsel">
-          <option value="">All Sponsors</option>
-          ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-        </select>
-
-        <select id="hsgHousingFilter" class="req-gsel">
-          <option value="">All Housing</option>
-          ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-        </select>
-
-        <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
-        <span id="hsgCount" class="req-count-badge">${total} participants</span>
-      </div>
+    <div class="card req-filter-bar">
+      <select id="hsgStatusFilter" class="req-gsel">
+        <option value="">All J1 Statuses</option>
+        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgSourceFilter" class="req-gsel">
+        <option value="">All Sources</option>
+        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgHousingFilter" class="req-gsel">
+        <option value="">All Housing</option>
+        ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+      </select>
+      <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="hsgCount" class="req-count-badge">${total} participants</span>
     </div>
 
     <!-- Table -->
@@ -3175,7 +3168,7 @@ pageEvents.housing = function () {
     }
     if (col.housingbadge) return housingAvailBadge(v);
     if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
-    return `<span style="font-size:12px;">${escH(String(v))}</span>`;
+    return escH(String(v));
   }
 
   function doSort(rows) {
@@ -3216,9 +3209,9 @@ pageEvents.housing = function () {
     return rows.map((r, i) => `
       <tr style="cursor:pointer;">
         ${HOUSING_TABLE_COLS.map(col =>
-          `<td style="padding:6px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
+          `<td>${cellContent(r, col)}</td>`
         ).join('')}
-        <td style="padding:6px 6px;border-bottom:1px solid var(--border,#eee);text-align:center;">
+        <td style="text-align:center;">
           <button class="hsg-detail-btn" data-hsgidx="${allRows.indexOf(r)}"
             style="font-size:11px;padding:3px 10px;border-radius:6px;
               border:1px solid var(--border,#ddd);background:var(--bg-card,#fff);
