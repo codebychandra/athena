@@ -3058,6 +3058,28 @@ pages.housing = async function () {
       ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
+    <!-- Global filters (sticky) -->
+    <div class="card req-filter-bar">
+      <select id="hsgStatusFilter" class="req-gsel">
+        <option value="">All J1 Statuses</option>
+        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgSourceFilter" class="req-gsel">
+        <option value="">All Sources</option>
+        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="hsgHousingFilter" class="req-gsel">
+        <option value="">All Housing</option>
+        ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+      </select>
+      <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="hsgCount" class="req-count-badge">${total} participants</span>
+    </div>
+
     <!-- KPI Widgets -->
     <div class="req-kpi-grid" style="grid-template-columns:repeat(5,1fr);">
       <div class="req-kpi-card">
@@ -3085,28 +3107,6 @@ pages.housing = async function () {
         <span class="req-kpi-value" style="color:${remaining > 0 ? '#B01A18' : '#2D7A55'};" id="hsgKpiRemaining">${remaining.toLocaleString()}</span>
         <span class="req-kpi-sub">demand − open units</span>
       </div>
-    </div>
-
-    <!-- Global filters (sticky) -->
-    <div class="card req-filter-bar">
-      <select id="hsgStatusFilter" class="req-gsel">
-        <option value="">All J1 Statuses</option>
-        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgSourceFilter" class="req-gsel">
-        <option value="">All Sources</option>
-        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgHousingFilter" class="req-gsel">
-        <option value="">All Housing</option>
-        ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-      </select>
-      <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
-      <span id="hsgCount" class="req-count-badge">${total} participants</span>
     </div>
 
     <!-- Table -->
