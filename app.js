@@ -3460,8 +3460,8 @@ const TRAVEL_RET_COLS = [
   { label:'J1 Source',        field:'programSource',      sortable:true  },
   { label:'First Name',       field:'firstName',          sortable:true  },
   { label:'Last Name',        field:'lastName',           sortable:true  },
-  { label:'Return Ticket',    field:'returnFlightStatus', sortable:true,  flightbadge:true },
   { label:'Program End',      field:'programEnd',         sortable:true,  datecol:true },
+  { label:'Return Ticket',    field:'returnFlightStatus', sortable:true,  flightbadge:true },
   { label:'Return Trip',      field:'_returnTrip',        sortable:false },
   { label:'Return Departure', field:'returnDeparture',    sortable:true,  datecol:true },
   { label:'Return Arrival',   field:'returnArrival',      sortable:true,  datecol:true },
@@ -3492,6 +3492,10 @@ pages.travel = async function () {
 
   const total   = allRows.length;
   const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  // Global filter options
+  const trvSources  = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const trvSponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
 
   // Build thead HTML for both tab column sets
   function buildHeaders(cols) {
@@ -3537,6 +3541,18 @@ pages.travel = async function () {
 
     <!-- Filter Bar (sticky) -->
     <div class="card req-filter-bar">
+      <select id="travelStatusFilter" class="req-gsel">
+        <option value="">All J1 Statuses</option>
+        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="travelSourceFilter" class="req-gsel">
+        <option value="">All Sources</option>
+        ${trvSources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
+      <select id="travelSponsorFilter" class="req-gsel">
+        <option value="">All Sponsors</option>
+        ${trvSponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+      </select>
       <select id="travelTicketFilter" class="req-gsel">
         <option value="">All Ticket Statuses</option>
         <option value="No Ticket">No Ticket</option>
@@ -3640,10 +3656,16 @@ pageEvents.travel = function () {
 
   function applyFilters() {
     const cols      = getCols();
+    const gSt       = document.getElementById('travelStatusFilter')?.value  || '';
+    const gSrc      = document.getElementById('travelSourceFilter')?.value  || '';
+    const gSp       = document.getElementById('travelSponsorFilter')?.value || '';
     const ticketVal = ticketSel?.value || '';
     const ticketFld = getTicketField();
     let filtered    = [...allRows];
 
+    if (gSt)  filtered = filtered.filter(r => r.placementStatus   === gSt);
+    if (gSrc) filtered = filtered.filter(r => r.programSource     === gSrc);
+    if (gSp)  filtered = filtered.filter(r => r.processingSponsor === gSp);
     if (ticketVal) {
       filtered = filtered.filter(r => normalizeFlightStatus(r[ticketFld]) === ticketVal);
     }
@@ -3773,9 +3795,14 @@ pageEvents.travel = function () {
   document.querySelectorAll('.par-tab[data-travel-tab]').forEach(btn =>
     btn.addEventListener('click', () => switchTab(btn.dataset.travelTab)));
 
+  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', applyFilters));
   ticketSel?.addEventListener('change', applyFilters);
 
   clearBtn?.addEventListener('click', () => {
+    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
     if (ticketSel) ticketSel.value = '';
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
