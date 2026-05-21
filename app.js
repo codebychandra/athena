@@ -1902,10 +1902,11 @@ pages.participant = async function () {
   function normalizeRow(r) {
     return { ...r };
   }
+  const PAR_ACTIVE_STATUSES = new Set(PAR_STATUSES);
   const rawRows = [
     ...recruitRows.map(normalizeRow),
     ...crmRows.map(normalizeRow),
-  ];
+  ].filter(r => PAR_ACTIVE_STATUSES.has(r.placementStatus));
   state.dataCache['par-rows'] = rawRows;
   _parActiveTab = 'All';
 
