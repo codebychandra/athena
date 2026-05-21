@@ -867,7 +867,7 @@ pages.j1visa = async function () {
   // Filter: active status only + visa status not blank
   const _parActiveSet = new Set(PAR_STATUSES);
   const allRows = [...recruitRows, ...crmRows].filter(r =>
-    _parActiveSet.has(r.placementStatus) && r.visaStatus && r.visaStatus !== '—'
+    _parActiveSet.has(r.placementStatus) && r.visaAppointment && r.visaAppointment !== '—'
   );
   state.dataCache['visa-rows'] = allRows;
   _visaSortCol = null; _visaSortDir = 'asc';
@@ -930,7 +930,7 @@ pages.j1visa = async function () {
     <div class="req-page-header">
       <h1>Visa</h1>
       <span class="req-live-badge">● Live · Zoho Recruit</span>
-      <span class="req-page-sub">${totalVisa} participants with visa status</span>
+      <span class="req-page-sub">${totalVisa} participants with visa appointment</span>
     </div>
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
