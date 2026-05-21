@@ -716,12 +716,20 @@ function mapRecruitRecord(r) {
 function mapCRMRecord(r) {
   const CF = CRM_FIELDS;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '—');
+  // CRM custom modules often return Full_Name but leave Last_Name null —
+  // derive last name from Full_Name by removing the First_Name prefix
+  const fullN  = (r[CF.fullName]  || '').trim();
+  const firstN = (r[CF.firstName] || '').trim();
+  const lastN  = (r[CF.lastName]  || '').trim()
+    || (fullN && firstN && fullN.startsWith(firstN)
+        ? fullN.slice(firstN.length).trim()
+        : fullN.split(' ').slice(1).join(' ').trim());
   return {
     _source:                'crm',
     id:                     'crm_' + r.id,
-    name:                   r[CF.fullName] || [r[CF.firstName], r[CF.lastName]].filter(Boolean).join(' ') || '—',
-    firstName:              r[CF.firstName]              || '—',
-    lastName:               r[CF.lastName]               || '—',
+    name:                   fullN || [firstN, lastN].filter(Boolean).join(' ') || '—',
+    firstName:              firstN || '—',
+    lastName:               lastN  || '—',
     email:                  r[CF.email]                  || '—',
     country:                r[CF.country]                || '—',
     phone:                  r[CF.phone]                  || '—',
