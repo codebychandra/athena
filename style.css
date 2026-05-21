@@ -106,8 +106,20 @@ input, select, textarea { font-family: inherit; }
 
 .sidebar-brand {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+.sidebar-logo-svg {
+  flex-shrink: 0;
+  display: block;
+}
+.sidebar-brand-text {
+  display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
