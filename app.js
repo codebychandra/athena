@@ -3495,19 +3495,15 @@ pages.travel = async function () {
 
   // Build thead HTML for both tab column sets
   function buildHeaders(cols) {
-    const stickyTh = `background:var(--bg-page,#f5f5f5);position:sticky;z-index:2;box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);`;
     const th = cols.map(c =>
-      `<th data-travelfield="${c.field}" class="${c.sortable ? 'sortable' : ''}"
-        style="white-space:nowrap;padding:10px 12px;font-size:11px;font-weight:700;
-          text-transform:uppercase;letter-spacing:0.06em;cursor:${c.sortable?'pointer':'default'};
-          top:0;${stickyTh}">
-        ${c.label}${c.sortable ? ' <span class="sort-arrow" style="opacity:0.4;">↕</span>' : ''}
-      </th>`).join('');
+      c.sortable
+        ? `<th data-travelfield="${c.field}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${c.label} <span class="req-sort-icon">⇅</span></th>`
+        : `<th style="white-space:nowrap;">${c.label}</th>`
+    ).join('') + '<th style="width:40px;"></th>';
+
     const tf = cols.map(c => {
-      const skipField = c.field === '_trip' || c.field === '_returnTrip';
-      const cellStyle = `padding:4px 8px;top:36px;${stickyTh}`;
-      if (skipField) return `<th style="${cellStyle}"></th>`;
-      if (c.datecol) return `<th style="min-width:170px;padding:2px 4px;top:36px;${stickyTh}">
+      if (c.field === '_trip' || c.field === '_returnTrip') return `<th></th>`;
+      if (c.datecol) return `<th style="min-width:170px;padding:2px 4px;">
         <div style="display:flex;gap:2px;align-items:center;">
           <select class="req-cf req-cf-date-cond" data-travelcol="${c.field}"
             title="Before / On or Before / On / On or After / After"
@@ -3518,12 +3514,9 @@ pages.travel = async function () {
             style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
         </div>
       </th>`;
-      return `<th style="${cellStyle}">
-        <input data-travelcol="${c.field}" placeholder="Filter…" style="width:100%;
-          padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
-          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
-      </th>`;
-    }).join('');
+      return `<th><input class="req-cf req-col-f" data-travelcol="${c.field}" type="text" placeholder="—"></th>`;
+    }).join('') + '<th></th>';
+
     return { th, tf };
   }
 
@@ -3531,51 +3524,38 @@ pages.travel = async function () {
   const retH = buildHeaders(TRAVEL_RET_COLS);
 
   return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${DIVISION_COLORS.j1}">
-        <h1>Travel</h1>
-        <p class="subtitle">Host company approved &nbsp;·&nbsp; ${total} participants</p>
-      </div>
+    <div class="req-page-header">
+      <h1>Travel</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">${total} host-company approved participants</span>
     </div>
 
-    ${errorMsg && !allRows.length ? `
-    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
-      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
-      border-radius:10px;margin-bottom:22px;">
-      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
-          ${authErr ? 'Server not connected' : 'Travel data unavailable'}
-        </div>
-        <div style="font-size:13px;color:var(--text-secondary,#555);">${errorMsg}</div>
-      </div>
-    </div>` : ''}
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
 
-    <!-- Sticky global filter bar -->
-    <div class="req-global-filter" style="position:sticky;top:0;z-index:20;
-      background:var(--bg-page,#f5f5f5);padding:10px 0;margin-bottom:0;
-      border-bottom:1px solid var(--border,#e5e7eb);">
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
-        <select id="travelTicketFilter" class="req-gsel">
-          <option value="">All Ticket Statuses</option>
-          <option value="No Ticket">No Ticket</option>
-          <option value="Requested">Requested</option>
-          <option value="Booked">Booked</option>
-          <option value="Issued">Issued</option>
-        </select>
-        <button id="travelClearBtn" class="req-clear-btn">✕ Clear</button>
-        <span id="travelCount" class="req-count-badge">${total} participants</span>
-      </div>
+    <!-- Filter Bar (sticky) -->
+    <div class="card req-filter-bar">
+      <select id="travelTicketFilter" class="req-gsel">
+        <option value="">All Ticket Statuses</option>
+        <option value="No Ticket">No Ticket</option>
+        <option value="Requested">Requested</option>
+        <option value="Booked">Booked</option>
+        <option value="Issued">Issued</option>
+      </select>
+      <button id="travelClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="travelCount" class="req-count-badge">${total} participants</span>
     </div>
 
     <!-- Tab bar -->
-    <div class="par-tab-bar" style="margin-top:12px;">
+    <div class="par-tab-bar">
       <button class="par-tab active" data-travel-tab="departure">✈️ Departure Ticket</button>
       <button class="par-tab" data-travel-tab="return">🏠 Return Ticket</button>
     </div>
 
     <!-- Table -->
-    <div class="card req-table-card" style="margin-top:12px;">
+    <div class="card req-table-card">
       <div class="req-table-outer">
         <table id="travelMainTable">
           <thead>
@@ -3599,22 +3579,22 @@ pageEvents.travel = function () {
   function fmtDate(v) {
     if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
     const d = new Date(v);
-    if (isNaN(d.getTime())) return `<span style="font-size:12px;">${v}</span>`;
-    return `<span style="font-size:12px;">${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>`;
+    if (isNaN(d.getTime())) return escH(v);
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   }
 
   function statusBadgeTravel(s) {
     if (!s || s === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
-    const color = (typeof STATUS_COLORS !== 'undefined' && STATUS_COLORS[s]) || '#6B7280';
+    const color = PAR_STATUS_COLORS[s] || '#6B7280';
     return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
-      background:${color}1A;color:${color};white-space:nowrap;">${s}</span>`;
+      background:${color}1A;color:${color};white-space:nowrap;">${escH(s)}</span>`;
   }
 
   function flightBadge(raw) {
     const s   = normalizeFlightStatus(raw);
     const cfg = TRAVEL_TICKET_COLORS[s] || TRAVEL_TICKET_COLORS['No Ticket'];
     return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
-      background:${cfg.bg};color:${cfg.color};white-space:nowrap;">${s}</span>`;
+      background:${cfg.bg};color:${cfg.color};white-space:nowrap;">${escH(s)}</span>`;
   }
 
   function cellContent(r, col) {
@@ -3622,24 +3602,22 @@ pageEvents.travel = function () {
     if (col.field === '_trip') {
       const from = r.tripFrom    && r.tripFrom    !== '—' ? r.tripFrom    : '—';
       const to   = r.tripTo      && r.tripTo      !== '—' ? r.tripTo      : '—';
-      return `<span style="font-size:12px;">${from} → ${to}</span>`;
+      return `${escH(from)} → ${escH(to)}`;
     }
     if (col.field === '_returnTrip') {
       const from = r.returnTripFrom && r.returnTripFrom !== '—' ? r.returnTripFrom : '—';
       const to   = r.returnTripTo   && r.returnTripTo   !== '—' ? r.returnTripTo   : '—';
-      return `<span style="font-size:12px;">${from} → ${to}</span>`;
+      return `${escH(from)} → ${escH(to)}`;
     }
     if (col.statusbadge)  return statusBadgeTravel(v);
     if (col.flightbadge)  return flightBadge(v);
     if (col.datecol)      return fmtDate(v);
     if (!v || v === '—')  return '<span style="color:var(--text-muted,#aaa);">—</span>';
-    return `<span style="font-size:12px;">${v}</span>`;
+    return escH(String(v));
   }
 
   function buildRow(r, cols) {
-    return `<tr>${cols.map(col =>
-      `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
-    ).join('')}</tr>`;
+    return `<tr>${cols.map(col => `<td>${cellContent(r, col)}</td>`).join('')}</tr>`;
   }
 
   function getCols() {
@@ -3737,9 +3715,11 @@ pageEvents.travel = function () {
           _travelSortCol = field;
           _travelSortDir = 'asc';
         }
-        document.querySelectorAll('#travelSortRow .sort-arrow').forEach(a => a.textContent = '↕');
-        const arrow = th.querySelector('.sort-arrow');
-        if (arrow) arrow.textContent = _travelSortDir === 'asc' ? '↑' : '↓';
+        document.querySelectorAll('#travelSortRow .req-sort-icon').forEach(a => a.textContent = '⇅');
+        document.querySelectorAll('#travelSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
+        const icon = th.querySelector('.req-sort-icon');
+        if (icon) icon.textContent = _travelSortDir === 'asc' ? '↑' : '↓';
+        th.classList.add(_travelSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc');
         applyFilters();
       });
     });
@@ -3800,6 +3780,9 @@ pageEvents.travel = function () {
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#travelColFilterRow select[data-travelcol]').forEach(sel => sel.value = '');
+    _travelSortCol = null; _travelSortDir = 'asc';
+    document.querySelectorAll('#travelSortRow .req-sort-icon').forEach(a => a.textContent = '⇅');
+    document.querySelectorAll('#travelSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
     applyFilters();
   });
 
