@@ -1036,11 +1036,11 @@ pageEvents.j1visa = function () {
   const VISA_JOURNEY_MAP = {
     'Pending':               [['Pending','p']],
     'Approved':              [['Approved','a']],
-    'Rejected 1st Attempt':  [['Pending','p'],['Rej. 1st','r']],
-    'Pending 2nd Interview': [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p']],
-    'Rejected 2nd Attempt':  [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r']],
-    'Pending 3rd Interview': [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p']],
-    'Rejected 3rd Attempt':  [['Pending','p'],['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p'],['Rej. 3rd','r']],
+    'Rejected 1st Attempt':  [['Rej. 1st','r']],
+    'Pending 2nd Interview': [['Rej. 1st','r'],['Pend. 2nd','p']],
+    'Rejected 2nd Attempt':  [['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r']],
+    'Pending 3rd Interview': [['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p']],
+    'Rejected 3rd Attempt':  [['Rej. 1st','r'],['Pend. 2nd','p'],['Rej. 2nd','r'],['Pend. 3rd','p'],['Rej. 3rd','r']],
   };
   function journeyBadges(status) {
     const steps = VISA_JOURNEY_MAP[status];
