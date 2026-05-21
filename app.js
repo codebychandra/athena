@@ -2952,11 +2952,401 @@ pageEvents.talentpool = function () {
   });
 };
 
+// ── Housing page constants ─────────────────────────────
+let _housingSortCol = null;
+let _housingSortDir = 'asc';
+
+const HOUSING_TABLE_COLS = [
+  { label:'J1 App Status',        field:'placementStatus',     sortable:true, statusbadge:true  },
+  { label:'J1 Source',            field:'programSource',       sortable:true                    },
+  { label:'First Name',           field:'firstName',           sortable:true                    },
+  { label:'Last Name',            field:'lastName',            sortable:true                    },
+  { label:'Country',              field:'country',             sortable:true                    },
+  { label:'Sponsor',              field:'processingSponsor',   sortable:true                    },
+  { label:'Hosting Company',      field:'hostCompany',         sortable:true                    },
+  { label:'Housing Availability', field:'housingAvailability', sortable:true, housingbadge:true },
+  { label:'Housing Landlord',     field:'housingLandlord',     sortable:true                    },
+];
+
+function housingAvailBadge(val) {
+  if (!val || val === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+  const c = val === 'Available Through CTI' ? '#2D7A55'
+          : val === 'Provided by Host'      ? '#0369A1'
+          : '#6B7280';
+  return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+    background:${c}1A;color:${c};white-space:nowrap;">${escH(val)}</span>`;
+}
+
 // ============================
-// PAGE: HOUSING (coming soon)
+// PAGE: HOUSING
 // ============================
 pages.housing = async function () {
-  return lockedPage('housing');
+  _housingSortCol = null;
+  _housingSortDir = 'asc';
+
+  let rows = [], errorMsg = null;
+  try {
+    const json = await safeJson('/api/recruit/j1-participants');
+    rows = json?.data || [];
+  } catch (e) { errorMsg = e.message; }
+
+  // Data prep: active J1 status + hosting company not blank + HC interview = Approved
+  const _parActiveSet = new Set(PAR_STATUSES);
+  const allRows = rows.filter(r =>
+    _parActiveSet.has(r.placementStatus) &&
+    r.hostCompany && r.hostCompany !== '—' &&
+    r.hcInterviewStatus === 'Approved'
+  );
+  state.dataCache['housing-rows'] = allRows;
+
+  const total   = allRows.length;
+  const authErr = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  // — Widget calculations —
+  const ctiHoused = allRows.filter(r =>
+    (r.placementStatus === 'USA Onboard' || r.placementStatus === 'Program Completed') &&
+    r.housingAvailability === 'Available Through CTI'
+  ).length;
+
+  const demand = allRows.filter(r =>
+    (r.placementStatus === 'Stage 2' || r.placementStatus === 'Stage 3' || r.placementStatus === 'Stage 4') &&
+    r.housingAvailability !== 'Provided by Host'
+  ).length;
+
+  // "Open Units" = available CTI housing slots — no inventory system yet, so 0
+  const openUnits = 0;
+  const remaining = Math.max(0, demand - openUnits);
+
+  // — Filter options —
+  const sources     = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const sponsors    = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const housingOpts = [...new Set(allRows.map(r=>r.housingAvailability).filter(v=>v&&v!=='—'))].sort();
+
+  // — Column filter dropdowns —
+  const cfDropdowns = {
+    placementStatus:     [...PAR_STATUSES],
+    programSource:       sources,
+    processingSponsor:   sponsors,
+    housingAvailability: housingOpts,
+  };
+
+  const stickyTh = `background:var(--bg-page,#f5f5f5);position:sticky;z-index:2;box-shadow:inset 0 0 0 999px var(--bg-page,#f5f5f5);`;
+
+  const thRow = HOUSING_TABLE_COLS.map(c =>
+    `<th data-hfield="${c.field}" class="${c.sortable?'sortable':''}"
+      style="white-space:nowrap;padding:10px 12px;font-size:11px;font-weight:700;
+        text-transform:uppercase;letter-spacing:0.06em;cursor:${c.sortable?'pointer':'default'};
+        top:0;${stickyTh}">
+      ${c.label}${c.sortable?' <span class="sort-arrow" style="opacity:0.4;">↕</span>':''}
+    </th>`
+  ).join('') + `<th style="width:40px;top:0;${stickyTh}"></th>`;
+
+  const cfRow = HOUSING_TABLE_COLS.map(c => {
+    const opts      = cfDropdowns[c.field];
+    const cellStyle = `padding:4px 8px;top:36px;${stickyTh}`;
+    if (opts) return `<th style="${cellStyle}">
+      <select class="req-cf hcf-sel" data-hfield="${escH(c.field)}"
+        style="width:100%;padding:3px 4px;border:1px solid var(--border,#ddd);border-radius:5px;
+          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
+        <option value="">All</option>
+        ${opts.map(o=>`<option value="${escH(o)}">${escH(o)}</option>`).join('')}
+      </select></th>`;
+    return `<th style="${cellStyle}">
+      <input class="req-cf hcf-inp" data-hfield="${escH(c.field)}" placeholder="Filter…"
+        style="width:100%;padding:3px 6px;border:1px solid var(--border,#ddd);border-radius:5px;
+          font-size:11px;background:var(--input-bg,#fff);color:var(--text,#111);">
+    </th>`;
+  }).join('') + `<th style="top:36px;${stickyTh}"></th>`;
+
+  const kpiCard = (id, label, val, color, sub) => `
+    <div class="card" style="padding:18px 22px;min-width:130px;flex:1;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+        color:var(--text-muted,#888);margin-bottom:6px;">${label}</div>
+      <div id="${id}" style="font-size:30px;font-weight:800;color:${color};line-height:1;">${val}</div>
+      <div style="font-size:10px;color:var(--text-muted,#aaa);margin-top:4px;">${sub}</div>
+    </div>`;
+
+  return `
+    <div class="page-header">
+      <div class="division-header" style="border-left-color:${DIVISION_COLORS.j1}">
+        <h1>Housing</h1>
+        <p class="subtitle">Host-company approved · ${total} participants</p>
+      </div>
+    </div>
+
+    ${errorMsg && !allRows.length ? `
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;
+      background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.25);
+      border-radius:10px;margin-bottom:22px;">
+      <span style="font-size:22px;">${authErr ? '🔑' : '⚠️'}</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#B01A18;margin-bottom:4px;">
+          ${authErr ? 'Server not connected' : 'Housing data unavailable'}
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary,#555);">${errorMsg}</div>
+      </div>
+    </div>` : ''}
+
+    <!-- KPI Widgets -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      ${kpiCard('hsgKpiTotal',     'Total',           total,     DIVISION_COLORS.j1, 'Host-approved participants')}
+      ${kpiCard('hsgKpiCTI',       'CTI Housing',     ctiHoused, '#2D7A55',          'On-board & completed · CTI')}
+      ${kpiCard('hsgKpiDemand',    'Housing Demand',  demand,    '#EA580C',          'Stage 2–4 · non-host')}
+      ${kpiCard('hsgKpiOpen',      'Open Units',      openUnits, '#6B7280',          'No inventory tracked yet')}
+      ${kpiCard('hsgKpiRemaining', 'Remaining',       remaining, remaining > 0 ? '#B01A18' : '#2D7A55', 'Demand − open units')}
+    </div>
+
+    <!-- Global filters (sticky) -->
+    <div class="req-global-filter" style="position:sticky;top:0;z-index:20;
+      background:var(--bg-page,#f5f5f5);padding:10px 0;margin-bottom:0;
+      border-bottom:1px solid var(--border,#e5e7eb);">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+
+        <select id="hsgStatusFilter" class="req-gsel">
+          <option value="">All J1 Statuses</option>
+          ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+        </select>
+
+        <select id="hsgSourceFilter" class="req-gsel">
+          <option value="">All Sources</option>
+          ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+        </select>
+
+        <select id="hsgSponsorFilter" class="req-gsel">
+          <option value="">All Sponsors</option>
+          ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
+        </select>
+
+        <select id="hsgHousingFilter" class="req-gsel">
+          <option value="">All Housing</option>
+          ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
+        </select>
+
+        <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
+        <span id="hsgCount" class="req-count-badge">${total} participants</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card req-table-card" style="margin-top:12px;">
+      <div class="req-table-outer">
+        <table id="housingMainTable">
+          <thead>
+            <tr id="housingSortRow">${thRow}</tr>
+            <tr id="housingColFilterRow">${cfRow}</tr>
+          </thead>
+          <tbody id="housingTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+// ── Housing page events ────────────────────────────────────────
+pageEvents.housing = function () {
+  const allRows = state.dataCache['housing-rows'] || [];
+
+  function fmtDateShort(v) {
+    if (!v || v === '—') return '—';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return v;
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function cellContent(r, col) {
+    const v = r[col.field];
+    if (col.statusbadge) {
+      if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+      const color = PAR_STATUS_COLORS[v] || '#6B7280';
+      return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+        background:${color}1A;color:${color};white-space:nowrap;">${escH(v)}</span>`;
+    }
+    if (col.housingbadge) return housingAvailBadge(v);
+    if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    return `<span style="font-size:12px;">${escH(String(v))}</span>`;
+  }
+
+  function doSort(rows) {
+    if (!_housingSortCol) return rows;
+    return [...rows].sort((a, b) => {
+      const av = String(a[_housingSortCol]||'');
+      const bv = String(b[_housingSortCol]||'');
+      const cmp = av.localeCompare(bv);
+      return _housingSortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  function getFiltered() {
+    const gSt  = document.getElementById('hsgStatusFilter')?.value  || '';
+    const gSrc = document.getElementById('hsgSourceFilter')?.value  || '';
+    const gSp  = document.getElementById('hsgSponsorFilter')?.value || '';
+    const gHsg = document.getElementById('hsgHousingFilter')?.value || '';
+    const colF = {};
+    document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el => {
+      const v = el.value.trim();
+      if (v) colF[el.dataset.hfield] = v.toLowerCase();
+    });
+    return [...allRows].filter(r => {
+      if (gSt  && r.placementStatus    !== gSt)  return false;
+      if (gSrc && r.programSource      !== gSrc) return false;
+      if (gSp  && r.processingSponsor  !== gSp)  return false;
+      if (gHsg && r.housingAvailability !== gHsg) return false;
+      for (const [f, fv] of Object.entries(colF)) {
+        if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderRows(rows) {
+    if (!rows.length) return `<tr><td colspan="${HOUSING_TABLE_COLS.length+1}"
+      style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return rows.map((r, i) => `
+      <tr style="cursor:pointer;">
+        ${HOUSING_TABLE_COLS.map(col =>
+          `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#eee);">${cellContent(r, col)}</td>`
+        ).join('')}
+        <td style="padding:8px 6px;border-bottom:1px solid var(--border,#eee);text-align:center;">
+          <button class="hsg-detail-btn" data-hsgidx="${allRows.indexOf(r)}"
+            style="font-size:11px;padding:3px 10px;border-radius:6px;
+              border:1px solid var(--border,#ddd);background:var(--bg-card,#fff);
+              cursor:pointer;color:var(--text,#111);">Details</button>
+        </td>
+      </tr>`
+    ).join('');
+  }
+
+  function updateKpis(rows) {
+    const ctiHoused = rows.filter(r =>
+      (r.placementStatus === 'USA Onboard' || r.placementStatus === 'Program Completed') &&
+      r.housingAvailability === 'Available Through CTI'
+    ).length;
+    const demand = rows.filter(r =>
+      (r.placementStatus === 'Stage 2' || r.placementStatus === 'Stage 3' || r.placementStatus === 'Stage 4') &&
+      r.housingAvailability !== 'Provided by Host'
+    ).length;
+    const remaining = demand; // open units = 0 until inventory system exists
+    const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    set('hsgKpiTotal',     rows.length.toLocaleString());
+    set('hsgKpiCTI',       ctiHoused.toLocaleString());
+    set('hsgKpiDemand',    demand.toLocaleString());
+    set('hsgKpiRemaining', remaining.toLocaleString());
+    const remEl = document.getElementById('hsgKpiRemaining');
+    if (remEl) remEl.style.color = remaining > 0 ? '#B01A18' : '#2D7A55';
+  }
+
+  let _currentRows = doSort(getFiltered());
+  const tbody   = document.getElementById('housingTableBody');
+  const countEl = document.getElementById('hsgCount');
+
+  function refresh() {
+    _currentRows = doSort(getFiltered());
+    if (tbody)   tbody.innerHTML = renderRows(_currentRows);
+    if (countEl) countEl.textContent = `${_currentRows.length} of ${allRows.length} participants`;
+    updateKpis(_currentRows);
+  }
+
+  refresh();
+
+  // Global filter listeners
+  ['hsgStatusFilter','hsgSourceFilter','hsgSponsorFilter','hsgHousingFilter'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', refresh));
+
+  // Column filter listeners
+  document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el =>
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+
+  // Clear button
+  document.getElementById('hsgClearBtn')?.addEventListener('click', () => {
+    ['hsgStatusFilter','hsgSourceFilter','hsgSponsorFilter','hsgHousingFilter'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el => el.value = '');
+    _housingSortCol = null; _housingSortDir = 'asc';
+    document.querySelectorAll('#housingSortRow .sort-arrow').forEach(a => a.textContent='↕');
+    refresh();
+  });
+
+  // Sort header clicks
+  document.getElementById('housingSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-hfield]'); if (!th) return;
+    const field = th.dataset.hfield;
+    if (_housingSortCol === field) _housingSortDir = _housingSortDir === 'asc' ? 'desc' : 'asc';
+    else { _housingSortCol = field; _housingSortDir = 'asc'; }
+    document.querySelectorAll('#housingSortRow .sort-arrow').forEach(a => a.textContent='↕');
+    const arrow = th.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = _housingSortDir === 'asc' ? '↑' : '↓';
+    refresh();
+  });
+
+  // Detail modal — open on Details button
+  document.getElementById('housingTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.hsg-detail-btn'); if (!btn) return;
+    const idx = parseInt(btn.dataset.hsgidx); if (isNaN(idx)) return;
+    const r = allRows[idx]; if (!r) return;
+    showHousingDetail(r);
+  });
+
+  function showHousingDetail(r) {
+    const fmtMoney = v => (v != null && v !== '' && v !== '—')
+      ? `$${Number(v).toLocaleString()}` : '—';
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    const fld = (label, val, full) => (val && val !== '—' && val !== '$0') ? `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+          color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
+      </div>` : '';
+
+    document.getElementById('modalTitle').textContent =
+      (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <!-- Status header strip -->
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:16px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;
+              letter-spacing:.07em;color:${sColor};">J1 Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;
+              font-weight:700;display:inline-block;background:${sColor}18;color:${sColor};
+              border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          ${r.housingAvailability && r.housingAvailability !== '—' ? `
+          <div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;
+              letter-spacing:.07em;color:var(--text-muted);">Housing</div>
+            <div style="margin-top:4px;">${housingAvailBadge(r.housingAvailability)}</div>
+          </div>` : ''}
+        </div>
+
+        <!-- Field grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('First Name',        r.firstName)}
+          ${fld('Last Name',         r.lastName)}
+          ${fld('Country',           r.country)}
+          ${fld('J1 Source',         r.programSource)}
+          ${fld('Sponsor',           r.processingSponsor)}
+          ${fld('Hosting Company',   r.hostCompany)}
+          ${fld('Department',        r.department)}
+          ${fld('Housing Landlord',  r.housingLandlord)}
+          ${fld('Initial Payment',   fmtMoney(r.housingPaymentInit))}
+          ${fld('Monthly Payment',   fmtMoney(r.housingPaymentMo))}
+          ${fld('Program Start',     fmtDateShort(r.programStart))}
+          ${fld('Program End',       fmtDateShort(r.programEnd))}
+          ${fld('Housing Address',   r.housingAddress, true)}
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay')?.classList.remove('active');
+  });
 };
 
 // ============================
