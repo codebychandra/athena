@@ -1029,7 +1029,11 @@ pages.j1visa = async function () {
       </div>
     </div>
 
-    <button class="exec-summary-btn" id="visaSummaryBtn" title="Audio Summary — click to hear visa dashboard narration">🎙</button>`;
+    <button class="exec-summary-btn" id="visaSummaryBtn" title="Click to hear visa dashboard summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>`;
 };
 
 pageEvents.j1visa = function () {
@@ -1563,7 +1567,11 @@ pages.requisition = async function () {
     </div>
 
     <!-- ── Executive Summary floating button ─────────────── -->
-    <button class="exec-summary-btn" id="execSummaryBtn" title="Executive Summary — click to hear dashboard narration">🎙</button>
+    <button class="exec-summary-btn" id="execSummaryBtn" title="Click to hear requisition dashboard summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>
 
     ` : `
     <div class="card" style="text-align:center;padding:48px 24px;">
@@ -2195,7 +2203,11 @@ pages.participant = async function () {
       </div>
     </div>
 
-    <button class="exec-summary-btn" id="parSummaryBtn" title="Audio Summary — click to hear participant dashboard narration">🎙</button>
+    <button class="exec-summary-btn" id="parSummaryBtn" title="Click to hear participant dashboard summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>
 
     ` : `<div class="card" style="text-align:center;padding:48px 24px;">
       <div style="font-size:40px;margin-bottom:12px;opacity:0.2;">👥</div>
@@ -2728,7 +2740,11 @@ pages.talentpool = async function () {
       </div>
     </div>
 
-    <button class="exec-summary-btn" id="tpSummaryBtn" title="Audio Summary — click to hear talent pool narration">🎙</button>`;
+    <button class="exec-summary-btn" id="tpSummaryBtn" title="Click to hear talent pool summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>`;
 };
 
 pageEvents.talentpool = function () {
@@ -3213,7 +3229,11 @@ pages.housing = async function () {
       </div>
     </div>
 
-    <button class="exec-summary-btn" id="hsgSummaryBtn" title="Audio Summary — click to hear housing dashboard narration">🎙</button>
+    <button class="exec-summary-btn" id="hsgSummaryBtn" title="Click to hear housing dashboard summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>
   `;
 };
 
@@ -3750,7 +3770,11 @@ pages.travel = async function () {
     <script type="application/json" id="travelDepHeaders">${JSON.stringify(depH)}<\/script>
     <script type="application/json" id="travelRetHeaders">${JSON.stringify(retH)}<\/script>
 
-    <button class="exec-summary-btn" id="trvSummaryBtn" title="Audio Summary — click to hear travel dashboard narration">🎙</button>
+    <button class="exec-summary-btn" id="trvSummaryBtn" title="Click to hear travel dashboard summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>
   `;
 };
 

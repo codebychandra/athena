@@ -2158,33 +2158,57 @@ thead th.sortable:hover {
   bottom: 24px;
   right: 24px;
   z-index: 200;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
+  height: 44px;
+  padding: 0 18px 0 14px;
+  border-radius: 22px;
   background: var(--navy);
   color: #fff;
   border: none;
-  font-size: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(27,58,107,0.35);
-  transition: all 0.2s ease;
+  transition: padding 0.3s ease, border-radius 0.3s ease,
+              background 0.2s ease, box-shadow 0.2s ease, width 0.3s ease;
   display: flex;
   align-items: center;
-  justify-content: center;
-  line-height: 1;
+  gap: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.exec-summary-btn .esb-play  { flex-shrink: 0; display: block; }
+.exec-summary-btn .esb-stop  { flex-shrink: 0; display: none;  }
+.exec-summary-btn .esb-label {
+  overflow: hidden;
+  max-width: 140px;
+  opacity: 1;
+  transition: max-width 0.3s ease, opacity 0.2s ease, margin 0.3s ease;
 }
 .exec-summary-btn:hover {
   background: var(--red);
   box-shadow: 0 6px 20px rgba(176,26,24,0.4);
-  transform: scale(1.07);
 }
+/* Playing state — shrink to circle, hide label */
 .exec-summary-btn.speaking {
   background: var(--red);
+  padding: 0;
+  width: 44px;
+  border-radius: 50%;
+  justify-content: center;
   animation: exec-pulse 1.2s ease-in-out infinite;
+}
+.exec-summary-btn.speaking .esb-play  { display: none;  }
+.exec-summary-btn.speaking .esb-stop  { display: block; }
+.exec-summary-btn.speaking .esb-label {
+  max-width: 0;
+  opacity: 0;
+  margin: 0;
 }
 @keyframes exec-pulse {
   0%, 100% { box-shadow: 0 4px 14px rgba(176,26,24,0.4); }
-  50%       { box-shadow: 0 4px 24px rgba(176,26,24,0.75); }
+  50%       { box-shadow: 0 4px 28px rgba(176,26,24,0.8); }
 }
 
 /* ── Error banner ─────────────────────────────────────── */
