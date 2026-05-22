@@ -2197,6 +2197,7 @@ thead th.sortable:hover {
   width: 44px;
   border-radius: 50%;
   justify-content: center;
+  gap: 0;
   animation: exec-pulse 1.2s ease-in-out infinite;
 }
 .exec-summary-btn.speaking .esb-play  { display: none;  }
