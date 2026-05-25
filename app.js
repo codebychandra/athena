@@ -1476,11 +1476,11 @@ pageEvents.j1visa = function () {
   });
 
   function showVisaDetail(r) {
-    const fld = (label, val, full) => (val && val !== '—') ? `
+    const fld = (label, val, full) => `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
-        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
-      </div>` : '';
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
     const status = r.placementStatus || '—';
     const sColor = PAR_STATUS_COLORS[status] || '#888';
     const vColor = visaStatusColor(r.visaStatus);
@@ -1508,7 +1508,7 @@ pageEvents.j1visa = function () {
           ${fld('J1 Source', r.programSource)}
           ${fld('Processing Sponsor', r.processingSponsor)}
           ${fld('Hosting Company', r.hostCompany)}
-          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${fld('Eligible Programs', Array.isArray(r.eligiblePrograms) ? r.eligiblePrograms.join(', ') : r.eligiblePrograms, true)}
         </div>
         <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">🛂 Visa Details</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
@@ -2824,14 +2824,15 @@ pageEvents.participant = function () {
 
   // Details modal
   function showParticipantDetail(r) {
-    const fld = (label, val, full) => (val && val !== '—') ? `
+    const fld = (label, val, full) => `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
-        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
-      </div>` : '';
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
+    const isCRM = r._source === 'crm';
     const status = r.placementStatus || '—';
     const sColor = PAR_STATUS_COLORS[status] || '#888';
-    const srcLabel = r._source === 'crm' ? 'CRM' : 'Recruit';
+    const srcLabel = isCRM ? 'CRM' : 'Recruit';
     document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
     document.getElementById('modalBody').innerHTML = `
       <div style="padding:4px 0 10px;">
@@ -2862,12 +2863,14 @@ pageEvents.participant = function () {
           ${fld('Department', r.department)}
           ${fld('Processing Sponsor', r.processingSponsor)}
           ${fld('Hosting Company', r.hostCompany)}
-          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
-          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
-          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${isCRM ? '' : fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
+          ${isCRM ? '' : fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
+          ${fld('Eligible Programs', Array.isArray(r.eligiblePrograms) ? r.eligiblePrograms.join(', ') : r.eligiblePrograms, true)}
           ${fld("CTI USA's Review", r.ctiUsaReview, true)}
-          ${r._source !== 'crm' ? fld('HC Interview Status', r.hcInterviewStatus) : ''}
+          ${isCRM ? '' : fld('HC Interview Status', r.hcInterviewStatus)}
           ${fld('Program Type', r.programType)}
+          ${isCRM ? fld('Consultation Call Status', r.consultationCallStatus) : ''}
+          ${isCRM ? fld('Consultation Call Notes', r.consultationCallNotes, true) : ''}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
           <button id="parEditBtn"
@@ -3425,11 +3428,11 @@ pageEvents.talentpool = function () {
   });
 
   function showTalentPoolDetail(r) {
-    const fld = (label, val, full) => (val && val !== '—') ? `
+    const fld = (label, val, full) => `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
-        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
-      </div>` : '';
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
     const status = r.placementStatus || '—';
     const sColor = PAR_STATUS_COLORS[status] || '#888';
     const srcLabel = r._source === 'crm' ? 'CRM' : 'Recruit';
@@ -3460,7 +3463,7 @@ pageEvents.talentpool = function () {
           ${fld('Phone', r.phone)}
           ${fld('J1 Program Source', r.programSource)}
           ${fld('Department', r.department)}
-          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${fld('Eligible Programs', Array.isArray(r.eligiblePrograms) ? r.eligiblePrograms.join(', ') : r.eligiblePrograms, true)}
         </div>
         <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">📞 Consultation</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
@@ -3891,12 +3894,12 @@ pageEvents.housing = function () {
       ? `$${Number(v).toLocaleString()}` : '—';
     const status = r.placementStatus || '—';
     const sColor = PAR_STATUS_COLORS[status] || '#888';
-    const fld = (label, val, full) => (val && val !== '—' && val !== '$0') ? `
+    const fld = (label, val, full) => `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
           color:var(--text-muted);margin-bottom:2px;">${label}</div>
-        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
-      </div>` : '';
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—'||val==='$0')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
 
     document.getElementById('modalTitle').textContent =
       (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
@@ -4591,11 +4594,11 @@ pageEvents.travel = function () {
       if (!v || v === '—') return '—';
       try { return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(new Date(v+'T00:00:00')); } catch { return v; }
     }
-    const fld = (label, val, full) => (val && val !== '—') ? `
+    const fld = (label, val, full) => `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
-        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
-      </div>` : '';
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
     const status = r.placementStatus || '—';
     const sColor = PAR_STATUS_COLORS[status] || '#888';
     document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
