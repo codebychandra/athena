@@ -618,7 +618,8 @@ async function recruitPost(endpoint, body) {
 
 async function recruitPatch(endpoint, body) {
   const token = await ensureValidToken();
-  const r = await axios.patch(`${ZOHO_RECRUIT}/${endpoint}`, body, {
+  // Zoho Recruit API v2 uses PUT (not PATCH) for record updates
+  const r = await axios.put(`${ZOHO_RECRUIT}/${endpoint}`, body, {
     headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' }
   });
   return r.data;
