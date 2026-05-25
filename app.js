@@ -247,13 +247,15 @@ async function zohoUpdate(r, changes) {
     ? `/api/crm/${module}/${rawId}`
     : `/api/recruit/${module}/${rawId}`;
 
-  // Map frontend keys → Zoho field names
+  // Map frontend keys → Zoho field names (skip empty/null — Zoho rejects null for date/required fields)
   const payload = {};
   for (const [key, val] of Object.entries(changes)) {
     const zohoKey = fieldMap[key];
-    if (zohoKey !== undefined) payload[zohoKey] = val === '' ? null : val;
+    if (zohoKey !== undefined && val !== '' && val !== null && val !== undefined) {
+      payload[zohoKey] = val;
+    }
   }
-  if (!Object.keys(payload).length) throw new Error('No valid fields to update.');
+  if (!Object.keys(payload).length) throw new Error('No fields were changed. Please update at least one field.');
 
   const res = await safeJson(endpoint, {
     method: 'PATCH',
@@ -320,7 +322,7 @@ function openEditModal(r, fields, onSaved) {
           <button type="submit" id="editSaveBtn"
             style="padding:8px 22px;border-radius:8px;border:none;background:#B01A18;
               color:#fff;font-size:12px;font-weight:700;cursor:pointer;
-              box-shadow:0 2px 8px rgba(176,26,24,0.28);">Save to Zoho</button>
+              box-shadow:0 2px 8px rgba(176,26,24,0.28);">Save</button>
         </div>
       </form>
     </div>`;
@@ -353,7 +355,7 @@ function openEditModal(r, fields, onSaved) {
       errEl.textContent = err.message || 'Update failed. Please try again.';
       errEl.style.display = 'block';
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save to Zoho';
+      saveBtn.textContent = 'Save';
     }
   });
 
@@ -1331,7 +1333,9 @@ pageEvents.j1visa = function () {
   }
   function renderRows(rows) {
     if (!rows.length) return `<tr><td colspan="${VISA_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
-    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td>${cellContent(r,col)}</td>`).join('')}<td></td></tr>`).join('');
+    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td>${cellContent(r,col)}</td>`).join('')}<td style="text-align:center;"><button class="visa-detail-btn" data-visaidx="${allRows.indexOf(r)}"
+      style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
+        background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`).join('');
   }
 
   function updateKpis(rows) {
@@ -1410,6 +1414,93 @@ pageEvents.j1visa = function () {
     document.querySelectorAll('#visaSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
     document.querySelectorAll('#visaSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
     refresh();
+  });
+
+  // Detail + edit modal for Visa
+  document.getElementById('visaTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.visa-detail-btn'); if (!btn) return;
+    const r = allRows[parseInt(btn.dataset.visaidx)]; if (!r) return;
+    showVisaDetail(r);
+  });
+
+  function showVisaDetail(r) {
+    const fld = (label, val, full) => (val && val !== '—') ? `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
+      </div>` : '';
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    const vColor = visaStatusColor(r.visaStatus);
+    document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${sColor};">J1 Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;background:${sColor}18;color:${sColor};border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          ${r.visaStatus && r.visaStatus !== '—' ? `<div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Visa Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;background:${vColor}18;color:${vColor};border:1px solid ${vColor}40;">${escH(r.visaStatus)}</div>
+          </div>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('First Name', r.firstName)}
+          ${fld('Last Name', r.lastName)}
+          ${fld('Email', r.email, true)}
+          ${fld('Country', r.country)}
+          ${fld('J1 Source', r.programSource)}
+          ${fld('Processing Sponsor', r.processingSponsor)}
+          ${fld('Hosting Company', r.hostCompany)}
+          ${fld('Department', r.department)}
+          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
+          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
+          ${fld('Visa Appointment', r.visaAppointment ? fmtDate(r.visaAppointment) : '')}
+          ${fld('Visa Number', r.visaNumber)}
+          ${fld('Visa Payment Date', r.visaPaymentDate ? fmtDate(r.visaPaymentDate) : '')}
+          ${fld('Ref Letter Status', r.refLetterStatus)}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="visaEditBtn"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+              background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+              cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+
+    document.getElementById('visaEditBtn')?.addEventListener('click', () => {
+      openEditModal(r, [
+        { key: 'placementStatus',  label: 'J1 App Status',       type: 'select', options: PAR_STATUSES },
+        { key: 'visaStatus',       label: 'Visa Status',         type: 'select',
+          options: ['Pending','Approved','Rejected 1st Attempt','Pending 2nd Interview','Rejected 2nd Attempt','Pending 3rd Interview','Rejected 3rd Attempt'] },
+        { key: 'visaAppointment',  label: 'Visa Appointment',    type: 'date' },
+        { key: 'visaNumber',       label: 'Visa Number',         type: 'text' },
+        { key: 'visaPaymentDate',  label: 'Visa Payment Date',   type: 'date' },
+        { key: 'refLetterStatus',  label: 'Ref Letter Status',   type: 'text' },
+        { key: 'processingSponsor',label: 'Processing Sponsor',  type: 'text' },
+        { key: 'hostCompany',      label: 'Hosting Company',     type: 'text' },
+        { key: 'department',       label: 'Department',          type: 'text' },
+        { key: 'programStart',     label: 'Program Start Date',  type: 'date' },
+        { key: 'programEnd',       label: 'Program End Date',    type: 'date' },
+      ], () => { refresh(); });
+    });
+  }
+
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay')?.classList.remove('active');
   });
 
   // ── Audio Summary ─────────────────────────────────────
@@ -2724,7 +2815,7 @@ pageEvents.participant = function () {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Edit &amp; Push to Zoho
+            Edit
           </button>
         </div>
       </div>`;
@@ -3026,7 +3117,9 @@ pageEvents.talentpool = function () {
     if (!subset.length) return `<tr><td colspan="${TP_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
     return subset.map(r => `<tr>${TP_TABLE_COLS.map(col =>
       `<td>${cellContent(r, col)}</td>`
-    ).join('')}<td></td></tr>`).join('');
+    ).join('')}<td style="text-align:center;"><button class="tp-detail-btn" data-tpidx="${allPool.indexOf(r)}"
+      style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
+        background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`).join('');
   }
   function refreshCount(rows) {
     const el = document.getElementById('tpCount');
@@ -3242,6 +3335,108 @@ pageEvents.talentpool = function () {
     document.querySelectorAll('#tpSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
     document.querySelectorAll('#tpSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
     refresh();
+  });
+
+  // Detail + edit modal for Talent Pool
+  document.getElementById('tpTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.tp-detail-btn'); if (!btn) return;
+    const r = allPool[parseInt(btn.dataset.tpidx)]; if (!r) return;
+    showTalentPoolDetail(r);
+  });
+
+  function showTalentPoolDetail(r) {
+    const fld = (label, val, full) => (val && val !== '—') ? `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
+      </div>` : '';
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    const srcLabel = r._source === 'crm' ? 'CRM' : 'Recruit';
+    document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${sColor};">Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;background:${sColor}18;color:${sColor};border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          <div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Source</div>
+            <div style="font-size:12px;font-weight:700;margin-top:3px;">${escH(srcLabel)}</div>
+          </div>
+          ${r.age && r.age !== '—' ? `<div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Age</div>
+            <div style="font-size:20px;font-weight:800;margin-top:2px;color:var(--text-primary);">${escH(String(r.age))}</div>
+          </div>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Email', r.email, true)}
+          ${fld('First Name', r.firstName)}
+          ${fld('Last Name', r.lastName)}
+          ${fld('Gender', r.gender)}
+          ${fld('Country', r.country)}
+          ${fld('J1 Program Source', r.programSource)}
+          ${fld('Processing Sponsor', r.processingSponsor)}
+          ${fld('Hosting Company', r.hostCompany)}
+          ${fld('Department', r.department)}
+          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
+          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
+          ${fld('Program Type', r.programType)}
+          ${fld('Phone', r.phone)}
+          ${fld('Consultation Call', r.consultationCallStatus)}
+          ${fld('HC Interview Status', r.hcInterviewStatus)}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="tpEditBtn"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+              background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+              cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+
+    document.getElementById('tpEditBtn')?.addEventListener('click', () => {
+      const isCRM = r._source === 'crm';
+      const editFields = isCRM ? [
+        { key: 'placementStatus',        label: 'J1 App Status',         type: 'select',   options: PAR_STATUSES },
+        { key: 'programSource',          label: 'J1 Program Source',     type: 'text' },
+        { key: 'processingSponsor',      label: 'Processing Sponsor',    type: 'text' },
+        { key: 'hostCompany',            label: 'Hosting Company',       type: 'text' },
+        { key: 'department',             label: 'Department',            type: 'text' },
+        { key: 'programStart',           label: 'Program Start Date',    type: 'date' },
+        { key: 'programEnd',             label: 'Program End Date',      type: 'date' },
+        { key: 'consultationCallStatus', label: 'Consultation Call',     type: 'text' },
+        { key: 'consultationCallNotes',  label: 'Consultation Notes',    type: 'textarea', full: true },
+        { key: 'ctiUsaReview',           label: 'CTI USA Review',        type: 'textarea', full: true },
+      ] : [
+        { key: 'placementStatus',   label: 'J1 App Status',       type: 'select', options: PAR_STATUSES },
+        { key: 'programSource',     label: 'J1 Program Source',   type: 'text' },
+        { key: 'processingSponsor', label: 'Processing Sponsor',  type: 'text' },
+        { key: 'hostCompany',       label: 'Hosting Company',     type: 'text' },
+        { key: 'department',        label: 'Department',          type: 'text' },
+        { key: 'programStart',      label: 'Program Start Date',  type: 'date' },
+        { key: 'programEnd',        label: 'Program End Date',    type: 'date' },
+        { key: 'hcInterviewStatus', label: 'HC Interview Status', type: 'text' },
+      ];
+      openEditModal(r, editFields, () => { refresh(); });
+    });
+  }
+
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay')?.classList.remove('active');
   });
 
   // ── Audio Summary ─────────────────────────────────────
@@ -3658,7 +3853,7 @@ pageEvents.housing = function () {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Edit &amp; Push to Zoho
+            Edit
           </button>
         </div>
       </div>`;
@@ -4069,7 +4264,10 @@ pageEvents.travel = function () {
   }
 
   function buildRow(r, cols) {
-    return `<tr>${cols.map(col => `<td>${cellContent(r, col)}</td>`).join('')}</tr>`;
+    const idx = allRows.indexOf(r);
+    return `<tr>${cols.map(col => `<td>${cellContent(r, col)}</td>`).join('')}<td style="text-align:center;"><button class="trv-detail-btn" data-trvidx="${idx}"
+      style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
+        background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`;
   }
 
   function getCols() {
@@ -4282,6 +4480,108 @@ pageEvents.travel = function () {
   attachSortListeners();
   attachColFilterListeners();
   applyFilters();
+
+  // Detail + edit modal for Travel
+  document.getElementById('travelTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.trv-detail-btn'); if (!btn) return;
+    const r = allRows[parseInt(btn.dataset.trvidx)]; if (!r) return;
+    showTravelDetail(r);
+  });
+
+  function showTravelDetail(r) {
+    function fmtD(v) {
+      if (!v || v === '—') return '—';
+      try { return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(new Date(v+'T00:00:00')); } catch { return v; }
+    }
+    const fld = (label, val, full) => (val && val !== '—') ? `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;">${escH(String(val))}</div>
+      </div>` : '';
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${sColor};">J1 Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block;background:${sColor}18;color:${sColor};border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          <div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">J1 Source</div>
+            <div style="font-size:12px;font-weight:700;margin-top:3px;">${escH(r.programSource||'—')}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('First Name', r.firstName)}
+          ${fld('Last Name', r.lastName)}
+          ${fld('Email', r.email, true)}
+          ${fld('Hosting Company', r.hostCompany)}
+          ${fld('Department', r.department)}
+          ${fld('Program Start', fmtD(r.programStart))}
+          ${fld('Program End', fmtD(r.programEnd))}
+        </div>
+        <div style="margin:12px 0 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:6px;border-bottom:1px solid var(--border,#eee);">✈️ Departure</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Flight Ticket', r.flightBooked)}
+          ${fld('Airline', r.airline)}
+          ${fld('PNR Number', r.pnrNumber)}
+          ${fld('Departure Date', fmtD(r.departureDate))}
+          ${fld('Arrival Date', fmtD(r.arrivalDate))}
+          ${fld('Airport Pick-Up', r.airportPickup)}
+        </div>
+        <div style="margin:12px 0 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:6px;border-bottom:1px solid var(--border,#eee);">🔄 Return</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Return Ticket', r.returnFlightStatus)}
+          ${fld('Return Airline', r.returnAirline)}
+          ${fld('Return PNR', r.returnPNR)}
+          ${fld('Return Departure', fmtD(r.returnDeparture))}
+          ${fld('Return Arrival', fmtD(r.returnArrival))}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="trvEditBtn"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+              background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+              cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+
+    document.getElementById('trvEditBtn')?.addEventListener('click', () => {
+      openEditModal(r, [
+        { key: 'placementStatus',   label: 'J1 App Status',         type: 'select', options: PAR_STATUSES },
+        { key: 'flightBooked',      label: 'Flight Ticket Status',  type: 'select',
+          options: ['No Ticket','Requested','Booked','Issued'] },
+        { key: 'airline',           label: 'Airline',               type: 'text' },
+        { key: 'pnrNumber',         label: 'PNR Number',            type: 'text' },
+        { key: 'departureDate',     label: 'Departure Date',        type: 'date' },
+        { key: 'arrivalDate',       label: 'Arrival Date',          type: 'date' },
+        { key: 'airportPickup',     label: 'Airport Pick-Up',       type: 'text' },
+        { key: 'returnFlightStatus',label: 'Return Ticket Status',  type: 'select',
+          options: ['No Ticket','Requested','Booked','Issued'] },
+        { key: 'returnAirline',     label: 'Return Airline',        type: 'text' },
+        { key: 'returnPNR',         label: 'Return PNR',            type: 'text' },
+        { key: 'returnDeparture',   label: 'Return Departure Date', type: 'date' },
+        { key: 'returnArrival',     label: 'Return Arrival Date',   type: 'date' },
+      ], () => { applyFilters(); });
+    });
+  }
+
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
+  document.getElementById('modalOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay'))
+      document.getElementById('modalOverlay')?.classList.remove('active');
+  });
 
   // ── Audio Summary ─────────────────────────────────────
   const trvBtn = document.getElementById('trvSummaryBtn');

@@ -848,7 +848,7 @@ app.patch('/api/recruit/:module/:id', async (req, res) => {
   try {
     const body = req.body.data
       ? req.body
-      : { data: [{ id: req.params.id, ...req.body }] };
+      : { data: [{ ...req.body }] };
     const data = await recruitPatch(`${req.params.module}/${req.params.id}`, body);
     // Bust participant cache so next fetch returns fresh data
     clearCache('recruit-j1-participants');
@@ -913,7 +913,7 @@ app.patch('/api/crm/:module/:id', async (req, res) => {
   try {
     const body = req.body.data
       ? req.body
-      : { data: [{ id: req.params.id, ...req.body }] };
+      : { data: [{ ...req.body }] };
     const data = await crmPatch(`${req.params.module}/${req.params.id}`, body);
     // Bust participant cache so next fetch returns fresh data
     clearCache('crm-j1-participants');
