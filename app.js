@@ -1789,6 +1789,24 @@ const PAR_STATUSES = [
   'Stage 1','Stage 2','Stage 3','Stage 4','USA Onboard','Program Completed',
 ];
 const PAR_PLACEMENT_STATUSES = new Set(['USA Onboard','Program Completed']);
+
+// ── Real Zoho picklist values (sourced from Zoho Recruit field metadata) ──
+const ZP_PROGRAM_SOURCES   = ['CTI Bali','CTI Bangkok','CTI Indonesia','CTI MCSI','CTI USA','CTI Vietnam','Dhyana Pura Bali','Indiana School','Mediterranean Bali','OTC Bali','SITPRAM','Undiksha Bali'];
+const ZP_DEPARTMENTS       = ['Agriculture','Art Gallery','Casino','Culinary','Deck & Engine','Education','Entertainment','Finance','Food & Beverage','Guest Relations','Housekeeping','Human Resources','Information Technology','Medical','Photo','Provisions & Inventory','Retail','Sales & Marketing','Sanitation','Security','Spa','Youth Staff'];
+const ZP_SPONSORS          = ['Alliance Abroad Group','CIEE','Green Heart'];
+const ZP_ELIGIBLE_PROGRAMS = ['Work and Travel','Intern','Trainee with Degree','Trainee Professional'];
+const ZP_CTI_REVIEW        = ['Eligible for Consultation Call','Not Eligible for Consultation Call'];
+const ZP_CONSULT_STATUS    = ['Approved','Approved - Applied Position Unavailable','Approved - OTC Students','On Hold','On Hold - Requires English Improvement','Denied'];
+const ZP_ATTENDANCE        = ['Attended','Cancelled','Confirmed','Declined','No Show','Pending','Pending Rescheduling','Rescheduled'];
+const ZP_DOC_STATUS        = ['Need to Process','In Process','Valid'];
+const ZP_DOC_STATUS_ED     = ['Need to process','In Process','Valid'];
+const ZP_SIGNED_J1         = ['Yes','No'];
+const ZP_INTERVIEW_STATUS  = ['Approved','Declined','Pending','No Show'];
+const ZP_VISA_STATUS       = ['Approved','Pending','Pending 2nd Interview','Pending 3rd Interview','Rejected 1st Attempt','Rejected 2nd Attempt','Rejected 3rd Attempt'];
+const ZP_REF_LETTER        = ['Requested','In Process','Issued'];
+const ZP_FLIGHT_STATUS     = ['Requested','Booked','Ticket Issued'];
+const ZP_TICKET_PAY        = ['Awaiting for Payment','Paid'];
+const ZP_GENDER            = ['Female','Male','Unspecified'];
 const PAR_STATUS_COLORS = {
   'New Submission':    '#6B7280',
   'On Hold':           '#D97706',
@@ -2705,11 +2723,32 @@ pages.participant = async function () {
   // Table column-level filters
   const cfDropdowns = {
     'placementStatus':   [...PAR_STATUSES],
-    'programSource':     sources,
-    'department':        depts,
+    'programSource':     ZP_PROGRAM_SOURCES,
+    'department':        ZP_DEPARTMENTS,
     'country':           countries,
-    'processingSponsor': sponsors,
-    'eligiblePrograms':  eligibleOpts,
+    'processingSponsor': ZP_SPONSORS,
+    'eligiblePrograms':  ZP_ELIGIBLE_PROGRAMS,
+    'hostCompany':       [...new Set(rawRows.map(r=>r.hostCompany).filter(v=>v&&v!=='—'))].sort(),
+    'gender':            ZP_GENDER,
+    'ctiUsaReview':      ZP_CTI_REVIEW,
+    'consultationCallStatus': ZP_CONSULT_STATUS,
+    'attendance':        ZP_ATTENDANCE,
+    'passportStatus':    ZP_DOC_STATUS,
+    'policeClearanceStatus': ZP_DOC_STATUS,
+    'uniAccreditationStatus': ZP_DOC_STATUS,
+    'proofAcademicStatus': ZP_DOC_STATUS,
+    'educationalCertStatus': ZP_DOC_STATUS_ED,
+    'academicTranscriptStatus': ZP_DOC_STATUS,
+    'englishAssessmentLetterStatus': ZP_DOC_STATUS,
+    'signedJ1Policy':    ZP_SIGNED_J1,
+    'hcInterviewStatus': ZP_INTERVIEW_STATUS,
+    'sponsorStatus':     ZP_INTERVIEW_STATUS,
+    'visaStatus':        ZP_VISA_STATUS,
+    'refLetterStatus':   ZP_REF_LETTER,
+    'flightBooked':      ZP_FLIGHT_STATUS,
+    'ticketPayStatus':   ZP_TICKET_PAY,
+    'returnFlightStatus': ZP_FLIGHT_STATUS,
+    'returnTicketPayStatus': ZP_TICKET_PAY,
   };
   const thFilter = _initCols.map(col => {
     if (col.money || col.sourcebadge) return '<th></th>';
@@ -2818,26 +2857,8 @@ pageEvents.participant = function () {
     if (r.eligiblePrograms) r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet2.add(t); });
   });
   const eligibleOpts2 = [...eligibleSet2].sort();
-  // Real Zoho picklist values (fetched from /api/fields/j1-participants)
-  const hostCompanies       = [...new Set(allRows.map(r=>r.hostCompany).filter(v=>v&&v!=='—'))].sort();
-  const _docStatus          = ['Need to Process','In Process','Valid'];
-  const _docStatusEd        = ['Need to process','In Process','Valid'];
-  const ctiReviewOpts       = ['Eligible for Consultation Call','Not Eligible for Consultation Call'];
-  const visaStatusOpts      = ['Approved','Pending','Pending 2nd Interview','Pending 3rd Interview','Rejected 1st Attempt','Rejected 2nd Attempt','Rejected 3rd Attempt'];
-  const refLetterOpts       = ['Requested','In Process','Issued'];
-  const flightBookedOpts    = ['Requested','Booked','Ticket Issued'];
-  const ticketPayOpts       = ['Awaiting for Payment','Paid'];
-  const returnFlightOpts    = ['Requested','Booked','Ticket Issued'];
-  const returnTicketPayOpts = ['Awaiting for Payment','Paid'];
-  const sponsorStatusOpts   = ['Approved','Declined','Pending','No Show'];
-  const passportStatusOpts  = _docStatus;
-  const policeClearOpts     = _docStatus;
-  const uniAccredOpts       = _docStatus;
-  const proofAcademicOpts   = _docStatus;
-  const educCertOpts        = _docStatusEd;
-  const academicTransOpts   = _docStatus;
-  const engAssessLetterOpts = _docStatus;
-  const signedJ1Opts        = ['Yes','No'];
+  // Host companies — dynamic from live data (too many to hardcode)
+  const hostCompanies = [...new Set(allRows.map(r=>r.hostCompany).filter(v=>v&&v!=='—'))].sort();
 
   function getTabRows() {
     if (_parActiveTab === 'All') return [...allRows];
@@ -2888,32 +2909,32 @@ pageEvents.participant = function () {
     const cols = getParCols();
     const cfDropdowns2 = {
       'placementStatus':             [...PAR_STATUSES],
-      'programSource':               sources,
-      'department':                  depts,
+      'programSource':               ZP_PROGRAM_SOURCES,
+      'department':                  ZP_DEPARTMENTS,
       'country':                     countries,
-      'processingSponsor':           sponsors,
-      'eligiblePrograms':            eligibleOpts2,
+      'processingSponsor':           ZP_SPONSORS,
+      'eligiblePrograms':            ZP_ELIGIBLE_PROGRAMS,
       'hostCompany':                 hostCompanies,
-      'gender':                      ['Female','Male','Unspecified'],
-      'ctiUsaReview':                ctiReviewOpts,
-      'consultationCallStatus':      ['Approved','Approved - Applied Position Unavailable','Approved - OTC Students','On Hold','On Hold - Requires English Improvement','Denied'],
-      'attendance':                  ['Attended','Cancelled','Confirmed','Declined','No Show','Pending','Pending Rescheduling','Rescheduled'],
-      'passportStatus':              passportStatusOpts,
-      'policeClearanceStatus':       policeClearOpts,
-      'uniAccreditationStatus':      uniAccredOpts,
-      'proofAcademicStatus':         proofAcademicOpts,
-      'educationalCertStatus':       educCertOpts,
-      'academicTranscriptStatus':    academicTransOpts,
-      'englishAssessmentLetterStatus': engAssessLetterOpts,
-      'signedJ1Policy':              signedJ1Opts,
-      'hcInterviewStatus':           ['Pending','Approved','Rejected'],
-      'sponsorStatus':               sponsorStatusOpts,
-      'visaStatus':                  visaStatusOpts,
-      'refLetterStatus':             refLetterOpts,
-      'flightBooked':                flightBookedOpts,
-      'ticketPayStatus':             ticketPayOpts,
-      'returnFlightStatus':          returnFlightOpts,
-      'returnTicketPayStatus':       returnTicketPayOpts,
+      'gender':                      ZP_GENDER,
+      'ctiUsaReview':                ZP_CTI_REVIEW,
+      'consultationCallStatus':      ZP_CONSULT_STATUS,
+      'attendance':                  ZP_ATTENDANCE,
+      'passportStatus':              ZP_DOC_STATUS,
+      'policeClearanceStatus':       ZP_DOC_STATUS,
+      'uniAccreditationStatus':      ZP_DOC_STATUS,
+      'proofAcademicStatus':         ZP_DOC_STATUS,
+      'educationalCertStatus':       ZP_DOC_STATUS_ED,
+      'academicTranscriptStatus':    ZP_DOC_STATUS,
+      'englishAssessmentLetterStatus': ZP_DOC_STATUS,
+      'signedJ1Policy':              ZP_SIGNED_J1,
+      'hcInterviewStatus':           ZP_INTERVIEW_STATUS,
+      'sponsorStatus':               ZP_INTERVIEW_STATUS,
+      'visaStatus':                  ZP_VISA_STATUS,
+      'refLetterStatus':             ZP_REF_LETTER,
+      'flightBooked':                ZP_FLIGHT_STATUS,
+      'ticketPayStatus':             ZP_TICKET_PAY,
+      'returnFlightStatus':          ZP_FLIGHT_STATUS,
+      'returnTicketPayStatus':       ZP_TICKET_PAY,
     };
     const newThSort = cols.map(col =>
       col.sortable
