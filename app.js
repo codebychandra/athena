@@ -662,6 +662,21 @@ function buildMS(id, label, opts) {
       </div>
     </div>`;
 }
+// Compact multiselect for table column filter rows
+function buildColMS(id, opts) {
+  const items = opts.map(v =>
+    `<label class="j1-ms-item"><input type="checkbox" class="j1-ms-cb" value="${escH(v)}"><span class="j1-ms-opt">${escH(v)}</span></label>`
+  ).join('');
+  return `<div id="${id}" class="j1-multiselect req-cf-ms">
+    <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
+      <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
+    </button>
+    <div class="j1-ms-panel">
+      <div class="j1-ms-list">${items}</div>
+      <div class="j1-ms-footer"><button class="j1-ms-clear-one" type="button">Clear</button><span class="j1-ms-sel-count"></span></div>
+    </div>
+  </div>`;
+}
 function msGetVals(id) {
   const el = document.getElementById(id);
   if (!el) return [];
@@ -4525,14 +4540,7 @@ pages.returnhome = async function () {
   const rhSponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
 
   function buildRhHeaders() {
-    // Helper: compact dropdown select for column-level categorical filter
-    function colSel(field, opts) {
-      const os = opts.map(o => `<option value="${escH(o)}">${escH(o)}</option>`).join('');
-      return `<select class="req-cf req-col-sel" data-rhcol="${field}"
-        style="width:100%;font-size:11px;padding:2px 4px;border:1px solid var(--border,#ddd);
-          border-radius:4px;background:var(--bg,#f9f9f9);color:var(--text,#111);">
-        <option value="">— All —</option>${os}</select>`;
-    }
+    const TICKET_OPTS = ['No Ticket','Requested','Booked','Issued'];
 
     const th = RH_TABLE_COLS.map(c =>
       c.sortable
@@ -4551,10 +4559,10 @@ pages.returnhome = async function () {
           <input type="date" class="req-cf req-cf-date-val" data-rhcol="${c.field}"
             style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
         </div></th>`;
-      if (c.field === 'placementStatus')    return `<th>${colSel(c.field, PAR_STATUSES)}</th>`;
-      if (c.field === 'programSource')      return `<th>${colSel(c.field, rhSources)}</th>`;
-      if (c.field === 'processingSponsor')  return `<th>${colSel(c.field, rhSponsors)}</th>`;
-      if (c.field === 'returnFlightStatus') return `<th>${colSel(c.field, ['No Ticket','Requested','Booked','Issued'])}</th>`;
+      if (c.field === 'placementStatus')    return `<th>${buildColMS('rhCF_placementStatus',   PAR_STATUSES)}</th>`;
+      if (c.field === 'programSource')      return `<th>${buildColMS('rhCF_programSource',      rhSources)}</th>`;
+      if (c.field === 'processingSponsor')  return `<th>${buildColMS('rhCF_processingSponsor',  rhSponsors)}</th>`;
+      if (c.field === 'returnFlightStatus') return `<th>${buildColMS('rhCF_returnFlightStatus', TICKET_OPTS)}</th>`;
       return `<th><input class="req-cf req-col-f" data-rhcol="${c.field}" type="text" placeholder="—"></th>`;
     }).join('') + '<th></th>';
 
@@ -4739,6 +4747,11 @@ pageEvents.returnhome = function () {
     const gSrc       = msGetVals('rhSourceFilter');
     const gSp        = msGetVals('rhSponsorFilter');
     const ticketVals = msGetVals('rhTicketFilter');
+    // Column-level multiselects
+    const cfStatus   = msGetVals('rhCF_placementStatus');
+    const cfSource   = msGetVals('rhCF_programSource');
+    const cfSponsor  = msGetVals('rhCF_processingSponsor');
+    const cfTicket   = msGetVals('rhCF_returnFlightStatus');
     let filtered     = [...getTabRows()];
 
     if (gSt.length)        filtered = filtered.filter(r => gSt.includes(r.placementStatus));
@@ -4746,6 +4759,11 @@ pageEvents.returnhome = function () {
     if (gSp.length)        filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
     if (ticketVals.length) filtered = filtered.filter(r =>
       ticketVals.includes(normalizeFlightStatus(r.returnFlightStatus)));
+    if (cfStatus.length)  filtered = filtered.filter(r => cfStatus.includes(r.placementStatus));
+    if (cfSource.length)  filtered = filtered.filter(r => cfSource.includes(r.programSource));
+    if (cfSponsor.length) filtered = filtered.filter(r => cfSponsor.includes(r.processingSponsor));
+    if (cfTicket.length)  filtered = filtered.filter(r =>
+      cfTicket.includes(normalizeFlightStatus(r.returnFlightStatus)));
 
     Object.entries(colFilters).forEach(([field, val]) => {
       if (!val) return;
@@ -4823,15 +4841,12 @@ pageEvents.returnhome = function () {
     });
   }
 
+  // Column-level multiselect IDs for Return Home
+  const RH_COL_MS = ['rhCF_placementStatus','rhCF_programSource','rhCF_processingSponsor','rhCF_returnFlightStatus'];
+
   function attachColFilterListeners() {
-    // Category dropdowns
-    document.querySelectorAll('#rhColFilterRow .req-col-sel[data-rhcol]').forEach(sel => {
-      sel.addEventListener('change', () => {
-        if (sel.value) colFilters[sel.dataset.rhcol] = sel.value;
-        else delete colFilters[sel.dataset.rhcol];
-        applyFilters();
-      });
-    });
+    // Re-register column multiselect listeners
+    RH_COL_MS.forEach(id => msOnChange(id, applyFilters));
     // Text inputs
     document.querySelectorAll('#rhColFilterRow input[data-rhcol]:not(.req-cf-date-val)').forEach(inp => {
       inp.addEventListener('input', () => {
@@ -4876,11 +4891,11 @@ pageEvents.returnhome = function () {
   });
 
   initMS(document.getElementById('main-content'));
-  ['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'].forEach(id =>
+  [...['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'], ...RH_COL_MS].forEach(id =>
     msOnChange(id, applyFilters));
 
   clearBtn?.addEventListener('click', () => {
-    ['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'].forEach(id => msClear(id));
+    [...['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'], ...RH_COL_MS].forEach(id => msClear(id));
     colFilters = {};
     document.querySelectorAll('#rhColFilterRow input[data-rhcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#rhColFilterRow select[data-rhcol]').forEach(sel => sel.value = '');
@@ -5208,6 +5223,18 @@ pages.travel = async function () {
   const trvPickups  = [...new Set(allRows.map(r=>r.airportPickup).filter(v=>v&&v!=='—'))].sort();
 
   // Build thead HTML for both tab column sets
+  // Column-level multiselect ID map for Travel
+  const FLIGHT_OPTS = ['No Ticket','Requested','Booked','Issued'];
+  const TRV_COL_MS_MAP = {
+    'placementStatus':    ['trvCF_placementStatus',   PAR_STATUSES],
+    'programSource':      ['trvCF_programSource',      trvSources],
+    'flightBooked':       ['trvCF_flightStatus',       FLIGHT_OPTS],
+    'returnFlightStatus': ['trvCF_flightStatus',       FLIGHT_OPTS],
+    '_reqTicketStatus':   ['trvCF_flightStatus',       FLIGHT_OPTS],
+    'airportPickup':      ['trvCF_airportPickup',      trvPickups.length ? trvPickups : ['Yes','No']],
+    '_ticketType':        ['trvCF_ticketType',         ['departure','return']],
+  };
+
   function buildHeaders(cols) {
     const th = cols.map(c =>
       c.sortable
@@ -5228,6 +5255,8 @@ pages.travel = async function () {
             style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
         </div>
       </th>`;
+      const ms = TRV_COL_MS_MAP[c.field];
+      if (ms) return `<th>${buildColMS(ms[0], ms[1])}</th>`;
       return `<th><input class="req-cf req-col-f" data-travelcol="${c.field}" type="text" placeholder="—"></th>`;
     }).join('') + '<th></th>';
 
@@ -5456,23 +5485,38 @@ pageEvents.travel = function () {
     return followupAllRows;
   }
 
+  // Column-level multiselect IDs for Travel
+  const TRV_COL_MS = ['trvCF_placementStatus','trvCF_programSource','trvCF_flightStatus','trvCF_airportPickup','trvCF_ticketType'];
+
   function applyFilters() {
-    const cols      = getCols();
+    const cols       = getCols();
     const gSt        = msGetVals('travelStatusFilter');
     const gSrc       = msGetVals('travelSourceFilter');
     const gSp        = msGetVals('travelSponsorFilter');
     const ticketVals = msGetVals('travelTicketFilter');
     const pickupVals = msGetVals('travelPickupFilter');
+    // Column-level multiselects
+    const cfStatus   = msGetVals('trvCF_placementStatus');
+    const cfSource   = msGetVals('trvCF_programSource');
+    const cfFlight   = msGetVals('trvCF_flightStatus');
+    const cfPickup   = msGetVals('trvCF_airportPickup');
+    const cfType     = msGetVals('trvCF_ticketType');
     const ticketFld  = getTicketField();
     let filtered     = [...getTabRows()];
 
-    if (gSt.length)       filtered = filtered.filter(r => gSt.includes(r.placementStatus));
-    if (gSrc.length)      filtered = filtered.filter(r => gSrc.includes(r.programSource));
-    if (gSp.length)       filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
+    if (gSt.length)        filtered = filtered.filter(r => gSt.includes(r.placementStatus));
+    if (gSrc.length)       filtered = filtered.filter(r => gSrc.includes(r.programSource));
+    if (gSp.length)        filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
     if (pickupVals.length) filtered = filtered.filter(r => pickupVals.includes(r.airportPickup));
     if (ticketVals.length) {
       filtered = filtered.filter(r => ticketVals.includes(normalizeFlightStatus(r[ticketFld])));
     }
+    if (cfStatus.length) filtered = filtered.filter(r => cfStatus.includes(r.placementStatus));
+    if (cfSource.length) filtered = filtered.filter(r => cfSource.includes(r.programSource));
+    if (cfFlight.length) filtered = filtered.filter(r =>
+      cfFlight.includes(normalizeFlightStatus(r[ticketFld])));
+    if (cfPickup.length) filtered = filtered.filter(r => cfPickup.includes(r.airportPickup));
+    if (cfType.length)   filtered = filtered.filter(r => cfType.includes(r._ticketType));
 
     Object.entries(colFilters).forEach(([field, val]) => {
       if (!val) return;
@@ -5596,6 +5640,9 @@ pageEvents.travel = function () {
       btn.classList.toggle('active', btn.dataset.travelTab === tab));
     const banner = document.getElementById('trvFollowupBanner');
     if (banner) banner.style.display = tab === 'followup' ? 'block' : 'none';
+    // Re-init column multiselects after filter row is replaced
+    if (filterRow) initMS(filterRow);
+    TRV_COL_MS.forEach(id => msOnChange(id, applyFilters));
     attachSortListeners();
     attachColFilterListeners();
     applyFilters();
@@ -5605,11 +5652,12 @@ pageEvents.travel = function () {
     btn.addEventListener('click', () => switchTab(btn.dataset.travelTab)));
 
   initMS(document.getElementById('main-content'));
-  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'].forEach(id =>
-    msOnChange(id, applyFilters));
+  [...['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'],
+   ...TRV_COL_MS].forEach(id => msOnChange(id, applyFilters));
 
   clearBtn?.addEventListener('click', () => {
-    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'].forEach(id => msClear(id));
+    [...['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'],
+     ...TRV_COL_MS].forEach(id => msClear(id));
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#travelColFilterRow select[data-travelcol]').forEach(sel => sel.value = '');
