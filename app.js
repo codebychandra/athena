@@ -270,10 +270,10 @@ const CRM_FIELD_MAP = {
   department:             'Department',
   hostCompany:            'Hosting_Company',
   processingSponsor:      'Processing_Sponsor',
+  hcInterviewStatus:      'Host_Company_Interview_Status',
   ctiUsaReview:           'CTI_USA_s_Review',
   eligiblePrograms:       'Eligible_Programs',
-  programStart:           'Program_Start_Date',
-  programEnd:             'Program_End_Date',
+  // NOTE: programStart / programEnd do NOT exist in CRM — intentionally omitted
   consultationCallStatus: 'Consultation_Call_Status',
   consultationCallNotes:  'Consultation_Call_Notes',
   consultationCallDate:   'Consultation_Call_Date',
@@ -282,6 +282,11 @@ const CRM_FIELD_MAP = {
   participantRating:      'Participant_Rating',
   attendance:             'Attendance',
   financialReadinessDate: 'Financial_Readiness_Date',
+  housingAvailability:    'Housing_Availability',
+  housingLandlord:        'Housing_Landlord',
+  housingPaymentInit:     'Initial_Housing_Payment_Before_Departure',
+  housingPaymentMo:       'Monthly_Housing_Payment',   // different from Recruit's Housing_Price
+  housingAddress:         'Housing_Address',
 };
 
 // Push a change set to Zoho (Recruit or CRM depending on r._source)
@@ -2889,8 +2894,7 @@ pageEvents.participant = function () {
         { key: 'eligiblePrograms',       label: 'Eligible Programs',        type: 'text',     full: true },
         { key: 'processingSponsor',      label: 'Processing Sponsor',       type: 'text' },
         { key: 'hostCompany',            label: 'Hosting Company',          type: 'text' },
-        { key: 'programStart',           label: 'Program Start Date',       type: 'date' },
-        { key: 'programEnd',             label: 'Program End Date',         type: 'date' },
+        // programStart / programEnd omitted — these fields do not exist in CRM
         { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'text' },
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
       ] : [
