@@ -605,6 +605,91 @@ function escH(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── Global multi-select helpers ────────────────────────────────────────────
+function buildMS(id, label, opts) {
+  const items = opts.map(v => `
+    <label class="j1-ms-item">
+      <input type="checkbox" class="j1-ms-cb" value="${escH(v)}">
+      <span class="j1-ms-opt">${escH(v)}</span>
+    </label>`).join('');
+  return `
+    <div class="j1-multiselect" id="${id}">
+      <button class="j1-ms-btn" type="button">
+        <span class="j1-ms-lbl">${escH(label)}</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
+      </button>
+      <div class="j1-ms-panel">
+        <div class="j1-ms-list">${items}</div>
+        <div class="j1-ms-footer">
+          <button class="j1-ms-clear-one" type="button">Clear</button>
+          <span class="j1-ms-sel-count"></span>
+        </div>
+      </div>
+    </div>`;
+}
+function msGetVals(id) {
+  const el = document.getElementById(id);
+  if (!el) return [];
+  return [...el.querySelectorAll('.j1-ms-cb:checked')].map(cb => cb.value);
+}
+function msClear(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelectorAll('.j1-ms-cb').forEach(cb => cb.checked = false);
+  _msUpdateBadge(el);
+}
+function _msUpdateBadge(el) {
+  const checked = el.querySelectorAll('.j1-ms-cb:checked').length;
+  const badge = el.querySelector('.j1-ms-badge');
+  const count = el.querySelector('.j1-ms-sel-count');
+  if (badge) badge.textContent = checked ? ` (${checked})` : '';
+  if (count) count.textContent = checked ? `${checked} selected` : '';
+  if (checked > 0) el.querySelector('.j1-ms-btn')?.classList.add('j1-ms-active');
+  else el.querySelector('.j1-ms-btn')?.classList.remove('j1-ms-active');
+}
+function msOnChange(id, cb) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelectorAll('.j1-ms-cb').forEach(input => input.addEventListener('change', () => {
+    _msUpdateBadge(el); cb();
+  }));
+  el.querySelector('.j1-ms-clear-one')?.addEventListener('click', e => {
+    e.stopPropagation();
+    msClear(id); cb();
+  });
+}
+let _msOutsideClickBound = false;
+function initMS(container) {
+  (container || document).querySelectorAll('.j1-multiselect').forEach(ms => {
+    if (ms.dataset.msInit) return; // skip already-initialized
+    ms.dataset.msInit = '1';
+    const btn   = ms.querySelector('.j1-ms-btn');
+    const panel = ms.querySelector('.j1-ms-panel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = panel.classList.contains('open');
+      document.querySelectorAll('.j1-ms-panel.open').forEach(p => p.classList.remove('open'));
+      if (!isOpen) panel.classList.add('open');
+    });
+    ms.querySelectorAll('.j1-ms-cb').forEach(input => {
+      input.addEventListener('change', () => _msUpdateBadge(ms));
+    });
+    ms.querySelector('.j1-ms-clear-one')?.addEventListener('click', e => {
+      e.stopPropagation();
+      ms.querySelectorAll('.j1-ms-cb').forEach(cb => cb.checked = false);
+      _msUpdateBadge(ms);
+    });
+  });
+  if (!_msOutsideClickBound) {
+    _msOutsideClickBound = true;
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.j1-multiselect')) {
+        document.querySelectorAll('.j1-ms-panel.open').forEach(p => p.classList.remove('open'));
+      }
+    }, { capture: true });
+  }
+}
+
 // ── Global filter bar — simple dropdowns, drives charts + table ─
 function j1BuildFilterBar(allRows) {
   const uniq = (key) => [...new Set(allRows.map(r => r[key]).filter(Boolean))].sort();
@@ -1181,10 +1266,7 @@ pages.j1visa = async function () {
 
     <!-- Filter Bar (sticky) -->
     <div class="card req-filter-bar">
-      <select id="visaStatusFilter" class="req-gsel">
-        <option value="">All Visa Statuses</option>
-        ${visaStatuses.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
+      ${buildMS('visaStatusFilter', 'Visa Status', visaStatuses)}
       <select id="visaApptMonth" class="req-gsel">
         <option value="">All Months</option>
         ${apptMonths.map(m=>`<option value="${m}">${MONTH_NAMES[m]}</option>`).join('')}
@@ -1193,14 +1275,8 @@ pages.j1visa = async function () {
         <option value="">All Years</option>
         ${apptYears.map(y=>`<option value="${y}">${y}</option>`).join('')}
       </select>
-      <select id="visaCountryFilter" class="req-gsel">
-        <option value="">All Countries</option>
-        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
-      </select>
-      <select id="visaSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
+      ${buildMS('visaCountryFilter', 'Country', countries)}
+      ${buildMS('visaSponsorFilter', 'Sponsor', sponsors)}
       <button id="visaClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="visaCount" class="req-count-badge">${allRows.length} records</span>
     </div>
@@ -1325,9 +1401,9 @@ pageEvents.j1visa = function () {
   }
 
   function applyFilters(base) {
-    const gSt    = document.getElementById('visaStatusFilter')?.value  || '';
-    const gCtry  = document.getElementById('visaCountryFilter')?.value || '';
-    const gSp    = document.getElementById('visaSponsorFilter')?.value || '';
+    const gSt    = msGetVals('visaStatusFilter');
+    const gCtry  = msGetVals('visaCountryFilter');
+    const gSp    = msGetVals('visaSponsorFilter');
     const gMonth = document.getElementById('visaApptMonth')?.value     || '';
     const gYear  = document.getElementById('visaApptYear')?.value      || '';
     const colF   = {};
@@ -1337,9 +1413,9 @@ pageEvents.j1visa = function () {
     });
     const dateColF = readVisaDateFilters();
     return base.filter(r => {
-      if (gSt   && r.visaStatus        !== gSt)   return false;
-      if (gCtry && r.country           !== gCtry) return false;
-      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gSt.length   && !gSt.includes(r.visaStatus))        return false;
+      if (gCtry.length && !gCtry.includes(r.country))         return false;
+      if (gSp.length   && !gSp.includes(r.processingSponsor)) return false;
       if (gMonth !== '' || gYear !== '') {
         const appt = r.visaAppointment;
         if (!appt || appt === '—') return false;
@@ -1428,7 +1504,9 @@ pageEvents.j1visa = function () {
   refresh();
 
   // Filters
-  ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter','visaSponsorFilter'].forEach(id =>
+  initMS(document.getElementById('main-content'));
+  ['visaStatusFilter','visaCountryFilter','visaSponsorFilter'].forEach(id => msOnChange(id, refresh));
+  ['visaApptMonth','visaApptYear'].forEach(id =>
     document.getElementById(id)?.addEventListener('change', refresh));
 
   // Column filters (text, dropdowns, date cond+val)
@@ -1460,7 +1538,8 @@ pageEvents.j1visa = function () {
 
   // Clear
   document.getElementById('visaClearBtn')?.addEventListener('click', () => {
-    ['visaStatusFilter','visaApptMonth','visaApptYear','visaCountryFilter','visaSponsorFilter'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    ['visaStatusFilter','visaCountryFilter','visaSponsorFilter'].forEach(id => msClear(id));
+    ['visaApptMonth','visaApptYear'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.querySelectorAll('#visaColFilterRow .req-cf').forEach(el => el.value = '');
     _visaSortCol = null; _visaSortDir = 'asc';
     document.querySelectorAll('#visaSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
@@ -1763,10 +1842,15 @@ pages.requisition = async function () {
 
   // ── column filter select builder ────────────────────────
   const mkCFSel = (id, opts, placeholder) =>
-    `<select id="${id}" class="req-cf req-cf-sel">
-       <option value="">${escH(placeholder || 'All')}</option>
-       ${opts.map(v=>`<option value="${escH(v)}">${escH(v)}</option>`).join('')}
-     </select>`;
+    `<div class="j1-multiselect req-cf-ms" id="${id}">
+       <button class="j1-ms-btn" type="button" style="height:28px;font-size:11px;max-width:140px;">
+         <span class="j1-ms-lbl">${escH(placeholder || 'All')}</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
+       </button>
+       <div class="j1-ms-panel">
+         <div class="j1-ms-list">${opts.map(v=>`<label class="j1-ms-item"><input type="checkbox" class="j1-ms-cb" value="${escH(v)}"><span class="j1-ms-opt">${escH(v)}</span></label>`).join('')}</div>
+         <div class="j1-ms-footer"><button class="j1-ms-clear-one" type="button">Clear</button><span class="j1-ms-sel-count"></span></div>
+       </div>
+     </div>`;
 
   // ── table header/filter rows ─────────────────────────────
   const thSort = REQ_TABLE_COLS.map(col =>
@@ -1809,22 +1893,10 @@ pages.requisition = async function () {
     ${rows.length > 0 ? `
     <!-- ── Global Filter Bar ─────────────────────────────── -->
     <div class="card req-filter-bar">
-      <select id="reqDeptFilter" class="req-gsel">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
-      </select>
-      <select id="reqProgTypeFilter">
-        <option value="">All Program Types</option>
-        ${progTypes.map(p=>`<option value="${escH(p)}">${escH(p)}</option>`).join('')}
-      </select>
-      <select id="reqSponsorFilter">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="reqHousingFilter">
-        <option value="">All Housing</option>
-        ${housings.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-      </select>
+      ${buildMS('reqDeptFilter', 'Department', depts)}
+      ${buildMS('reqProgTypeFilter', 'Program Type', progTypes)}
+      ${buildMS('reqSponsorFilter', 'Sponsor', sponsors)}
+      ${buildMS('reqHousingFilter', 'Housing', housings)}
       <button id="reqClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="reqCount" class="req-count-badge">${rows.length} requisitions</span>
     </div>
@@ -2078,15 +2150,15 @@ pageEvents.requisition = function () {
 
   // ── unified filter ─────────────────────────────────────────
   function applyAllFilters() {
-    const gDept    = document.getElementById('reqDeptFilter')?.value     || '';
-    const gProg    = document.getElementById('reqProgTypeFilter')?.value || '';
-    const gSponsor = document.getElementById('reqSponsorFilter')?.value  || '';
-    const gHousing = document.getElementById('reqHousingFilter')?.value  || '';
+    const gDept    = msGetVals('reqDeptFilter');
+    const gProg    = msGetVals('reqProgTypeFilter');
+    const gSponsor = msGetVals('reqSponsorFilter');
+    const gHousing = msGetVals('reqHousingFilter');
 
-    // column selects
-    const cfDept    = document.getElementById(`reqCF_${REQ_CI.dept}`)?.value    || '';
-    const cfSponsor = document.getElementById(`reqCF_${REQ_CI.sponsor}`)?.value || '';
-    const cfHousing = document.getElementById(`reqCF_${REQ_CI.housing}`)?.value || '';
+    // column multi-selects
+    const cfDept    = msGetVals(`reqCF_${REQ_CI.dept}`);
+    const cfSponsor = msGetVals(`reqCF_${REQ_CI.sponsor}`);
+    const cfHousing = msGetVals(`reqCF_${REQ_CI.housing}`);
 
     // text column filters
     const colFilters = {};
@@ -2096,16 +2168,16 @@ pageEvents.requisition = function () {
     });
 
     _currentRows = rows.filter(r => {
-      if (gDept    && r[REQ_CI.dept]    !== gDept)    return false;
-      if (gSponsor && r[REQ_CI.sponsor] !== gSponsor) return false;
-      if (gHousing && r[REQ_CI.housing] !== gHousing) return false;
-      if (gProg) {
+      if (gDept.length    && !gDept.includes(r[REQ_CI.dept]))       return false;
+      if (gSponsor.length && !gSponsor.includes(r[REQ_CI.sponsor])) return false;
+      if (gHousing.length && !gHousing.includes(r[REQ_CI.housing])) return false;
+      if (gProg.length) {
         const tags = (r[REQ_CI.progType]||'').split(';').map(t=>t.trim());
-        if (!tags.includes(gProg)) return false;
+        if (!gProg.some(p => tags.includes(p))) return false;
       }
-      if (cfDept    && r[REQ_CI.dept]    !== cfDept)    return false;
-      if (cfSponsor && r[REQ_CI.sponsor] !== cfSponsor) return false;
-      if (cfHousing && r[REQ_CI.housing] !== cfHousing) return false;
+      if (cfDept.length    && !cfDept.includes(r[REQ_CI.dept]))       return false;
+      if (cfSponsor.length && !cfSponsor.includes(r[REQ_CI.sponsor])) return false;
+      if (cfHousing.length && !cfHousing.includes(r[REQ_CI.housing])) return false;
       for (const [ci, fv] of Object.entries(colFilters)) {
         if (!String(r[ci]||'').toLowerCase().includes(fv)) return false;
       }
@@ -2124,16 +2196,17 @@ pageEvents.requisition = function () {
     refreshCharts(_currentRows);
   }
 
+  initMS(document.getElementById('main-content'));
   ['reqDeptFilter','reqProgTypeFilter','reqSponsorFilter','reqHousingFilter'].forEach(id =>
-    document.getElementById(id)?.addEventListener('change', applyAllFilters));
+    msOnChange(id, applyAllFilters));
   [`reqCF_${REQ_CI.dept}`,`reqCF_${REQ_CI.sponsor}`,`reqCF_${REQ_CI.housing}`].forEach(id =>
-    document.getElementById(id)?.addEventListener('change', applyAllFilters));
+    msOnChange(id, applyAllFilters));
   document.querySelectorAll('.req-col-f').forEach(el => el.addEventListener('input', applyAllFilters));
 
   document.getElementById('reqClearBtn')?.addEventListener('click', () => {
     ['reqDeptFilter','reqProgTypeFilter','reqSponsorFilter','reqHousingFilter',
      `reqCF_${REQ_CI.dept}`,`reqCF_${REQ_CI.sponsor}`,`reqCF_${REQ_CI.housing}`]
-      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+      .forEach(id => msClear(id));
     document.querySelectorAll('.req-col-f').forEach(el=>el.value='');
     _reqSortCol=null; _reqSortDir='asc';
     document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(el=>{ el.textContent='⇅'; });
@@ -2475,27 +2548,11 @@ pages.participant = async function () {
     ${rawRows.length > 0 ? `
     <!-- Filter Bar -->
     <div class="card req-filter-bar">
-      <select id="parStatusFilter" class="req-gsel">
-        <option value="">All Statuses</option>
-        ${PAR_STATUSES.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-        <option value="Total Placement">Total Placement</option>
-      </select>
-      <select id="parSourceFilter" class="req-gsel">
-        <option value="">All J1 Sources</option>
-        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="parDeptFilter" class="req-gsel">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
-      </select>
-      <select id="parCountryFilter" class="req-gsel">
-        <option value="">All Countries</option>
-        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
-      </select>
-      <select id="parSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
+      ${buildMS('parStatusFilter', 'Status', [...PAR_STATUSES, 'Total Placement'])}
+      ${buildMS('parSourceFilter', 'J1 Source', sources)}
+      ${buildMS('parDeptFilter', 'Department', depts)}
+      ${buildMS('parCountryFilter', 'Country', countries)}
+      ${buildMS('parSponsorFilter', 'Sponsor', sponsors)}
       <span class="par-date-label">Start</span>
       <select id="parStartDateCond" class="req-gsel" style="width:46px;padding:4px 2px;font-size:12px;text-align:center;" title="Before / On or Before / On / On or After / After">
         <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
@@ -2602,10 +2659,10 @@ pageEvents.participant = function () {
 
   // Recount tab badges based on current non-status global filters
   function refreshTabCounts() {
-    const gSrc  = document.getElementById('parSourceFilter')?.value   || '';
-    const gDpt  = document.getElementById('parDeptFilter')?.value     || '';
-    const gCtry = document.getElementById('parCountryFilter')?.value  || '';
-    const gSp   = document.getElementById('parSponsorFilter')?.value  || '';
+    const gSrc  = msGetVals('parSourceFilter');
+    const gDpt  = msGetVals('parDeptFilter');
+    const gCtry = msGetVals('parCountryFilter');
+    const gSp   = msGetVals('parSponsorFilter');
     const gsD     = document.getElementById('parStartDateFilter')?.value  || '';
     const gsDCond = document.getElementById('parStartDateCond')?.value    || '';
     const geD     = document.getElementById('parEndDateFilter')?.value    || '';
@@ -2619,10 +2676,10 @@ pageEvents.participant = function () {
 
     const dateColF = readDateColFilters('parColFilterRow');
     const base = allRows.filter(r => {
-      if (gSrc  && r.programSource     !== gSrc)  return false;
-      if (gDpt  && r.department        !== gDpt)  return false;
-      if (gCtry && r.country           !== gCtry) return false;
-      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gSrc.length  && !gSrc.includes(r.programSource))    return false;
+      if (gDpt.length  && !gDpt.includes(r.department))       return false;
+      if (gCtry.length && !gCtry.includes(r.country))         return false;
+      if (gSp.length   && !gSp.includes(r.processingSponsor)) return false;
       if (gsD && gsDCond && !applyDateColFilter(r, 'programStart', gsDCond, gsD)) return false;
       if (geD && geDCond && !applyDateColFilter(r, 'programEnd',   geDCond, geD)) return false;
       for (const [field, fv] of Object.entries(colF)) {
@@ -2679,11 +2736,11 @@ pageEvents.participant = function () {
   }
 
   function applyFilters(base) {
-    const gSt  = document.getElementById('parStatusFilter')?.value  || '';
-    const gSrc = document.getElementById('parSourceFilter')?.value  || '';
-    const gDpt = document.getElementById('parDeptFilter')?.value    || '';
-    const gCtry= document.getElementById('parCountryFilter')?.value || '';
-    const gSp  = document.getElementById('parSponsorFilter')?.value || '';
+    const gSt  = msGetVals('parStatusFilter');
+    const gSrc = msGetVals('parSourceFilter');
+    const gDpt = msGetVals('parDeptFilter');
+    const gCtry= msGetVals('parCountryFilter');
+    const gSp  = msGetVals('parSponsorFilter');
     const gsD     = document.getElementById('parStartDateFilter')?.value  || '';
     const gsDCond = document.getElementById('parStartDateCond')?.value    || '';
     const geD     = document.getElementById('parEndDateFilter')?.value    || '';
@@ -2695,14 +2752,18 @@ pageEvents.participant = function () {
     });
     const dateColF = readDateColFilters('parColFilterRow');
     return base.filter(r => {
-      if (gSt) {
-        if (gSt === 'Total Placement') { if (!PAR_PLACEMENT_STATUSES.has(r.placementStatus)) return false; }
-        else if (r.placementStatus !== gSt) return false;
+      if (gSt.length) {
+        if (gSt.includes('Total Placement') && gSt.length === 1) {
+          if (!PAR_PLACEMENT_STATUSES.has(r.placementStatus)) return false;
+        } else {
+          const matchesStatus = gSt.some(s => s === 'Total Placement' ? PAR_PLACEMENT_STATUSES.has(r.placementStatus) : r.placementStatus === s);
+          if (!matchesStatus) return false;
+        }
       }
-      if (gSrc  && r.programSource     !== gSrc)  return false;
-      if (gDpt  && r.department        !== gDpt)  return false;
-      if (gCtry && r.country           !== gCtry) return false;
-      if (gSp   && r.processingSponsor !== gSp)   return false;
+      if (gSrc.length  && !gSrc.includes(r.programSource))     return false;
+      if (gDpt.length  && !gDpt.includes(r.department))        return false;
+      if (gCtry.length && !gCtry.includes(r.country))          return false;
+      if (gSp.length   && !gSp.includes(r.processingSponsor))  return false;
       if (gsD && gsDCond && !applyDateColFilter(r, 'programStart', gsDCond, gsD)) return false;
       if (geD && geDCond && !applyDateColFilter(r, 'programEnd',   geDCond, geD)) return false;
       for (const [field, fv] of Object.entries(colF)) {
@@ -2739,8 +2800,14 @@ pageEvents.participant = function () {
   function setActiveTab(status) {
     _parActiveTab = status || 'All';
     document.querySelectorAll('.par-tab').forEach(t => t.classList.toggle('active', t.dataset.status === _parActiveTab));
-    const dd = document.getElementById('parStatusFilter');
-    if (dd) dd.value = _parActiveTab === 'All' ? '' : _parActiveTab;
+    // Sync multi-select: set single checkbox matching the active tab
+    const msEl = document.getElementById('parStatusFilter');
+    if (msEl) {
+      msEl.querySelectorAll('.j1-ms-cb').forEach(cb => {
+        cb.checked = (_parActiveTab !== 'All' && cb.value === _parActiveTab);
+      });
+      _msUpdateBadge(msEl);
+    }
   }
 
   let _currentRows = [...allRows];
@@ -2770,11 +2837,7 @@ pageEvents.participant = function () {
     refresh();
   });
 
-  // Status dropdown syncs with tabs
-  document.getElementById('parStatusFilter')?.addEventListener('change', e => {
-    setActiveTab(e.target.value || 'All');
-    refresh();
-  });
+  // Status multi-select syncs with tabs — handled via msOnChange below
 
   // Column sort (data-pfield attribute)
   document.getElementById('parSortRow')?.addEventListener('click', e => {
@@ -2790,9 +2853,12 @@ pageEvents.participant = function () {
     refresh();
   });
 
-  // Other global filters
-  ['parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter',
-   'parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
+  // Global multi-select filters
+  initMS(document.getElementById('main-content'));
+  ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter']
+    .forEach(id => msOnChange(id, refresh));
+  // Date filters
+  ['parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
     .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
 
   // Column-level filters (text, dropdowns, date condition+value)
@@ -2801,8 +2867,9 @@ pageEvents.participant = function () {
 
   // Clear all
   document.getElementById('parClearBtn')?.addEventListener('click', () => {
-    ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter',
-     'parSponsorFilter','parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
+    ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter']
+      .forEach(id => msClear(id));
+    ['parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.querySelectorAll('#parColFilterRow .req-cf').forEach(el => el.value = '');
     _parSortCol = null; _parSortDir = 'asc';
@@ -3054,26 +3121,11 @@ pages.talentpool = async function () {
 
     <!-- Filter Bar (sticky) — very top -->
     <div class="card req-filter-bar">
-      <select id="tpStatusFilter" class="req-gsel">
-        <option value="">All Statuses</option>
-        ${TP_STATUSES.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="tpSourceFilter" class="req-gsel">
-        <option value="">All J1 Sources</option>
-        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="tpDeptFilter" class="req-gsel">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option value="${escH(d)}">${escH(d)}</option>`).join('')}
-      </select>
-      <select id="tpCountryFilter" class="req-gsel">
-        <option value="">All Countries</option>
-        ${countries.map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('')}
-      </select>
-      <select id="tpEligibleFilter" class="req-gsel">
-        <option value="">All Eligible Programs</option>
-        ${eligibleOpts2.map(p=>`<option value="${escH(p)}">${escH(p)}</option>`).join('')}
-      </select>
+      ${buildMS('tpStatusFilter', 'Status', TP_STATUSES)}
+      ${buildMS('tpSourceFilter', 'J1 Source', sources)}
+      ${buildMS('tpDeptFilter', 'Department', depts)}
+      ${buildMS('tpCountryFilter', 'Country', countries)}
+      ${buildMS('tpEligibleFilter', 'Eligible Programs', eligibleOpts2)}
       <button id="tpClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="tpCount" class="req-count-badge">${allPool.length} candidates</span>
     </div>
@@ -3159,23 +3211,23 @@ pageEvents.talentpool = function () {
     return escH(str);
   }
   function applyFilters(base) {
-    const gSt  = document.getElementById('tpStatusFilter')?.value  || '';
-    const gSrc = document.getElementById('tpSourceFilter')?.value  || '';
-    const gDpt = document.getElementById('tpDeptFilter')?.value    || '';
-    const gCtry= document.getElementById('tpCountryFilter')?.value || '';
-    const gEp  = document.getElementById('tpEligibleFilter')?.value || '';
+    const gSt  = msGetVals('tpStatusFilter');
+    const gSrc = msGetVals('tpSourceFilter');
+    const gDpt = msGetVals('tpDeptFilter');
+    const gCtry= msGetVals('tpCountryFilter');
+    const gEp  = msGetVals('tpEligibleFilter');
     const colF = {};
     document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => {
       const v = el.value.trim(); if (v) colF[el.dataset.tpfield] = v.toLowerCase();
     });
     return base.filter(r => {
-      if (gSt   && r.placementStatus !== gSt)   return false;
-      if (gSrc  && r.programSource   !== gSrc)  return false;
-      if (gDpt  && r.department      !== gDpt)  return false;
-      if (gCtry && r.country         !== gCtry) return false;
-      if (gEp) {
+      if (gSt.length   && !gSt.includes(r.placementStatus))   return false;
+      if (gSrc.length  && !gSrc.includes(r.programSource))    return false;
+      if (gDpt.length  && !gDpt.includes(r.department))       return false;
+      if (gCtry.length && !gCtry.includes(r.country))         return false;
+      if (gEp.length) {
         const progs = (r.eligiblePrograms || '').split(',').map(s => s.trim());
-        if (!progs.includes(gEp)) return false;
+        if (!gEp.some(ep => progs.includes(ep))) return false;
       }
       for (const [f, fv] of Object.entries(colF)) {
         if (f === 'eligiblePrograms') {
@@ -3388,8 +3440,9 @@ pageEvents.talentpool = function () {
   });
 
   // Status + all global filters trigger refresh
+  initMS(document.getElementById('main-content'));
   ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpEligibleFilter']
-    .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
+    .forEach(id => msOnChange(id, refresh));
 
   // Column filters
   document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el =>
@@ -3412,7 +3465,7 @@ pageEvents.talentpool = function () {
   // Clear
   document.getElementById('tpClearBtn')?.addEventListener('click', () => {
     ['tpStatusFilter','tpSourceFilter','tpDeptFilter','tpCountryFilter','tpEligibleFilter']
-      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      .forEach(id => msClear(id));
     document.querySelectorAll('#tpColFilterRow .req-cf').forEach(el => el.value = '');
     _tpSortCol = null; _tpSortDir = 'asc';
     document.querySelectorAll('#tpSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
@@ -3671,22 +3724,10 @@ pages.housing = async function () {
 
     <!-- Global filters (sticky) -->
     <div class="card req-filter-bar">
-      <select id="hsgStatusFilter" class="req-gsel">
-        <option value="">All J1 Statuses</option>
-        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgSourceFilter" class="req-gsel">
-        <option value="">All Sources</option>
-        ${sources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${sponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="hsgHousingFilter" class="req-gsel">
-        <option value="">All Housing</option>
-        ${housingOpts.map(h=>`<option value="${escH(h)}">${escH(h)}</option>`).join('')}
-      </select>
+      ${buildMS('hsgStatusFilter', 'J1 Status', [...PAR_STATUSES])}
+      ${buildMS('hsgSourceFilter', 'Source', sources)}
+      ${buildMS('hsgSponsorFilter', 'Sponsor', sponsors)}
+      ${buildMS('hsgHousingFilter', 'Housing', housingOpts)}
       <button id="hsgClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="hsgCount" class="req-count-badge">${total} participants</span>
     </div>
@@ -3776,20 +3817,20 @@ pageEvents.housing = function () {
   }
 
   function getFiltered() {
-    const gSt  = document.getElementById('hsgStatusFilter')?.value  || '';
-    const gSrc = document.getElementById('hsgSourceFilter')?.value  || '';
-    const gSp  = document.getElementById('hsgSponsorFilter')?.value || '';
-    const gHsg = document.getElementById('hsgHousingFilter')?.value || '';
+    const gSt  = msGetVals('hsgStatusFilter');
+    const gSrc = msGetVals('hsgSourceFilter');
+    const gSp  = msGetVals('hsgSponsorFilter');
+    const gHsg = msGetVals('hsgHousingFilter');
     const colF = {};
     document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el => {
       const v = el.value.trim();
       if (v) colF[el.dataset.hfield] = v.toLowerCase();
     });
     return [...allRows].filter(r => {
-      if (gSt  && r.placementStatus    !== gSt)  return false;
-      if (gSrc && r.programSource      !== gSrc) return false;
-      if (gSp  && r.processingSponsor  !== gSp)  return false;
-      if (gHsg && r.housingAvailability !== gHsg) return false;
+      if (gSt.length  && !gSt.includes(r.placementStatus))      return false;
+      if (gSrc.length && !gSrc.includes(r.programSource))       return false;
+      if (gSp.length  && !gSp.includes(r.processingSponsor))    return false;
+      if (gHsg.length && !gHsg.includes(r.housingAvailability)) return false;
       for (const [f, fv] of Object.entries(colF)) {
         if (!String(r[f]||'').toLowerCase().includes(fv)) return false;
       }
@@ -3848,8 +3889,9 @@ pageEvents.housing = function () {
   refresh();
 
   // Global filter listeners
+  initMS(document.getElementById('main-content'));
   ['hsgStatusFilter','hsgSourceFilter','hsgSponsorFilter','hsgHousingFilter'].forEach(id =>
-    document.getElementById(id)?.addEventListener('change', refresh));
+    msOnChange(id, refresh));
 
   // Column filter listeners
   document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el =>
@@ -3857,9 +3899,7 @@ pageEvents.housing = function () {
 
   // Clear button
   document.getElementById('hsgClearBtn')?.addEventListener('click', () => {
-    ['hsgStatusFilter','hsgSourceFilter','hsgSponsorFilter','hsgHousingFilter'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
+    ['hsgStatusFilter','hsgSourceFilter','hsgSponsorFilter','hsgHousingFilter'].forEach(id => msClear(id));
     document.querySelectorAll('#housingColFilterRow .req-cf').forEach(el => el.value = '');
     _housingSortCol = null; _housingSortDir = 'asc';
     document.querySelectorAll('#housingSortRow .req-sort-icon').forEach(a => a.textContent='⇅');
@@ -4243,25 +4283,10 @@ pages.travel = async function () {
 
     <!-- Filter Bar (sticky) -->
     <div class="card req-filter-bar">
-      <select id="travelStatusFilter" class="req-gsel">
-        <option value="">All J1 Statuses</option>
-        ${[...PAR_STATUSES].map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="travelSourceFilter" class="req-gsel">
-        <option value="">All Sources</option>
-        ${trvSources.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="travelSponsorFilter" class="req-gsel">
-        <option value="">All Sponsors</option>
-        ${trvSponsors.map(s=>`<option value="${escH(s)}">${escH(s)}</option>`).join('')}
-      </select>
-      <select id="travelTicketFilter" class="req-gsel">
-        <option value="">All Ticket Statuses</option>
-        <option value="No Ticket">No Ticket</option>
-        <option value="Requested">Requested</option>
-        <option value="Booked">Booked</option>
-        <option value="Issued">Issued</option>
-      </select>
+      ${buildMS('travelStatusFilter', 'J1 Status', [...PAR_STATUSES])}
+      ${buildMS('travelSourceFilter', 'Source', trvSources)}
+      ${buildMS('travelSponsorFilter', 'Sponsor', trvSponsors)}
+      ${buildMS('travelTicketFilter', 'Ticket Status', ['No Ticket','Requested','Booked','Issued'])}
       <button id="travelClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="travelCount" class="req-count-badge">${total} participants</span>
     </div>
@@ -4392,9 +4417,9 @@ pageEvents.travel = function () {
   function updateKpis(gSt, gSrc, gSp) {
     function applyGlobal(rows) {
       let r = [...rows];
-      if (gSt)  r = r.filter(x => x.placementStatus   === gSt);
-      if (gSrc) r = r.filter(x => x.programSource     === gSrc);
-      if (gSp)  r = r.filter(x => x.processingSponsor === gSp);
+      if (gSt.length)  r = r.filter(x => gSt.includes(x.placementStatus));
+      if (gSrc.length) r = r.filter(x => gSrc.includes(x.programSource));
+      if (gSp.length)  r = r.filter(x => gSp.includes(x.processingSponsor));
       return r;
     }
     function counts(rows, field) {
@@ -4418,18 +4443,18 @@ pageEvents.travel = function () {
 
   function applyFilters() {
     const cols      = getCols();
-    const gSt       = document.getElementById('travelStatusFilter')?.value  || '';
-    const gSrc      = document.getElementById('travelSourceFilter')?.value  || '';
-    const gSp       = document.getElementById('travelSponsorFilter')?.value || '';
-    const ticketVal = ticketSel?.value || '';
+    const gSt       = msGetVals('travelStatusFilter');
+    const gSrc      = msGetVals('travelSourceFilter');
+    const gSp       = msGetVals('travelSponsorFilter');
+    const ticketVals = msGetVals('travelTicketFilter');
     const ticketFld = getTicketField();
     let filtered    = [...getTabRows()];
 
-    if (gSt)  filtered = filtered.filter(r => r.placementStatus   === gSt);
-    if (gSrc) filtered = filtered.filter(r => r.programSource     === gSrc);
-    if (gSp)  filtered = filtered.filter(r => r.processingSponsor === gSp);
-    if (ticketVal) {
-      filtered = filtered.filter(r => normalizeFlightStatus(r[ticketFld]) === ticketVal);
+    if (gSt.length)  filtered = filtered.filter(r => gSt.includes(r.placementStatus));
+    if (gSrc.length) filtered = filtered.filter(r => gSrc.includes(r.programSource));
+    if (gSp.length)  filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
+    if (ticketVals.length) {
+      filtered = filtered.filter(r => ticketVals.includes(normalizeFlightStatus(r[ticketFld])));
     }
 
     Object.entries(colFilters).forEach(([field, val]) => {
@@ -4560,15 +4585,12 @@ pageEvents.travel = function () {
   document.querySelectorAll('.par-tab[data-travel-tab]').forEach(btn =>
     btn.addEventListener('click', () => switchTab(btn.dataset.travelTab)));
 
-  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter'].forEach(id =>
-    document.getElementById(id)?.addEventListener('change', applyFilters));
-  ticketSel?.addEventListener('change', applyFilters);
+  initMS(document.getElementById('main-content'));
+  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter'].forEach(id =>
+    msOnChange(id, applyFilters));
 
   clearBtn?.addEventListener('click', () => {
-    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = '';
-    });
-    if (ticketSel) ticketSel.value = '';
+    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter'].forEach(id => msClear(id));
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#travelColFilterRow select[data-travelcol]').forEach(sel => sel.value = '');

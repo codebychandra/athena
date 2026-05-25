@@ -1722,6 +1722,12 @@ tbody td {
 }
 .j1-ms-clear-one:hover { text-decoration: underline; }
 .j1-ms-sel-count { font-size: 11px; color: var(--text-muted); }
+.j1-ms-btn.j1-ms-active {
+  border-color: #1B3A6B;
+  background: rgba(27,58,107,0.06);
+  color: #1B3A6B;
+  font-weight: 700;
+}
 
 /* ============================
    J1 TIMELINE SLIDER (noUiSlider)
