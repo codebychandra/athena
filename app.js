@@ -2010,8 +2010,6 @@ const VISA_TABLE_COLS = [
   { label:'Country',           field:'country',          sortable:true                    },
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
   { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true  },
-  { label:'Payment Date',      field:'visaPaymentDate',  sortable:true,  datecol:true     },
-  { label:'Appointment Date',  field:'visaAppointment',  sortable:true,  datecol:true     },
   { label:'Expired Date',      field:'visaExpiredDate',  sortable:true,  datecol:true     },
   { label:'Support Letter',    field:'refLetterStatus',  sortable:true                    },
 ];
