@@ -2339,3 +2339,15 @@ thead th.sortable:hover {
 .par-tab.par-tab-placement:hover { border-color: var(--red); color: var(--red); }
 .par-tab.par-tab-placement.active { background: var(--red); border-color: var(--red); color: #fff; }
 .par-tab.par-tab-placement.active .par-tab-count { background: rgba(255,255,255,0.22); }
+
+/* Column-level multi-select — compact size for table header cells */
+.req-cf-ms .j1-ms-btn {
+  height: 26px;
+  font-size: 10px;
+  padding: 0 6px;
+  max-width: 140px;
+  width: 100%;
+}
+.req-cf-ms .j1-ms-panel {
+  min-width: 180px;
+}
