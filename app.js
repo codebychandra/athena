@@ -2025,6 +2025,7 @@ const TP_TABLE_COLS = [
   { label:'First Name',           field:'firstName',              sortable:true },
   { label:'Last Name',            field:'lastName',               sortable:true },
   { label:'Email',                field:'email',                  sortable:true },
+  { label:'Age',                  field:'age',                    sortable:true },
   { label:'Department',           field:'department',             sortable:true, badge:true },
   { label:'Country',              field:'country',                sortable:true },
   { label:"CTI USA's Review",     field:'ctiUsaReview',           sortable:true },
