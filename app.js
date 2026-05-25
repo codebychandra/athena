@@ -203,6 +203,7 @@ const RECRUIT_FIELD_MAP = {
   gender:                'Gender',
   email:                 'Email',
   phone:                 'Phone_Number1',
+  hostCompany:           'Hosting_Company_2',
   dateOfBirth:           'Date_Of_Birth',
   country:               'Country',
   processingSponsor:     'Processing_Sponsor',
@@ -267,6 +268,7 @@ const CRM_FIELD_MAP = {
   gender:                 'Gender',
   email:                  'Email',
   phone:                  'Phone_Number',
+  hostCompany:            'Hosting_Company',
   dateOfBirth:            'Date_Of_Birth',
   country:                'Country',
   department:             'Department',
@@ -301,9 +303,11 @@ async function zohoUpdate(r, changes) {
     ? `/api/crm/${module}/${rawId}`
     : `/api/recruit/${module}/${rawId}`;
 
+  // Lookup fields: Zoho requires {id, name} objects — we store the id in r.<key>Id
+  const LOOKUP_FIELDS = { hostCompany: 'hostCompanyId' };
+
   // Map frontend keys → Zoho field names.
-  // Only send fields that actually changed — avoids sending lookup/relational fields
-  // that Zoho rejects when passed as plain strings (e.g. Hosting_Company_2).
+  // Only send fields that actually changed — compare new vs original to skip unmodified fields.
   const payload = {};
   for (const [key, val] of Object.entries(changes)) {
     const zohoKey = fieldMap[key];
@@ -314,7 +318,14 @@ async function zohoUpdate(r, changes) {
     const origStr  = (original === null || original === undefined || original === '—') ? '' : String(original);
     const newStr   = String(val);
     if (newStr === origStr) continue;
-    payload[zohoKey] = val;
+    // Format lookup fields as {id, name} — Zoho rejects plain strings for relational fields
+    if (LOOKUP_FIELDS[key]) {
+      const idKey = LOOKUP_FIELDS[key];
+      const existingId = r[idKey];
+      payload[zohoKey] = existingId ? { id: existingId, name: val } : { name: val };
+    } else {
+      payload[zohoKey] = val;
+    }
   }
   if (!Object.keys(payload).length) throw new Error('No fields were changed. Please update at least one field.');
 
@@ -1657,6 +1668,7 @@ pageEvents.j1visa = function () {
         { key: 'firstName',        label: 'First Name',                   type: 'text' },
         { key: 'lastName',         label: 'Last Name',                    type: 'text' },
         { key: 'processingSponsor',label: 'Processing Sponsor',           type: 'text' },
+        { key: 'hostCompany',      label: 'Hosting Company',              type: 'text' },
         { key: 'visaPaymentDate',  label: 'J1 Visa Payment Date',         type: 'date' },
         { key: 'visaAppointment',  label: 'J1 Visa 1st Appointment Date', type: 'date' },
         { key: 'visaAppt2',        label: 'J1 Visa 2nd Appointment Date', type: 'date' },
@@ -3036,7 +3048,7 @@ pageEvents.participant = function () {
         { key: 'ctiUsaReview',           label: "CTI USA's Review",         type: 'text' },
         { key: 'eligiblePrograms',       label: 'Eligible Programs',        type: 'text',     full: true },
         { key: 'processingSponsor',      label: 'Processing Sponsor',       type: 'text' },
-        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
+        { key: 'hostCompany',            label: 'Hosting Company',          type: 'text' },
         // programStart / programEnd omitted — these fields do not exist in CRM
         { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'text' },
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
@@ -3054,7 +3066,7 @@ pageEvents.participant = function () {
         { key: 'ctiUsaReview',      label: "CTI USA's Review",       type: 'text' },
         { key: 'eligiblePrograms',  label: 'Eligible Programs',      type: 'text',   full: true },
         { key: 'processingSponsor', label: 'Processing Sponsor',     type: 'text' },
-        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
+        { key: 'hostCompany',       label: 'Hosting Company',        type: 'text' },
         { key: 'programStart',      label: 'Program Start Date',     type: 'date' },
         { key: 'programEnd',        label: 'Program End Date',       type: 'date' },
         { key: 'hcInterviewStatus', label: 'HC Interview Status',    type: 'text' },
@@ -4121,7 +4133,7 @@ pageEvents.housing = function () {
         { key: 'firstName',          label: 'First Name',                          type: 'text' },
         { key: 'lastName',           label: 'Last Name',                           type: 'text' },
         { key: 'processingSponsor',  label: 'Processing Sponsor',                  type: 'text' },
-        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
+        { key: 'hostCompany',        label: 'Hosting Company',                     type: 'text' },
         { key: 'housingAvailability',label: 'Housing Availability',                type: 'select',
           options: ['Available Through CTI','Provided by Host','Not Required'] },
         { key: 'housingLandlord',    label: 'Housing Landlord',                    type: 'text' },
