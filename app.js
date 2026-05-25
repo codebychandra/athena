@@ -301,13 +301,20 @@ async function zohoUpdate(r, changes) {
     ? `/api/crm/${module}/${rawId}`
     : `/api/recruit/${module}/${rawId}`;
 
-  // Map frontend keys → Zoho field names (skip empty/null — Zoho rejects null for date/required fields)
+  // Map frontend keys → Zoho field names.
+  // Only send fields that actually changed — avoids sending lookup/relational fields
+  // that Zoho rejects when passed as plain strings (e.g. Hosting_Company_2).
   const payload = {};
   for (const [key, val] of Object.entries(changes)) {
     const zohoKey = fieldMap[key];
-    if (zohoKey !== undefined && val !== '' && val !== null && val !== undefined) {
-      payload[zohoKey] = val;
-    }
+    if (zohoKey === undefined) continue;
+    if (val === '' || val === null || val === undefined) continue;
+    // Skip unchanged values — compare as strings to handle type coercion
+    const original = r[key];
+    const origStr  = (original === null || original === undefined || original === '—') ? '' : String(original);
+    const newStr   = String(val);
+    if (newStr === origStr) continue;
+    payload[zohoKey] = val;
   }
   if (!Object.keys(payload).length) throw new Error('No fields were changed. Please update at least one field.');
 
@@ -1650,7 +1657,6 @@ pageEvents.j1visa = function () {
         { key: 'firstName',        label: 'First Name',                   type: 'text' },
         { key: 'lastName',         label: 'Last Name',                    type: 'text' },
         { key: 'processingSponsor',label: 'Processing Sponsor',           type: 'text' },
-        { key: 'hostCompany',      label: 'Hosting Company',              type: 'text' },
         { key: 'visaPaymentDate',  label: 'J1 Visa Payment Date',         type: 'date' },
         { key: 'visaAppointment',  label: 'J1 Visa 1st Appointment Date', type: 'date' },
         { key: 'visaAppt2',        label: 'J1 Visa 2nd Appointment Date', type: 'date' },
@@ -3030,7 +3036,7 @@ pageEvents.participant = function () {
         { key: 'ctiUsaReview',           label: "CTI USA's Review",         type: 'text' },
         { key: 'eligiblePrograms',       label: 'Eligible Programs',        type: 'text',     full: true },
         { key: 'processingSponsor',      label: 'Processing Sponsor',       type: 'text' },
-        { key: 'hostCompany',            label: 'Hosting Company',          type: 'text' },
+        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
         // programStart / programEnd omitted — these fields do not exist in CRM
         { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'text' },
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
@@ -3048,7 +3054,7 @@ pageEvents.participant = function () {
         { key: 'ctiUsaReview',      label: "CTI USA's Review",       type: 'text' },
         { key: 'eligiblePrograms',  label: 'Eligible Programs',      type: 'text',   full: true },
         { key: 'processingSponsor', label: 'Processing Sponsor',     type: 'text' },
-        { key: 'hostCompany',       label: 'Hosting Company',        type: 'text' },
+        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
         { key: 'programStart',      label: 'Program Start Date',     type: 'date' },
         { key: 'programEnd',        label: 'Program End Date',       type: 'date' },
         { key: 'hcInterviewStatus', label: 'HC Interview Status',    type: 'text' },
@@ -4115,7 +4121,7 @@ pageEvents.housing = function () {
         { key: 'firstName',          label: 'First Name',                          type: 'text' },
         { key: 'lastName',           label: 'Last Name',                           type: 'text' },
         { key: 'processingSponsor',  label: 'Processing Sponsor',                  type: 'text' },
-        { key: 'hostCompany',        label: 'Hosting Company',                     type: 'text' },
+        // hostCompany (Hosting_Company_2) is a Zoho lookup field — cannot update via plain string
         { key: 'housingAvailability',label: 'Housing Availability',                type: 'select',
           options: ['Available Through CTI','Provided by Host','Not Required'] },
         { key: 'housingLandlord',    label: 'Housing Landlord',                    type: 'text' },
