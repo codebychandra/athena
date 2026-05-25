@@ -262,11 +262,11 @@ const RECRUIT_FIELD_MAP = {
   financialReadinessDate:'Financial_Readiness_Date',
   passportStatus:          'Passport_Status',
   policeClearanceStatus:   'Police_Clearance_Status',
-  uniAccreditationStatus:  'University_Accreditation_Status',
-  proofAcademicStatus:     'Proof_of_Academic_Status',
+  uniAccreditationStatus:  'University_Accreditation',
+  proofAcademicStatus:     'Academic_Status',
   educationalCertStatus:   'Educational_Certificate_Status',
-  academicTranscriptStatus:'Academic_Transcripts_Status',
-  englishAssessmentLetterStatus: 'English_Assessment_Letter_Status',
+  academicTranscriptStatus:'Academic_Transcripts',
+  englishAssessmentLetterStatus: 'English_Assessment_Letter',
   signedJ1Policy:          'Signed_J1_Program_Policy',
   stage1Investment:        'Stage_1_Investment',
   stage2Investment:        'Stage_2_Investment',
@@ -2818,25 +2818,26 @@ pageEvents.participant = function () {
     if (r.eligiblePrograms) r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet2.add(t); });
   });
   const eligibleOpts2 = [...eligibleSet2].sort();
-  // Dynamic dropdown options for new columns
-  const _dynOpts = f => [...new Set(allRows.map(r=>r[f]).filter(v=>v&&v!=='—'))].sort();
-  const hostCompanies        = _dynOpts('hostCompany');
-  const ctiReviewOpts        = _dynOpts('ctiUsaReview');
-  const visaStatusOpts       = _dynOpts('visaStatus');
-  const refLetterOpts        = _dynOpts('refLetterStatus');
-  const flightBookedOpts     = _dynOpts('flightBooked');
-  const ticketPayOpts        = _dynOpts('ticketPayStatus');
-  const returnFlightOpts     = _dynOpts('returnFlightStatus');
-  const returnTicketPayOpts  = _dynOpts('returnTicketPayStatus');
-  const sponsorStatusOpts    = _dynOpts('sponsorStatus');
-  const passportStatusOpts   = _dynOpts('passportStatus');
-  const policeClearOpts      = _dynOpts('policeClearanceStatus');
-  const uniAccredOpts        = _dynOpts('uniAccreditationStatus');
-  const proofAcademicOpts    = _dynOpts('proofAcademicStatus');
-  const educCertOpts         = _dynOpts('educationalCertStatus');
-  const academicTransOpts    = _dynOpts('academicTranscriptStatus');
-  const engAssessLetterOpts  = _dynOpts('englishAssessmentLetterStatus');
-  const signedJ1Opts         = _dynOpts('signedJ1Policy');
+  // Real Zoho picklist values (fetched from /api/fields/j1-participants)
+  const hostCompanies       = [...new Set(allRows.map(r=>r.hostCompany).filter(v=>v&&v!=='—'))].sort();
+  const _docStatus          = ['Need to Process','In Process','Valid'];
+  const _docStatusEd        = ['Need to process','In Process','Valid'];
+  const ctiReviewOpts       = ['Eligible for Consultation Call','Not Eligible for Consultation Call'];
+  const visaStatusOpts      = ['Approved','Pending','Pending 2nd Interview','Pending 3rd Interview','Rejected 1st Attempt','Rejected 2nd Attempt','Rejected 3rd Attempt'];
+  const refLetterOpts       = ['Requested','In Process','Issued'];
+  const flightBookedOpts    = ['Requested','Booked','Ticket Issued'];
+  const ticketPayOpts       = ['Awaiting for Payment','Paid'];
+  const returnFlightOpts    = ['Requested','Booked','Ticket Issued'];
+  const returnTicketPayOpts = ['Awaiting for Payment','Paid'];
+  const sponsorStatusOpts   = ['Approved','Declined','Pending','No Show'];
+  const passportStatusOpts  = _docStatus;
+  const policeClearOpts     = _docStatus;
+  const uniAccredOpts       = _docStatus;
+  const proofAcademicOpts   = _docStatus;
+  const educCertOpts        = _docStatusEd;
+  const academicTransOpts   = _docStatus;
+  const engAssessLetterOpts = _docStatus;
+  const signedJ1Opts        = ['Yes','No'];
 
   function getTabRows() {
     if (_parActiveTab === 'All') return [...allRows];
@@ -2893,10 +2894,10 @@ pageEvents.participant = function () {
       'processingSponsor':           sponsors,
       'eligiblePrograms':            eligibleOpts2,
       'hostCompany':                 hostCompanies,
-      'gender':                      ['Male','Female'],
+      'gender':                      ['Female','Male','Unspecified'],
       'ctiUsaReview':                ctiReviewOpts,
-      'consultationCallStatus':      ['Pending','Scheduled','Completed','Rescheduled','Cancelled'],
-      'attendance':                  ['Present','Absent','Late','Excused'],
+      'consultationCallStatus':      ['Approved','Approved - Applied Position Unavailable','Approved - OTC Students','On Hold','On Hold - Requires English Improvement','Denied'],
+      'attendance':                  ['Attended','Cancelled','Confirmed','Declined','No Show','Pending','Pending Rescheduling','Rescheduled'],
       'passportStatus':              passportStatusOpts,
       'policeClearanceStatus':       policeClearOpts,
       'uniAccreditationStatus':      uniAccredOpts,
