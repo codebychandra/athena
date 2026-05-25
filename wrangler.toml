@@ -1,0 +1,23 @@
+name            = "cti-athena"
+main            = "worker.js"
+compatibility_date = "2024-09-23"
+
+# ── KV Namespace ──────────────────────────────────────────────────────────
+# Step 1: Run this command to create the namespace:
+#   npx wrangler kv:namespace create TOKEN_CACHE
+#
+# Step 2: Copy the "id" from the output and paste it below
+# Example output: { binding = "TOKEN_CACHE", id = "abc123..." }
+
+[[kv_namespaces]]
+binding = "TOKEN_CACHE"
+id      = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# ── Secrets ───────────────────────────────────────────────────────────────
+# Set these once via Cloudflare dashboard → Workers → cti-athena → Settings → Variables
+# OR via command line:
+#   npx wrangler secret put ZOHO_CLIENT_ID
+#   npx wrangler secret put ZOHO_CLIENT_SECRET
+#   npx wrangler secret put ZOHO_REFRESH_TOKEN
+#
+# Values are the same ones currently in Railway environment variables

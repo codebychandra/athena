@@ -1,5 +1,11 @@
 ﻿'use strict';
 
+// ── Cloudflare Worker URL ─────────────────────────────────────────────────
+// After deploying the Worker, replace ACCOUNT_SUBDOMAIN with your actual
+// workers.dev subdomain (found in Cloudflare dashboard → Workers & Pages).
+// Example: 'https://cti-athena.myname.workers.dev'
+const WORKER_URL = 'https://cti-athena.ACCOUNT_SUBDOMAIN.workers.dev';
+
 // ============================
 // CONSTANTS
 // ============================
@@ -300,8 +306,8 @@ async function zohoUpdate(r, changes) {
   const module   = isCRM ? 'J1_Participants1' : 'J1_Participants';
   const rawId    = isCRM ? String(r.id).replace(/^crm_/, '') : r.id;
   const endpoint = isCRM
-    ? `/api/crm/${module}/${rawId}`
-    : `/api/recruit/${module}/${rawId}`;
+    ? `${WORKER_URL}/api/crm/${module}/${rawId}`
+    : `${WORKER_URL}/api/recruit/${module}/${rawId}`;
 
   // Lookup fields: Zoho requires {id, name} objects — we store the id in r.<key>Id
   const LOOKUP_FIELDS = { hostCompany: 'hostCompanyId' };
@@ -335,7 +341,7 @@ async function zohoUpdate(r, changes) {
     body: JSON.stringify(payload),
   });
   // Clear server cache so the next page load fetches fresh data from Zoho
-  await fetch('/api/cache/clear').catch(() => {});
+  await fetch(WORKER_URL + '/api/cache/clear').catch(() => {});
   return res;
 }
 
@@ -440,7 +446,7 @@ async function checkZohoStatus() {
   try {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
-    const res   = await fetch('/api/status', { signal: ctrl.signal });
+    const res   = await fetch(WORKER_URL + '/api/status', { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) throw new Error('no server');
     const data = await res.json();
@@ -466,7 +472,7 @@ function updateZohoBadge() {
     badge.style.background = 'rgba(176,26,24,0.12)';
     badge.style.color      = '#B01A18';
     badge.style.cursor     = 'pointer';
-    badge.onclick = () => { window.location.href = '/auth/zoho'; };
+    badge.onclick = () => { alert('Zoho token is managed in the Cloudflare Worker. Contact the administrator to renew the connection.'); };
   }
 }
 
@@ -1185,8 +1191,8 @@ pages.compliance = async function () {
 pages.j1visa = async function () {
   let recruitRows = [], crmRows = [], errorMsg = null;
   const [rRes, cRes] = await Promise.allSettled([
-    safeJson('/api/recruit/j1-participants'),
-    safeJson('/api/crm/j1-participants'),
+    safeJson(WORKER_URL + '/api/recruit/j1-participants'),
+    safeJson(WORKER_URL + '/api/crm/j1-participants'),
   ]);
   if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
   else errorMsg = rRes.reason?.message;
@@ -1289,7 +1295,7 @@ pages.j1visa = async function () {
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
       <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
-      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
     <!-- Filter Bar (sticky) -->
@@ -1873,7 +1879,7 @@ pages.requisition = async function () {
   let errorMsg = null;
 
   try {
-    const json = await safeJson('/api/zoho/j1-requisition');
+    const json = await safeJson(WORKER_URL + '/api/zoho/j1-requisition');
     rawRows  = json.data?.rows || [];
   } catch (e) { errorMsg = e.message; }
 
@@ -2496,8 +2502,8 @@ pages.participant = async function () {
   let recruitRows = [], crmRows = [], errorMsg = null;
   try {
     const [rRes, cRes] = await Promise.allSettled([
-      safeJson('/api/recruit/j1-participants'),
-      safeJson('/api/crm/j1-participants'),
+      safeJson(WORKER_URL + '/api/recruit/j1-participants'),
+      safeJson(WORKER_URL + '/api/crm/j1-participants'),
     ]);
     if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
     else errorMsg = rRes.reason?.message;
@@ -2606,7 +2612,7 @@ pages.participant = async function () {
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
       <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
-      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
     ${rawRows.length > 0 ? `
@@ -3140,9 +3146,9 @@ pages.talentpool = async function () {
   let recruitRows = [], crmRows = [], reqRows = [], errorMsg = null;
   try {
     const [rRes, cRes, qRes] = await Promise.allSettled([
-      safeJson('/api/recruit/j1-participants'),
-      safeJson('/api/crm/j1-participants'),
-      safeJson('/api/zoho/j1-requisition'),
+      safeJson(WORKER_URL + '/api/recruit/j1-participants'),
+      safeJson(WORKER_URL + '/api/crm/j1-participants'),
+      safeJson(WORKER_URL + '/api/zoho/j1-requisition'),
     ]);
     if (rRes.status === 'fulfilled') recruitRows = rRes.value?.data || [];
     else errorMsg = rRes.reason?.message;
@@ -3218,7 +3224,7 @@ pages.talentpool = async function () {
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
       <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
-      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
     <!-- Filter Bar (sticky) — very top -->
@@ -3768,7 +3774,7 @@ pages.housing = async function () {
 
   let rows = [], errorMsg = null;
   try {
-    const json = await safeJson('/api/recruit/j1-participants');
+    const json = await safeJson(WORKER_URL + '/api/recruit/j1-participants');
     rows = json?.data || [];
   } catch (e) { errorMsg = e.message; }
 
@@ -3845,7 +3851,7 @@ pages.housing = async function () {
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
       <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
-      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
     <!-- Global filters (sticky) -->
@@ -4347,7 +4353,7 @@ pages.travel = async function () {
 
   let rows = [], errorMsg = null;
   try {
-    const json = await safeJson('/api/recruit/j1-participants');
+    const json = await safeJson(WORKER_URL + '/api/recruit/j1-participants');
     rows = json?.data || [];
   } catch (e) { errorMsg = e.message; }
 
@@ -4424,7 +4430,7 @@ pages.travel = async function () {
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
       <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
-      ${authErr?' — <a href="/auth/zoho" style="color:#B01A18;font-weight:700;">Re-connect →</a>':` — ${escH(errorMsg)}`}
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
       </div></div>` : ''}
 
     <!-- Filter Bar (sticky) -->
