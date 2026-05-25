@@ -2020,15 +2020,19 @@ let _visaSortCol = null, _visaSortDir = 'asc';
 // ── Talent Pool constants ─────────────────────────────
 const TP_STATUSES = ['New Submission','On Hold','Consultation Call','Sales Call'];
 const TP_TABLE_COLS = [
-  { label:'Status',            field:'placementStatus',   sortable:true,  statusbadge:true },
-  { label:'J1 Source',         field:'programSource',     sortable:true                    },
-  { label:'First Name',        field:'firstName',         sortable:true                    },
-  { label:'Last Name',         field:'lastName',          sortable:true                    },
-  { label:'Passport No.',      field:'passportNumber',    sortable:true                    },
-  { label:'Country',           field:'country',           sortable:true                    },
-  { label:'Department',        field:'department',        sortable:true,  badge:true        },
-  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:true                    },
-  { label:'App Source',        field:'_source',           sortable:true,  sourcebadge:true  },
+  { label:'J1 App Status',        field:'placementStatus',       sortable:true, statusbadge:true },
+  { label:'J1 Source',            field:'programSource',          sortable:true },
+  { label:'First Name',           field:'firstName',              sortable:true },
+  { label:'Last Name',            field:'lastName',               sortable:true },
+  { label:'Email',                field:'email',                  sortable:true },
+  { label:'Department',           field:'department',             sortable:true, badge:true },
+  { label:'Country',              field:'country',                sortable:true },
+  { label:"CTI USA's Review",     field:'ctiUsaReview',           sortable:true },
+  { label:'Eligible Programs',    field:'eligiblePrograms',       sortable:true },
+  { label:'Consultation Date',    field:'consultationCallDate',   sortable:true, datecol:true },
+  { label:'Call Status',          field:'consultationCallStatus', sortable:true },
+  { label:'Attendance',           field:'attendance',             sortable:true },
+  { label:'App Source',           field:'_source',                sortable:true, sourcebadge:true },
 ];
 let _tpSortCol   = null;
 let _tpSortDir   = 'asc';
@@ -3441,13 +3445,18 @@ pages.talentpool = async function () {
 
   // Column-level filters
   const cfDropdowns = {
-    'placementStatus':  [...TP_STATUSES],
-    'programSource':    sources,
-    'department':       depts,
-    'country':          countries,
-    'eligiblePrograms': eligibleOpts2,
+    'placementStatus':        [...TP_STATUSES],
+    'programSource':          ZP_PROGRAM_SOURCES,
+    'department':             ZP_DEPARTMENTS,
+    'country':                countries,
+    'eligiblePrograms':       ZP_ELIGIBLE_PROGRAMS,
+    'ctiUsaReview':           ZP_CTI_REVIEW,
+    'consultationCallStatus': ZP_CONSULT_STATUS,
+    'attendance':             ZP_ATTENDANCE,
   };
   const thFilter = TP_TABLE_COLS.map(col => {
+    if (col.sourcebadge) return '<th></th>';
+    if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;"><div style="display:flex;gap:2px;align-items:center;"><select class="req-cf req-cf-date-cond" data-tpfield="${escH(col.field)}" style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;"><option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option></select><input type="date" class="req-cf req-cf-date-val" data-tpfield="${escH(col.field)}" style="flex:1;padding:1px 3px;font-size:11px;min-width:0;"></div></th>`;
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<div id="tpCF_${col.field}" class="j1-multiselect req-cf-ms">
