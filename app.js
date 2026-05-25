@@ -2818,6 +2818,25 @@ pageEvents.participant = function () {
     if (r.eligiblePrograms) r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet2.add(t); });
   });
   const eligibleOpts2 = [...eligibleSet2].sort();
+  // Dynamic dropdown options for new columns
+  const _dynOpts = f => [...new Set(allRows.map(r=>r[f]).filter(v=>v&&v!=='—'))].sort();
+  const hostCompanies        = _dynOpts('hostCompany');
+  const ctiReviewOpts        = _dynOpts('ctiUsaReview');
+  const visaStatusOpts       = _dynOpts('visaStatus');
+  const refLetterOpts        = _dynOpts('refLetterStatus');
+  const flightBookedOpts     = _dynOpts('flightBooked');
+  const ticketPayOpts        = _dynOpts('ticketPayStatus');
+  const returnFlightOpts     = _dynOpts('returnFlightStatus');
+  const returnTicketPayOpts  = _dynOpts('returnTicketPayStatus');
+  const sponsorStatusOpts    = _dynOpts('sponsorStatus');
+  const passportStatusOpts   = _dynOpts('passportStatus');
+  const policeClearOpts      = _dynOpts('policeClearanceStatus');
+  const uniAccredOpts        = _dynOpts('uniAccreditationStatus');
+  const proofAcademicOpts    = _dynOpts('proofAcademicStatus');
+  const educCertOpts         = _dynOpts('educationalCertStatus');
+  const academicTransOpts    = _dynOpts('academicTranscriptStatus');
+  const engAssessLetterOpts  = _dynOpts('englishAssessmentLetterStatus');
+  const signedJ1Opts         = _dynOpts('signedJ1Policy');
 
   function getTabRows() {
     if (_parActiveTab === 'All') return [...allRows];
@@ -2867,12 +2886,33 @@ pageEvents.participant = function () {
     _parLastHeaderTab = _parActiveTab;
     const cols = getParCols();
     const cfDropdowns2 = {
-      'placementStatus':   [...PAR_STATUSES],
-      'programSource':     sources,
-      'department':        depts,
-      'country':           countries,
-      'processingSponsor': sponsors,
-      'eligiblePrograms':  eligibleOpts2,
+      'placementStatus':             [...PAR_STATUSES],
+      'programSource':               sources,
+      'department':                  depts,
+      'country':                     countries,
+      'processingSponsor':           sponsors,
+      'eligiblePrograms':            eligibleOpts2,
+      'hostCompany':                 hostCompanies,
+      'gender':                      ['Male','Female'],
+      'ctiUsaReview':                ctiReviewOpts,
+      'consultationCallStatus':      ['Pending','Scheduled','Completed','Rescheduled','Cancelled'],
+      'attendance':                  ['Present','Absent','Late','Excused'],
+      'passportStatus':              passportStatusOpts,
+      'policeClearanceStatus':       policeClearOpts,
+      'uniAccreditationStatus':      uniAccredOpts,
+      'proofAcademicStatus':         proofAcademicOpts,
+      'educationalCertStatus':       educCertOpts,
+      'academicTranscriptStatus':    academicTransOpts,
+      'englishAssessmentLetterStatus': engAssessLetterOpts,
+      'signedJ1Policy':              signedJ1Opts,
+      'hcInterviewStatus':           ['Pending','Approved','Rejected'],
+      'sponsorStatus':               sponsorStatusOpts,
+      'visaStatus':                  visaStatusOpts,
+      'refLetterStatus':             refLetterOpts,
+      'flightBooked':                flightBookedOpts,
+      'ticketPayStatus':             ticketPayOpts,
+      'returnFlightStatus':          returnFlightOpts,
+      'returnTicketPayStatus':       returnTicketPayOpts,
     };
     const newThSort = cols.map(col =>
       col.sortable
