@@ -1248,7 +1248,7 @@ pages.j1visa = async function () {
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<div id="visaCF_${col.field}" class="j1-multiselect req-cf-ms">
-  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
+  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
   </button>
   <div class="j1-ms-panel">
@@ -1869,7 +1869,7 @@ pages.requisition = async function () {
   // ── column filter select builder ────────────────────────
   const mkCFSel = (id, opts, placeholder) =>
     `<div class="j1-multiselect req-cf-ms" id="${id}">
-       <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
+       <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
          <span class="j1-ms-lbl">${escH(placeholder || 'All')}</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
        </button>
        <div class="j1-ms-panel">
@@ -2555,7 +2555,7 @@ pages.participant = async function () {
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<div id="parCF_${col.field}" class="j1-multiselect req-cf-ms">
-  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
+  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
   </button>
   <div class="j1-ms-panel">
@@ -3155,7 +3155,7 @@ pages.talentpool = async function () {
     const opts = cfDropdowns[col.field];
     return `<th>${opts
       ? `<div id="tpCF_${col.field}" class="j1-multiselect req-cf-ms">
-  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
+  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
   </button>
   <div class="j1-ms-panel">
@@ -3785,7 +3785,7 @@ pages.housing = async function () {
     const opts = cfDropdowns[c.field];
     return `<th>${opts
       ? `<div id="hsgCF_${c.field}" class="j1-multiselect req-cf-ms">
-  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
+  <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
   </button>
   <div class="j1-ms-panel">
