@@ -1367,6 +1367,11 @@ pageEvents.j1visa = function () {
   const allRows = state.dataCache['visa-rows'] || [];
   if (!allRows.length) return;
 
+  // Option arrays for edit modal dropdowns
+  const sources    = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const sponsors   = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const refLetters = [...new Set(allRows.map(r=>r.refLetterStatus).filter(v=>v&&v!=='—'))].sort();
+
   // ── Helpers ───────────────────────────────────────────
   function visaBadge(s) {
     const c = visaStatusColor(s);
@@ -2655,6 +2660,12 @@ pageEvents.participant = function () {
   const allRows = state.dataCache['par-rows'] || [];
   if (!allRows.length) return;
 
+  // Option arrays for edit modal dropdowns
+  const sources   = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const depts     = [...new Set(allRows.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
+  const countries = [...new Set(allRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
+  const sponsors  = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+
   function getTabRows() {
     if (_parActiveTab === 'All') return [...allRows];
     if (_parActiveTab === 'Total Placement') return allRows.filter(r => PAR_PLACEMENT_STATUSES.has(r.placementStatus));
@@ -3280,6 +3291,9 @@ pageEvents.talentpool = function () {
   const reqRows  = state.dataCache['tp-req-rows'] || [];
   if (!allPool.length) return;
 
+  // Option arrays for edit modal dropdowns
+  const sources = [...new Set(allPool.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+
   // ── Helpers ───────────────────────────────────────────
   function statusBadge(status) {
     const color = PAR_STATUS_COLORS[status] || '#888';
@@ -3895,6 +3909,10 @@ pages.housing = async function () {
 pageEvents.housing = function () {
   const allRows = state.dataCache['housing-rows'] || [];
 
+  // Option arrays for edit modal dropdowns
+  const sources  = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const sponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+
   function fmtDateShort(v) {
     if (!v || v === '—') return '—';
     const d = new Date(v);
@@ -4472,6 +4490,9 @@ pageEvents.travel = function () {
   const allRows    = state.dataCache['travel-rows']     || [];
   const depAllRows = state.dataCache['travel-dep-rows'] || [];
   const retAllRows = state.dataCache['travel-ret-rows'] || [];
+
+  // Option arrays for edit modal dropdowns
+  const trvSources = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
 
   function fmtDate(v) {
     if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
