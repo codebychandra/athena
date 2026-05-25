@@ -1813,6 +1813,7 @@ const VISA_TABLE_COLS = [
   { label:'First Name',        field:'firstName',        sortable:true                    },
   { label:'Last Name',         field:'lastName',         sortable:true                    },
   { label:'Passport No.',      field:'passportNumber',   sortable:true                    },
+  { label:'Hosting Company',   field:'hostCompany',      sortable:true                    },
   { label:'Eligible Programs', field:'eligiblePrograms', sortable:true                    },
   { label:'Country',           field:'country',          sortable:true                    },
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
