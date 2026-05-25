@@ -5141,6 +5141,27 @@ pageEvents.task = function () {
         return;
       }
 
+      // ── Status badge (inline — statusBadge is page-scoped elsewhere) ─────
+      function taskStatusBadge(s) {
+        const map = {
+          'New Submission':     '#6B7280',
+          'On Hold':            '#B87A14',
+          'Consultation Call':  '#1B3A6B',
+          'Sales Call':         '#1B3A6B',
+          'Stage 1':            '#7C3AED',
+          'Stage 2':            '#7C3AED',
+          'Stage 3':            '#7C3AED',
+          'Stage 4':            '#7C3AED',
+          'USA Onboard':        '#2D7A55',
+          'Program Completed':  '#B01A18',
+        };
+        const c = map[s] || '#888';
+        return s
+          ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+              background:${c}18;color:${c};border:1px solid ${c}30;white-space:nowrap;">${escH(s)}</span>`
+          : '<span style="color:var(--text-muted,#aaa);">—</span>';
+      }
+
       // ── Source badge helper ───────────────────────────────────
       function srcBadge(src) {
         const color  = src === 'recruit' ? '#1B3A6B' : '#B87A14';
@@ -5242,7 +5263,7 @@ pageEvents.task = function () {
             <td style="padding:8px 10px;font-weight:600;white-space:nowrap;">${escH(fullName)}</td>
             <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.email||'—')}</td>
             <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.phone||'—')}</td>
-            <td style="padding:8px 10px;">${statusBadgeHtml(r.placementStatus)}</td>
+            <td style="padding:8px 10px;">${taskStatusBadge(r.placementStatus)}</td>
             <td style="padding:8px 10px;color:var(--text-muted,#888);font-size:11px;
               max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
               title="${escH(g.key)}">${escH(g.key)}</td>
