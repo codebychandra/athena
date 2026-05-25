@@ -1664,10 +1664,10 @@ pageEvents.j1visa = function () {
     document.getElementById('visaEditBtn')?.addEventListener('click', () => {
       openEditModal(r, [
         { key: 'placementStatus',  label: 'J1 Application Status',        type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',    label: 'J1 Source',                    type: 'text' },
+        { key: 'programSource',    label: 'J1 Source',                    type: 'select', options: sources },
         { key: 'firstName',        label: 'First Name',                   type: 'text' },
         { key: 'lastName',         label: 'Last Name',                    type: 'text' },
-        { key: 'processingSponsor',label: 'Processing Sponsor',           type: 'text' },
+        { key: 'processingSponsor',label: 'Processing Sponsor',           type: 'select', options: sponsors },
         { key: 'hostCompany',      label: 'Hosting Company',              type: 'text' },
         { key: 'visaPaymentDate',  label: 'J1 Visa Payment Date',         type: 'date' },
         { key: 'visaAppointment',  label: 'J1 Visa 1st Appointment Date', type: 'date' },
@@ -1677,7 +1677,7 @@ pageEvents.j1visa = function () {
           options: ['Pending','Approved','Rejected 1st Attempt','Pending 2nd Interview','Rejected 2nd Attempt','Pending 3rd Interview','Rejected 3rd Attempt'] },
         { key: 'visaNumber',       label: 'J1 Visa Number',               type: 'text' },
         { key: 'visaExpiredDate',  label: 'J1 Visa Expired Date',         type: 'date' },
-        { key: 'refLetterStatus',  label: 'Visa Supporting Letter Status', type: 'text' },
+        { key: 'refLetterStatus',  label: 'Visa Supporting Letter Status', type: 'select', options: refLetters },
       ], () => { refresh(); });
     });
   }
@@ -3035,41 +3035,46 @@ pageEvents.participant = function () {
     document.getElementById('parEditBtn')?.addEventListener('click', () => {
       const isCRM = r._source === 'crm';
       const editFields = isCRM ? [
-        { key: 'placementStatus',        label: 'J1 Application Status',    type: 'select',   options: PAR_STATUSES },
-        { key: 'programSource',          label: 'J1 Program Sources',       type: 'text' },
+        { key: 'placementStatus',        label: 'J1 Application Status',    type: 'select', options: PAR_STATUSES },
+        { key: 'programSource',          label: 'J1 Program Sources',       type: 'select', options: sources },
         { key: 'firstName',              label: 'First Name',               type: 'text' },
         { key: 'lastName',               label: 'Last Name',                type: 'text' },
-        { key: 'gender',                 label: 'Gender',                   type: 'text' },
+        { key: 'gender',                 label: 'Gender',                   type: 'select', options: ['Male','Female'] },
         { key: 'email',                  label: 'Email',                    type: 'text' },
         { key: 'phone',                  label: 'Phone Number',             type: 'text' },
         { key: 'dateOfBirth',            label: 'Date Of Birth',            type: 'date' },
-        { key: 'country',                label: 'Country',                  type: 'text' },
-        { key: 'department',             label: 'Department',               type: 'text' },
-        { key: 'ctiUsaReview',           label: "CTI USA's Review",         type: 'text' },
-        { key: 'eligiblePrograms',       label: 'Eligible Programs',        type: 'text',     full: true },
-        { key: 'processingSponsor',      label: 'Processing Sponsor',       type: 'text' },
+        { key: 'country',                label: 'Country',                  type: 'select', options: countries },
+        { key: 'department',             label: 'Department',               type: 'select', options: depts },
+        { key: 'eligiblePrograms',       label: 'Eligible Programs',        type: 'text',   full: true },
+        { key: 'processingSponsor',      label: 'Processing Sponsor',       type: 'select', options: sponsors },
         { key: 'hostCompany',            label: 'Hosting Company',          type: 'text' },
         // programStart / programEnd omitted — these fields do not exist in CRM
-        { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'text' },
+        { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'select',
+          options: ['Pending','Scheduled','Completed','Rescheduled','Cancelled'] },
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
+        { key: 'ctiUsaReview',           label: "CTI USA's Review",         type: 'text',   full: true },
       ] : [
         { key: 'placementStatus',   label: 'J1 Application Status',  type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',     label: 'J1 Program Sources',     type: 'text' },
+        { key: 'programSource',     label: 'J1 Program Sources',     type: 'select', options: sources },
         { key: 'firstName',         label: 'First Name',             type: 'text' },
         { key: 'lastName',          label: 'Last Name',              type: 'text' },
-        { key: 'gender',            label: 'Gender',                 type: 'text' },
+        { key: 'gender',            label: 'Gender',                 type: 'select', options: ['Male','Female'] },
         { key: 'email',             label: 'Email',                  type: 'text' },
         { key: 'phone',             label: 'Phone Number',           type: 'text' },
         { key: 'dateOfBirth',       label: 'Date Of Birth',          type: 'date' },
-        { key: 'country',           label: 'Country',                type: 'text' },
-        { key: 'department',        label: 'Department',             type: 'text' },
-        { key: 'ctiUsaReview',      label: "CTI USA's Review",       type: 'text' },
+        { key: 'country',           label: 'Country',                type: 'select', options: countries },
+        { key: 'department',        label: 'Department',             type: 'select', options: depts },
         { key: 'eligiblePrograms',  label: 'Eligible Programs',      type: 'text',   full: true },
-        { key: 'processingSponsor', label: 'Processing Sponsor',     type: 'text' },
+        { key: 'processingSponsor', label: 'Processing Sponsor',     type: 'select', options: sponsors },
         { key: 'hostCompany',       label: 'Hosting Company',        type: 'text' },
         { key: 'programStart',      label: 'Program Start Date',     type: 'date' },
         { key: 'programEnd',        label: 'Program End Date',       type: 'date' },
-        { key: 'hcInterviewStatus', label: 'HC Interview Status',    type: 'text' },
+        { key: 'hcInterviewStatus', label: 'HC Interview Status',    type: 'select',
+          options: ['Pending','Approved','Rejected'] },
+        { key: 'consultationCallStatus', label: 'Consultation Call Status', type: 'select',
+          options: ['Pending','Scheduled','Completed','Rescheduled','Cancelled'] },
+        { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
+        { key: 'ctiUsaReview',      label: "CTI USA's Review",       type: 'text',   full: true },
       ];
       openEditModal(r, editFields, () => { refresh(); });
     });
@@ -3653,33 +3658,25 @@ pageEvents.talentpool = function () {
 
     document.getElementById('tpEditBtn')?.addEventListener('click', () => {
       const isCRM = r._source === 'crm';
-      const editFields = isCRM ? [
-        { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',          label: 'J1 Source',                  type: 'text' },
+      const sharedTpFields = [
+        { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: [...TP_STATUSES] },
+        { key: 'programSource',          label: 'J1 Source',                  type: 'select', options: sources },
         { key: 'firstName',              label: 'First Name',                 type: 'text' },
         { key: 'lastName',               label: 'Last Name',                  type: 'text' },
         { key: 'consultationCallDate',   label: 'Consultation Call Date',     type: 'date' },
         { key: 'consultationCallBy',     label: 'Consultation Call Done By',  type: 'text' },
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',    type: 'textarea', full: true },
-        { key: 'consultationCallStatus', label: 'Consultation Call Status',   type: 'text' },
-        { key: 'englishAssessment',      label: 'English Assessment',         type: 'text',     full: true },
-        { key: 'participantRating',      label: 'Participant Rating',         type: 'text' },
-        { key: 'attendance',             label: 'Attendance',                 type: 'text' },
-        { key: 'financialReadinessDate', label: 'Financial Readiness Date',   type: 'date' },
-      ] : [
-        { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',          label: 'J1 Source',                  type: 'text' },
-        { key: 'firstName',              label: 'First Name',                 type: 'text' },
-        { key: 'lastName',               label: 'Last Name',                  type: 'text' },
-        { key: 'consultationCallDate',   label: 'Consultation Call Date',     type: 'date' },
-        { key: 'consultationCallBy',     label: 'Consultation Call Done By',  type: 'text' },
-        { key: 'consultationCallNotes',  label: 'Consultation Call Notes',    type: 'textarea', full: true },
-        { key: 'consultationCallStatus', label: 'Consultation Call Status',   type: 'text' },
-        { key: 'englishAssessment',      label: 'English Assessment',         type: 'text',     full: true },
-        { key: 'participantRating',      label: 'Participant Rating',         type: 'text' },
-        { key: 'attendance',             label: 'Attendance',                 type: 'text' },
+        { key: 'consultationCallStatus', label: 'Consultation Call Status',   type: 'select',
+          options: ['Pending','Scheduled','Completed','Rescheduled','Cancelled'] },
+        { key: 'englishAssessment',      label: 'English Assessment',         type: 'select', full: true,
+          options: ['Basic','Elementary','Intermediate','Upper Intermediate','Advanced','Fluent'] },
+        { key: 'participantRating',      label: 'Participant Rating',         type: 'select',
+          options: ['1','2','3','4','5'] },
+        { key: 'attendance',             label: 'Attendance',                 type: 'select',
+          options: ['Present','Absent','Late','Excused'] },
         { key: 'financialReadinessDate', label: 'Financial Readiness Date',   type: 'date' },
       ];
+      const editFields = sharedTpFields;
       openEditModal(r, editFields, () => { refresh(); });
     });
   }
@@ -4129,10 +4126,10 @@ pageEvents.housing = function () {
     document.getElementById('hsgEditBtn')?.addEventListener('click', () => {
       openEditModal(r, [
         { key: 'placementStatus',    label: 'J1 Application Status',               type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',      label: 'J1 Source',                           type: 'text' },
+        { key: 'programSource',      label: 'J1 Source',                           type: 'select', options: sources },
         { key: 'firstName',          label: 'First Name',                          type: 'text' },
         { key: 'lastName',           label: 'Last Name',                           type: 'text' },
-        { key: 'processingSponsor',  label: 'Processing Sponsor',                  type: 'text' },
+        { key: 'processingSponsor',  label: 'Processing Sponsor',                  type: 'select', options: sponsors },
         { key: 'hostCompany',        label: 'Hosting Company',                     type: 'text' },
         { key: 'housingAvailability',label: 'Housing Availability',                type: 'select',
           options: ['Available Through CTI','Provided by Host','Not Required'] },
@@ -4820,7 +4817,7 @@ pageEvents.travel = function () {
     document.getElementById('trvEditBtn')?.addEventListener('click', () => {
       openEditModal(r, [
         { key: 'placementStatus',      label: 'J1 Application Status',         type: 'select', options: PAR_STATUSES },
-        { key: 'programSource',        label: 'J1 Source',                     type: 'text' },
+        { key: 'programSource',        label: 'J1 Source',                     type: 'select', options: trvSources },
         { key: 'firstName',            label: 'First Name',                    type: 'text' },
         { key: 'lastName',             label: 'Last Name',                     type: 'text' },
         { key: 'tripFrom',             label: 'Trip From',                     type: 'text' },
@@ -4832,8 +4829,10 @@ pageEvents.travel = function () {
         { key: 'flightBooked',         label: 'Flight Ticket Status',          type: 'select',
           options: ['No Ticket','Requested','Booked','Issued'] },
         { key: 'ticketPricing',        label: 'Ticket Pricing',                type: 'number' },
-        { key: 'ticketPayMethod',      label: 'Ticket Payment Method',         type: 'text' },
-        { key: 'ticketPayStatus',      label: 'Ticket Payment Status',         type: 'text' },
+        { key: 'ticketPayMethod',      label: 'Ticket Payment Method',         type: 'select',
+          options: ['Bank Transfer','Cash','Company Card','Personal Card','Other'] },
+        { key: 'ticketPayStatus',      label: 'Ticket Payment Status',         type: 'select',
+          options: ['Pending','Paid','Not Required'] },
         { key: 'airline',              label: 'Airline',                       type: 'text' },
         { key: 'pnrNumber',            label: 'Airline PNR Number',            type: 'text' },
         { key: 'returnTripFrom',       label: 'Return Trip From',              type: 'text' },
@@ -4844,7 +4843,8 @@ pageEvents.travel = function () {
         { key: 'returnFlightStatus',   label: 'Return Flight Ticket Status',   type: 'select',
           options: ['No Ticket','Requested','Booked','Issued'] },
         { key: 'returnTicketPrice',    label: 'Return Ticket Price',           type: 'number' },
-        { key: 'returnTicketPayStatus',label: 'Return Ticket Payment Status',  type: 'text' },
+        { key: 'returnTicketPayStatus',label: 'Return Ticket Payment Status',  type: 'select',
+          options: ['Pending','Paid','Not Required'] },
         { key: 'returnAirline',        label: 'Return Airline',                type: 'text' },
         { key: 'returnPNR',            label: 'Return Airline PNR Number',     type: 'text' },
       ], () => { applyFilters(); });
