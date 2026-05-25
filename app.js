@@ -1503,16 +1503,22 @@ pageEvents.j1visa = function () {
           ${fld('Last Name', r.lastName)}
           ${fld('Email', r.email, true)}
           ${fld('Country', r.country)}
+          ${fld('Phone', r.phone)}
+          ${fld('Date Of Birth', r.dateOfBirth ? fmtDate(r.dateOfBirth) : '')}
           ${fld('J1 Source', r.programSource)}
           ${fld('Processing Sponsor', r.processingSponsor)}
           ${fld('Hosting Company', r.hostCompany)}
-          ${fld('Department', r.department)}
-          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
-          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
-          ${fld('Visa Appointment', r.visaAppointment ? fmtDate(r.visaAppointment) : '')}
-          ${fld('Visa Number', r.visaNumber)}
+          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+        </div>
+        <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">🛂 Visa Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           ${fld('Visa Payment Date', r.visaPaymentDate ? fmtDate(r.visaPaymentDate) : '')}
-          ${fld('Ref Letter Status', r.refLetterStatus)}
+          ${fld('1st Appointment', r.visaAppointment ? fmtDate(r.visaAppointment) : '')}
+          ${fld('2nd Appointment', r.visaAppt2 ? fmtDate(r.visaAppt2) : '')}
+          ${fld('3rd Appointment', r.visaAppt3 ? fmtDate(r.visaAppt3) : '')}
+          ${fld('Visa Number', r.visaNumber)}
+          ${fld('Visa Expired Date', r.visaExpiredDate ? fmtDate(r.visaExpiredDate) : '')}
+          ${fld('Supporting Letter Status', r.refLetterStatus, true)}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
           <button id="visaEditBtn"
@@ -2849,16 +2855,19 @@ pageEvents.participant = function () {
           ${fld('First Name', r.firstName)}
           ${fld('Last Name', r.lastName)}
           ${fld('Gender', r.gender)}
+          ${fld('Date Of Birth', r.dateOfBirth ? fmtDate(r.dateOfBirth) : '')}
           ${fld('Country', r.country)}
+          ${fld('Phone', r.phone)}
           ${fld('J1 Program Source', r.programSource)}
+          ${fld('Department', r.department)}
           ${fld('Processing Sponsor', r.processingSponsor)}
           ${fld('Hosting Company', r.hostCompany)}
-          ${fld('Department', r.department)}
-          ${fld('Eligible Programs', r.eligiblePrograms, true)}
           ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
           ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
+          ${fld('Eligible Programs', r.eligiblePrograms, true)}
+          ${fld("CTI USA's Review", r.ctiUsaReview, true)}
+          ${r._source !== 'crm' ? fld('HC Interview Status', r.hcInterviewStatus) : ''}
           ${fld('Program Type', r.programType)}
-          ${fld('Phone', r.phone)}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
           <button id="parEditBtn"
@@ -3448,17 +3457,24 @@ pageEvents.talentpool = function () {
           ${fld('Last Name', r.lastName)}
           ${fld('Gender', r.gender)}
           ${fld('Country', r.country)}
+          ${fld('Phone', r.phone)}
           ${fld('J1 Program Source', r.programSource)}
-          ${fld('Processing Sponsor', r.processingSponsor)}
-          ${fld('Hosting Company', r.hostCompany)}
           ${fld('Department', r.department)}
           ${fld('Eligible Programs', r.eligiblePrograms, true)}
-          ${fld('Program Start', r.programStart ? fmtDate(r.programStart) : '')}
-          ${fld('Program End', r.programEnd ? fmtDate(r.programEnd) : '')}
-          ${fld('Program Type', r.programType)}
-          ${fld('Phone', r.phone)}
-          ${fld('Consultation Call', r.consultationCallStatus)}
-          ${fld('HC Interview Status', r.hcInterviewStatus)}
+        </div>
+        <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">📞 Consultation</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Call Date', r.consultationCallDate ? fmtDate(r.consultationCallDate) : '')}
+          ${fld('Done By', r.consultationCallBy)}
+          ${fld('Status', r.consultationCallStatus)}
+          ${fld('Financial Readiness Date', r.financialReadinessDate ? fmtDate(r.financialReadinessDate) : '')}
+          ${fld('Notes', r.consultationCallNotes, true)}
+        </div>
+        <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">📋 Assessment</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('English Assessment', r.englishAssessment)}
+          ${fld('Participant Rating', r.participantRating)}
+          ${fld('Attendance', r.attendance)}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
           <button id="tpEditBtn"
@@ -3908,16 +3924,21 @@ pageEvents.housing = function () {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           ${fld('First Name',        r.firstName)}
           ${fld('Last Name',         r.lastName)}
+          ${fld('Email',             r.email, true)}
           ${fld('Country',           r.country)}
+          ${fld('Phone',             r.phone)}
           ${fld('J1 Source',         r.programSource)}
           ${fld('Sponsor',           r.processingSponsor)}
           ${fld('Hosting Company',   r.hostCompany)}
           ${fld('Department',        r.department)}
+          ${fld('Program Start',     fmtDateShort(r.programStart))}
+          ${fld('Program End',       fmtDateShort(r.programEnd))}
+        </div>
+        <div style="margin:10px 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:5px;border-bottom:1px solid var(--border,#eee);">🏠 Housing Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           ${fld('Housing Landlord',  r.housingLandlord)}
           ${fld('Initial Payment',   fmtMoney(r.housingPaymentInit))}
           ${fld('Monthly Payment',   fmtMoney(r.housingPaymentMo))}
-          ${fld('Program Start',     fmtDateShort(r.programStart))}
-          ${fld('Program End',       fmtDateShort(r.programEnd))}
           ${fld('Housing Address',   r.housingAddress, true)}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
@@ -4605,17 +4626,28 @@ pageEvents.travel = function () {
           ${fld('Flight Ticket', r.flightBooked)}
           ${fld('Airline', r.airline)}
           ${fld('PNR Number', r.pnrNumber)}
+          ${fld('Trip From', r.tripFrom)}
+          ${fld('Trip To', r.tripTo)}
           ${fld('Departure Date', fmtD(r.departureDate))}
           ${fld('Arrival Date', fmtD(r.arrivalDate))}
+          ${fld('Airport Gateway', r.airportGateway)}
           ${fld('Airport Pick-Up', r.airportPickup)}
+          ${fld('Ticket Pricing', r.ticketPricing)}
+          ${fld('Ticket Payment Method', r.ticketPayMethod)}
+          ${fld('Ticket Payment Status', r.ticketPayStatus)}
         </div>
         <div style="margin:12px 0 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1B3A6B;padding-bottom:6px;border-bottom:1px solid var(--border,#eee);">🔄 Return</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           ${fld('Return Ticket', r.returnFlightStatus)}
           ${fld('Return Airline', r.returnAirline)}
           ${fld('Return PNR', r.returnPNR)}
+          ${fld('Return Trip From', r.returnTripFrom)}
+          ${fld('Return Trip To', r.returnTripTo)}
           ${fld('Return Departure', fmtD(r.returnDeparture))}
           ${fld('Return Arrival', fmtD(r.returnArrival))}
+          ${fld('Return Gateway', r.returnGateway)}
+          ${fld('Return Ticket Price', r.returnTicketPrice)}
+          ${fld('Return Ticket Pay Status', r.returnTicketPayStatus)}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
           <button id="trvEditBtn"
