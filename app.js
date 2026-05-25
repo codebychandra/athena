@@ -29,7 +29,6 @@ const PAGE_TITLES = {
   visa:         'Visa Services',
   clients:      'Clients',
   reports:      'Report',
-  compliance:   'Compliance',
   marketing:    'Marketing',
   j1visa:       'Visa',
   requisition:  'Requisition',
@@ -1155,61 +1154,6 @@ pages.reports = async function () {
 };
 
 // ============================
-// PAGE: COMPLIANCE
-// ============================
-pages.compliance = async function () {
-  const C = DIVISION_COLORS.j1;
-  const docs = [
-    { file:'CTI Group_J1_Program_Terms_and_Conditions.pdf',           icon:'📋', label:'J1 Program Terms & Conditions',                   cat:'Agreement' },
-    { file:'CTI-AGG-J1-001_Program_General_Policy.pdf',               icon:'📄', label:'Program General Policy',                          cat:'Policy' },
-    { file:'CTI-AGG-J1-002_Program_Knowledge_Checklist.pdf',          icon:'✅', label:'Program Knowledge Checklist',                     cat:'Checklist' },
-    { file:'CTI-AGG-J1-003_Housing_Agreement_Room_Sharing_Acknowledgment_and_Early_Termination_Policy.pdf', icon:'🏠', label:'Housing Agreement & Early Termination Policy', cat:'Agreement' },
-    { file:'CTI-AGG-J1-004_Parent_and_Student_Commitment_Agreement.pdf', icon:'🤝', label:'Parent & Student Commitment Agreement',        cat:'Agreement' },
-    { file:'CTI-SOP-J1-001_Pre-Embassy_Screening_Protocol.pdf',      icon:'🏛️', label:'Pre-Embassy Screening Protocol',                  cat:'SOP' },
-    { file:'CTI-SOP-J1-002_Marketing_and_Recruiter_Communications.pdf', icon:'📢', label:'Marketing & Recruiter Communications',          cat:'SOP' },
-    { file:'CTI-SOP-J1-003_Active_Participant_Monitoring.pdf',       icon:'👁️', label:'Active Participant Monitoring',                   cat:'SOP' },
-    { file:'CTI-SOP-J1-004_Pre-Departure_Orientation_and_Interview_Readiness.pdf', icon:'✈️', label:'Pre-Departure Orientation & Interview Readiness', cat:'SOP' },
-  ];
-  const catColor = { SOP:'#1B3A6B', Agreement:'#B01A18', Policy:'#2D7A55', Checklist:'#B87A14', Guide:'#6B47DC' };
-
-  return `
-    <div class="page-header">
-      <div class="division-header" style="border-left-color:${C}">
-        <h1>Compliance</h1>
-        <p class="subtitle">Program agreements, SOPs, and compliance documents</p>
-      </div>
-    </div>
-
-    <!-- Document library -->
-    <div class="card">
-      <div class="card-title" style="margin-bottom:4px;">📁 Program Documents</div>
-      <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:18px;">
-        ${docs.length} documents · Click to download
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        ${docs.map(d => `
-          <a href="docs/${encodeURIComponent(d.file)}" target="_blank" download="${d.file}"
-            style="display:flex;align-items:center;gap:14px;padding:13px 16px;
-              border:1px solid var(--border,#E5E7EB);border-radius:10px;text-decoration:none;
-              color:var(--text,#1A1A1A);background:var(--bg,#fff);transition:all 0.15s;"
-            onmouseover="this.style.background='var(--bg-subtle,#F9FAFB)';this.style.borderColor='${C}'"
-            onmouseout="this.style.background='var(--bg,#fff)';this.style.borderColor='var(--border,#E5E7EB)'">
-            <span style="font-size:22px;flex-shrink:0;">${d.icon}</span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.label}</div>
-              <div style="font-size:11px;color:var(--text-muted,#999);margin-top:2px;">${d.file}</div>
-            </div>
-            <span style="font-size:10px;font-weight:700;letter-spacing:0.06em;padding:3px 10px;
-              border-radius:20px;flex-shrink:0;
-              background:${catColor[d.cat] || '#888'}18;color:${catColor[d.cat] || '#888'};">
-              ${d.cat}
-            </span>
-            <span style="font-size:14px;color:var(--text-muted,#aaa);flex-shrink:0;">↓</span>
-          </a>`).join('')}
-      </div>
-    </div>`;
-};
-
 // ============================
 // PAGE: J1 VISA STATUS
 // ============================
