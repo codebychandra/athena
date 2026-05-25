@@ -850,6 +850,9 @@ app.patch('/api/recruit/:module/:id', async (req, res) => {
       ? req.body
       : { data: [{ id: req.params.id, ...req.body }] };
     const data = await recruitPatch(`${req.params.module}/${req.params.id}`, body);
+    // Bust participant cache so next fetch returns fresh data
+    clearCache('recruit-j1-participants');
+    console.log(`✅ Recruit UPDATE ${req.params.module}/${req.params.id} — cache cleared`);
     res.json(data);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
@@ -912,6 +915,9 @@ app.patch('/api/crm/:module/:id', async (req, res) => {
       ? req.body
       : { data: [{ id: req.params.id, ...req.body }] };
     const data = await crmPatch(`${req.params.module}/${req.params.id}`, body);
+    // Bust participant cache so next fetch returns fresh data
+    clearCache('crm-j1-participants');
+    console.log(`✅ CRM UPDATE ${req.params.module}/${req.params.id} — cache cleared`);
     res.json(data);
   } catch (err) {
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;

@@ -191,6 +191,175 @@ async function safeJson(url, opts = {}) {
   return json;
 }
 
+// ============================
+// ZOHO FIELD MAPS  (frontend key → Zoho API field name)
+// ============================
+const RECRUIT_FIELD_MAP = {
+  placementStatus:     'J1_Application_Status',
+  programSource:       'J1_Program_Sources',
+  processingSponsor:   'Processing_Sponsor',
+  hcInterviewStatus:   'Hosting_Company_Interview_Status',
+  department:          'Department',
+  hostCompany:         'Hosting_Company_2',
+  programStart:        'Program_Start_Date',
+  programEnd:          'Program_End_Date',
+  housingAvailability: 'Housing_Availability',
+  housingLandlord:     'Housing_Name',
+  housingAddress:      'Housing_Address',
+  housingPaymentInit:  'Initial_Housing_Payment_Before_Departure',
+  housingPaymentMo:    'Housing_Price',
+  visaStatus:          'J1_Visa_Status',
+  visaAppointment:     'J1_Visa_Appointment_Date',
+  visaNumber:          'J1_Visa_Number',
+  visaPaymentDate:     'J1_Visa_Payment_Date',
+  refLetterStatus:     'Reference_Letter_Status',
+  flightBooked:        'Flight_Ticket_Status',
+  airline:             'Airline',
+  pnrNumber:           'PNR_Number',
+  departureDate:       'Departure_Date',
+  arrivalDate:         'Arrival_Date',
+  airportPickup:       'Airport_Pick_Up',
+  returnFlightStatus:  'Returning_Flight_Ticket_Status',
+  returnAirline:       'Returning_Airline',
+  returnPNR:           'Returning_Airline_PNR_Number',
+  returnDeparture:     'Returning_Departure_Date',
+  returnArrival:       'Returning_Arrival_Date',
+};
+
+const CRM_FIELD_MAP = {
+  placementStatus:        'J1_Application_Status',
+  programSource:          'J1_Program_Source',
+  processingSponsor:      'Processing_Sponsor',
+  department:             'Department',
+  hostCompany:            'Hosting_Company',
+  consultationCallStatus: 'Consultation_Call_Status',
+  consultationCallNotes:  'Consultation_Call_Notes',
+  ctiUsaReview:           'CTI_USA_s_Review',
+};
+
+// Push a change set to Zoho (Recruit or CRM depending on r._source)
+async function zohoUpdate(r, changes) {
+  const isCRM    = r._source === 'crm';
+  const fieldMap = isCRM ? CRM_FIELD_MAP : RECRUIT_FIELD_MAP;
+  const module   = isCRM ? 'J1_Participants1' : 'J1_Participants';
+  const rawId    = isCRM ? String(r.id).replace(/^crm_/, '') : r.id;
+  const endpoint = isCRM
+    ? `/api/crm/${module}/${rawId}`
+    : `/api/recruit/${module}/${rawId}`;
+
+  // Map frontend keys → Zoho field names
+  const payload = {};
+  for (const [key, val] of Object.entries(changes)) {
+    const zohoKey = fieldMap[key];
+    if (zohoKey !== undefined) payload[zohoKey] = val === '' ? null : val;
+  }
+  if (!Object.keys(payload).length) throw new Error('No valid fields to update.');
+
+  const res = await safeJson(endpoint, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  // Clear server cache so the next page load fetches fresh data from Zoho
+  await fetch('/api/cache/clear').catch(() => {});
+  return res;
+}
+
+// ── Edit modal helper ─────────────────────────────────────────────────────────
+// fields: [{ key, label, type:'text'|'select'|'date'|'number'|'textarea', options:[] }]
+// Renders an editable form inside #clientModal, calls onSaved(updatedValues) on success.
+function openEditModal(r, fields, onSaved) {
+  const title = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || 'Edit Record';
+  const srcLabel = r._source === 'crm' ? 'CRM' : 'Recruit';
+
+  function inputHtml(f) {
+    const rawVal = (r[f.key] !== undefined && r[f.key] !== null && r[f.key] !== '—')
+      ? String(r[f.key]) : '';
+    const eid = `edit_fld_${f.key}`;
+    const base = `id="${eid}" name="${f.key}"
+      style="width:100%;padding:8px 10px;border:1.5px solid var(--border,#ddd);
+        border-radius:8px;font-size:12px;font-family:inherit;
+        background:var(--bg-input,#fafafa);color:var(--text,#111);outline:none;"`;
+    if (f.type === 'select') {
+      const opts = (f.options || []).map(o =>
+        `<option value="${escH(o)}"${rawVal === o ? ' selected' : ''}>${escH(o)}</option>`
+      ).join('');
+      return `<select ${base}><option value="">— Select —</option>${opts}</select>`;
+    }
+    if (f.type === 'textarea') {
+      return `<textarea ${base} rows="3" style="width:100%;padding:8px 10px;border:1.5px solid var(--border,#ddd);border-radius:8px;font-size:12px;font-family:inherit;background:var(--bg-input,#fafafa);color:var(--text,#111);resize:vertical;">${escH(rawVal)}</textarea>`;
+    }
+    return `<input type="${f.type||'text'}" ${base} value="${escH(rawVal)}" autocomplete="off">`;
+  }
+
+  const formRows = fields.map(f => `
+    <div style="${f.full?'grid-column:1/-1;':''}margin-bottom:12px;">
+      <label style="display:block;font-size:9px;font-weight:700;text-transform:uppercase;
+        letter-spacing:.08em;color:var(--text-muted,#888);margin-bottom:4px;">${escH(f.label)}</label>
+      ${inputHtml(f)}
+    </div>`).join('');
+
+  document.getElementById('modalTitle').textContent = `Edit — ${title}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="padding:4px 0 10px;">
+      <div style="font-size:10px;font-weight:600;color:var(--text-muted,#888);
+        margin-bottom:14px;padding:6px 10px;background:var(--bg,#f3f4f6);
+        border-radius:6px;">Source: ${escH(srcLabel)} · ID: ${escH(String(r.id))}</div>
+      <form id="zohoEditForm" autocomplete="off" novalidate>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
+          ${formRows}
+        </div>
+        <div id="editFormError" style="display:none;color:#B01A18;font-size:12px;
+          margin-top:8px;padding:8px 10px;background:rgba(176,26,24,0.07);
+          border-radius:6px;border:1px solid rgba(176,26,24,0.2);"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <button type="button" id="editCancelBtn"
+            style="padding:8px 18px;border-radius:8px;border:1.5px solid var(--border,#ddd);
+              background:transparent;font-size:12px;font-weight:600;cursor:pointer;
+              color:var(--text,#111);">Cancel</button>
+          <button type="submit" id="editSaveBtn"
+            style="padding:8px 22px;border-radius:8px;border:none;background:#B01A18;
+              color:#fff;font-size:12px;font-weight:700;cursor:pointer;
+              box-shadow:0 2px 8px rgba(176,26,24,0.28);">Save to Zoho</button>
+        </div>
+      </form>
+    </div>`;
+
+  document.getElementById('editCancelBtn')?.addEventListener('click', () => {
+    document.getElementById('modalOverlay')?.classList.remove('active');
+  });
+
+  document.getElementById('zohoEditForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const saveBtn  = document.getElementById('editSaveBtn');
+    const errEl    = document.getElementById('editFormError');
+    errEl.style.display = 'none';
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const changes = {};
+      fields.forEach(f => {
+        const el = document.getElementById(`edit_fld_${f.key}`);
+        if (el) changes[f.key] = el.value;
+      });
+      await zohoUpdate(r, changes);
+      // Apply changes to in-memory row so table reflects new values immediately
+      Object.assign(r, changes);
+      document.getElementById('modalOverlay')?.classList.remove('active');
+      showToast(`${title} updated successfully.`, 'success');
+      if (typeof onSaved === 'function') onSaved(changes);
+    } catch (err) {
+      errEl.textContent = err.message || 'Update failed. Please try again.';
+      errEl.style.display = 'block';
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save to Zoho';
+    }
+  });
+
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
 // ZOHO INTEGRATION
 // ============================
 async function checkZohoStatus() {
@@ -2502,9 +2671,7 @@ pageEvents.participant = function () {
   });
 
   // Details modal
-  document.getElementById('parTableBody')?.addEventListener('click', e => {
-    const btn = e.target.closest('.req-detail-btn'); if (!btn) return;
-    const r = allRows[parseInt(btn.dataset.pidx)]; if (!r) return;
+  function showParticipantDetail(r) {
     const fld = (label, val, full) => (val && val !== '—') ? `
       <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
@@ -2547,8 +2714,54 @@ pageEvents.participant = function () {
           ${fld('Program Type', r.programType)}
           ${fld('Phone', r.phone)}
         </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="parEditBtn"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+              background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+              cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit &amp; Push to Zoho
+          </button>
+        </div>
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
+
+    // Edit button — open edit form (fields differ by source)
+    document.getElementById('parEditBtn')?.addEventListener('click', () => {
+      const isCRM = r._source === 'crm';
+      const editFields = isCRM ? [
+        { key: 'placementStatus',        label: 'J1 App Status',         type: 'select',   options: PAR_STATUSES },
+        { key: 'programSource',          label: 'J1 Program Source',     type: 'text' },
+        { key: 'processingSponsor',      label: 'Processing Sponsor',    type: 'text' },
+        { key: 'hostCompany',            label: 'Hosting Company',       type: 'text' },
+        { key: 'department',             label: 'Department',            type: 'text' },
+        { key: 'programStart',           label: 'Program Start Date',    type: 'date' },
+        { key: 'programEnd',             label: 'Program End Date',      type: 'date' },
+        { key: 'consultationCallStatus', label: 'Consultation Call',     type: 'text' },
+        { key: 'consultationCallNotes',  label: 'Consultation Notes',    type: 'textarea', full: true },
+        { key: 'ctiUsaReview',           label: 'CTI USA Review',        type: 'textarea', full: true },
+      ] : [
+        { key: 'placementStatus',   label: 'J1 App Status',       type: 'select', options: PAR_STATUSES },
+        { key: 'programSource',     label: 'J1 Program Source',   type: 'text' },
+        { key: 'processingSponsor', label: 'Processing Sponsor',  type: 'text' },
+        { key: 'hostCompany',       label: 'Hosting Company',     type: 'text' },
+        { key: 'department',        label: 'Department',          type: 'text' },
+        { key: 'programStart',      label: 'Program Start Date',  type: 'date' },
+        { key: 'programEnd',        label: 'Program End Date',    type: 'date' },
+        { key: 'hcInterviewStatus', label: 'HC Interview Status', type: 'text' },
+      ];
+      openEditModal(r, editFields, () => { refresh(); });
+    });
+  }
+
+  document.getElementById('parTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.req-detail-btn'); if (!btn) return;
+    const r = allRows[parseInt(btn.dataset.pidx)]; if (!r) return;
+    showParticipantDetail(r);
   });
   document.getElementById('modalClose')?.addEventListener('click', () =>
     document.getElementById('modalOverlay')?.classList.remove('active'));
@@ -3435,8 +3648,39 @@ pageEvents.housing = function () {
           ${fld('Program End',       fmtDateShort(r.programEnd))}
           ${fld('Housing Address',   r.housingAddress, true)}
         </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="hsgEditBtn"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+              background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+              cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit &amp; Push to Zoho
+          </button>
+        </div>
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
+
+    // Edit button
+    document.getElementById('hsgEditBtn')?.addEventListener('click', () => {
+      openEditModal(r, [
+        { key: 'placementStatus',    label: 'J1 App Status',         type: 'select', options: PAR_STATUSES },
+        { key: 'housingAvailability',label: 'Housing Availability',  type: 'select',
+          options: ['Available Through CTI','Provided by Host','Not Required'] },
+        { key: 'housingLandlord',    label: 'Housing Landlord',      type: 'text' },
+        { key: 'housingPaymentInit', label: 'Initial Payment ($)',   type: 'number' },
+        { key: 'housingPaymentMo',   label: 'Monthly Payment ($)',   type: 'number' },
+        { key: 'processingSponsor',  label: 'Processing Sponsor',    type: 'text' },
+        { key: 'hostCompany',        label: 'Hosting Company',       type: 'text' },
+        { key: 'department',         label: 'Department',            type: 'text' },
+        { key: 'programStart',       label: 'Program Start Date',    type: 'date' },
+        { key: 'programEnd',         label: 'Program End Date',      type: 'date' },
+        { key: 'housingAddress',     label: 'Housing Address',       type: 'text', full: true },
+      ], () => { refresh(); });
+    });
   }
 
   document.getElementById('modalClose')?.addEventListener('click', () =>
