@@ -4465,10 +4465,525 @@ pageEvents.housing = function () {
 };
 
 // ============================
-// PAGE: RETURN HOME (coming soon)
+// PAGE: RETURN HOME
 // ============================
+
+// ── Return Home table columns ─────────────────────────────────
+const RH_TABLE_COLS = [
+  { label:'J1 App Status',    field:'placementStatus',    sortable:true,  statusbadge:true  },
+  { label:'J1 Source',        field:'programSource',      sortable:true                     },
+  { label:'First Name',       field:'firstName',          sortable:true                     },
+  { label:'Last Name',        field:'lastName',           sortable:true                     },
+  { label:'Hosting Company',  field:'hostCompany',        sortable:true                     },
+  { label:'Department',       field:'department',         sortable:true                     },
+  { label:'Program End',      field:'programEnd',         sortable:true,  datecol:true      },
+  { label:'Days Left',        field:'_daysLeft',          sortable:true,  daysremaining:true },
+  { label:'Return Ticket',    field:'returnFlightStatus', sortable:true,  flightbadge:true  },
+  { label:'Return Departure', field:'returnDeparture',    sortable:true,  datecol:true      },
+  { label:'Return Trip',      field:'_returnTrip',        sortable:false                    },
+];
+let _rhActiveTab = 'all';
+let _rhSortCol   = null, _rhSortDir = 'asc';
+
 pages.returnhome = async function () {
-  return lockedPage('returnhome');
+  _rhActiveTab = 'all';
+  _rhSortCol   = null;
+  _rhSortDir   = 'asc';
+
+  let rows = [], errorMsg = null;
+  try {
+    const json = await safeJson(WORKER_URL + '/api/recruit/j1-participants');
+    rows = json?.data || [];
+  } catch (e) { errorMsg = e.message; }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Main filter: programEnd exists and is in the future
+  const allRows = rows.filter(r => {
+    if (!r.programEnd || r.programEnd === '—') return false;
+    const d = new Date(r.programEnd);
+    return !isNaN(d.getTime()) && d > today;
+  });
+
+  const in7Days  = new Date(today); in7Days.setDate(in7Days.getDate() + 7);
+  const in30Days = new Date(today); in30Days.setDate(in30Days.getDate() + 30);
+
+  const endingSoonRows    = allRows.filter(r => new Date(r.programEnd) <= in30Days);
+  const returnPendingRows = allRows.filter(r => normalizeFlightStatus(r.returnFlightStatus) !== 'Issued');
+
+  state.dataCache['rh-rows']         = allRows;
+  state.dataCache['rh-soon-rows']    = endingSoonRows;
+  state.dataCache['rh-pending-rows'] = returnPendingRows;
+
+  const kpiWeek   = allRows.filter(r => new Date(r.programEnd) <= in7Days).length;
+  const kpiMonth  = endingSoonRows.length;
+  const kpiIssued = allRows.filter(r => normalizeFlightStatus(r.returnFlightStatus) === 'Issued').length;
+  const total     = allRows.length;
+  const authErr   = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
+
+  const rhSources  = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
+  const rhSponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+
+  function buildRhHeaders() {
+    const th = RH_TABLE_COLS.map(c =>
+      c.sortable
+        ? `<th data-rhfield="${c.field}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${c.label} <span class="req-sort-icon">⇅</span></th>`
+        : `<th style="white-space:nowrap;">${c.label}</th>`
+    ).join('') + '<th style="width:40px;"></th>';
+
+    const tf = RH_TABLE_COLS.map(c => {
+      if (c.field === '_returnTrip' || c.daysremaining) return `<th></th>`;
+      if (c.datecol) return `<th style="min-width:170px;padding:2px 4px;">
+        <div style="display:flex;gap:2px;align-items:center;">
+          <select class="req-cf req-cf-date-cond" data-rhcol="${c.field}"
+            style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;">
+            <option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option>
+          </select>
+          <input type="date" class="req-cf req-cf-date-val" data-rhcol="${c.field}"
+            style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
+        </div></th>`;
+      return `<th><input class="req-cf req-col-f" data-rhcol="${c.field}" type="text" placeholder="—"></th>`;
+    }).join('') + '<th></th>';
+
+    return { th, tf };
+  }
+  const rhH = buildRhHeaders();
+
+  return `
+    <div class="req-page-header">
+      <h1>Return Home</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">${total} participants currently in programme</span>
+    </div>
+
+    ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
+      <div><strong>${authErr?'Not connected to Zoho':'Server error'}</strong>
+      ${authErr?' — Contact administrator to renew Zoho token':` — ${escH(errorMsg)}`}
+      </div></div>` : ''}
+
+    <!-- Filter Bar -->
+    <div class="card req-filter-bar">
+      ${buildMS('rhStatusFilter',  'J1 Status',     [...PAR_STATUSES])}
+      ${buildMS('rhSourceFilter',  'J1 Source',     rhSources)}
+      ${buildMS('rhSponsorFilter', 'Sponsor',       rhSponsors)}
+      ${buildMS('rhTicketFilter',  'Return Ticket', ['No Ticket','Requested','Booked','Issued'])}
+      <button id="rhClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="rhCount" class="req-count-badge">${total} participants</span>
+    </div>
+
+    <!-- KPI Widgets -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;">
+      <div class="req-kpi-card">
+        <div class="req-kpi-label">🌍 In Programme</div>
+        <div class="req-kpi-value" id="rhKpiTotal">${total}</div>
+      </div>
+      <div class="req-kpi-card" style="border-left:3px solid #DC2626;">
+        <div class="req-kpi-label">🔴 Ending ≤ 7 days</div>
+        <div class="req-kpi-value" id="rhKpiWeek" style="color:#DC2626;">${kpiWeek}</div>
+      </div>
+      <div class="req-kpi-card" style="border-left:3px solid #D97706;">
+        <div class="req-kpi-label">🟠 Ending ≤ 30 days</div>
+        <div class="req-kpi-value" id="rhKpiMonth" style="color:#D97706;">${kpiMonth}</div>
+      </div>
+      <div class="req-kpi-card" style="border-left:3px solid #059669;">
+        <div class="req-kpi-label">✅ Return Ticket Issued</div>
+        <div class="req-kpi-value" id="rhKpiIssued" style="color:#059669;">${kpiIssued}</div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="par-tab-bar">
+      <button class="par-tab active" data-rh-tab="all">🌍 All In-Country <span style="background:var(--text-muted,#888);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${total}</span></button>
+      <button class="par-tab" data-rh-tab="soon">🔜 Ending in 30 Days
+        ${endingSoonRows.length > 0 ? `<span style="background:#D97706;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${endingSoonRows.length}</span>` : ''}
+      </button>
+      <button class="par-tab" data-rh-tab="pending">⏳ Return Not Arranged
+        ${returnPendingRows.length > 0 ? `<span style="background:#DC2626;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${returnPendingRows.length}</span>` : ''}
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="rhMainTable">
+          <thead>
+            <tr id="rhSortRow">${rhH.th}</tr>
+            <tr id="rhColFilterRow">${rhH.tf}</tr>
+          </thead>
+          <tbody id="rhTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="application/json" id="rhHeaders">${JSON.stringify(rhH)}<\/script>
+
+    <button class="exec-summary-btn" id="rhSummaryBtn" title="Click to hear return home summary">
+      <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg class="esb-stop" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span class="esb-label">Executive Summary</span>
+    </button>
+  `;
+};
+
+// ── Return Home page events ───────────────────────────────────
+pageEvents.returnhome = function () {
+  const allRows      = state.dataCache['rh-rows']         || [];
+  const soonRows     = state.dataCache['rh-soon-rows']    || [];
+  const pendingRows  = state.dataCache['rh-pending-rows'] || [];
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  function fmtDate(v) {
+    if (!v || v === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return escH(v);
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  function statusBadgeRH(s) {
+    if (!s || s === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const color = PAR_STATUS_COLORS[s] || '#6B7280';
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${color}1A;color:${color};white-space:nowrap;">${escH(s)}</span>`;
+  }
+
+  function flightBadgeRH(raw) {
+    const s   = normalizeFlightStatus(raw);
+    const cfg = TRAVEL_TICKET_COLORS[s] || TRAVEL_TICKET_COLORS['No Ticket'];
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${cfg.bg};color:${cfg.color};white-space:nowrap;">${escH(s)}</span>`;
+  }
+
+  function daysRemainingBadge(programEnd) {
+    if (!programEnd || programEnd === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const d = new Date(programEnd);
+    if (isNaN(d.getTime())) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const days = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+    let color = '#059669', bg = 'rgba(5,150,105,0.12)';
+    if (days <= 7)       { color = '#DC2626'; bg = 'rgba(220,38,38,0.12)'; }
+    else if (days <= 30) { color = '#D97706'; bg = 'rgba(217,119,6,0.12)'; }
+    return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+      background:${bg};color:${color};white-space:nowrap;">${days}d</span>`;
+  }
+
+  function cellContent(r, col) {
+    const v = r[col.field];
+    if (col.field === '_returnTrip') {
+      const from = r.returnTripFrom && r.returnTripFrom !== '—' ? r.returnTripFrom : '—';
+      const to   = r.returnTripTo   && r.returnTripTo   !== '—' ? r.returnTripTo   : '—';
+      return `${escH(from)} → ${escH(to)}`;
+    }
+    if (col.daysremaining) return daysRemainingBadge(r.programEnd);
+    if (col.statusbadge)   return statusBadgeRH(v);
+    if (col.flightbadge)   return flightBadgeRH(v);
+    if (col.datecol)       return fmtDate(v);
+    if (!v || v === '—')   return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    return escH(String(v));
+  }
+
+  function buildRow(r) {
+    const idx = allRows.indexOf(r);
+    return `<tr>${RH_TABLE_COLS.map(col => `<td>${cellContent(r, col)}</td>`).join('')}
+      <td style="text-align:center;"><button class="rh-detail-btn" data-rhidx="${idx}"
+        style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
+          background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`;
+  }
+
+  function getTabRows() {
+    if (_rhActiveTab === 'soon')    return soonRows;
+    if (_rhActiveTab === 'pending') return pendingRows;
+    return allRows;
+  }
+
+  const countEl   = document.getElementById('rhCount');
+  const clearBtn  = document.getElementById('rhClearBtn');
+  const tbody     = document.getElementById('rhTableBody');
+  const sortRow   = document.getElementById('rhSortRow');
+  const filterRow = document.getElementById('rhColFilterRow');
+
+  let colFilters = {};
+
+  function updateKpis(gSt, gSrc, gSp) {
+    function applyG(rows) {
+      let r = [...rows];
+      if (gSt.length)  r = r.filter(x => gSt.includes(x.placementStatus));
+      if (gSrc.length) r = r.filter(x => gSrc.includes(x.programSource));
+      if (gSp.length)  r = r.filter(x => gSp.includes(x.processingSponsor));
+      return r;
+    }
+    const f   = applyG(allRows);
+    const in7 = new Date(today); in7.setDate(in7.getDate() + 7);
+    const in30= new Date(today); in30.setDate(in30.getDate() + 30);
+    const upd = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    upd('rhKpiTotal',  f.length);
+    upd('rhKpiWeek',   f.filter(r => new Date(r.programEnd) <= in7).length);
+    upd('rhKpiMonth',  f.filter(r => new Date(r.programEnd) <= in30).length);
+    upd('rhKpiIssued', f.filter(r => normalizeFlightStatus(r.returnFlightStatus) === 'Issued').length);
+  }
+
+  function applyFilters() {
+    const gSt        = msGetVals('rhStatusFilter');
+    const gSrc       = msGetVals('rhSourceFilter');
+    const gSp        = msGetVals('rhSponsorFilter');
+    const ticketVals = msGetVals('rhTicketFilter');
+    let filtered     = [...getTabRows()];
+
+    if (gSt.length)        filtered = filtered.filter(r => gSt.includes(r.placementStatus));
+    if (gSrc.length)       filtered = filtered.filter(r => gSrc.includes(r.programSource));
+    if (gSp.length)        filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
+    if (ticketVals.length) filtered = filtered.filter(r =>
+      ticketVals.includes(normalizeFlightStatus(r.returnFlightStatus)));
+
+    Object.entries(colFilters).forEach(([field, val]) => {
+      if (!val) return;
+      if (typeof val === 'object' && val.cond) {
+        const { cond, val: dVal } = val;
+        const fd = new Date(dVal + 'T00:00:00');
+        filtered = filtered.filter(r => {
+          const rd = r[field] ? new Date(r[field]) : null;
+          if (!rd || isNaN(rd.getTime())) return false;
+          if (cond === 'lt')  return rd <  fd;
+          if (cond === 'lte') return rd <= fd;
+          if (cond === 'eq')  return rd.toISOString().slice(0,10) === dVal;
+          if (cond === 'gte') return rd >= fd;
+          if (cond === 'gt')  return rd >  fd;
+          return true;
+        });
+        return;
+      }
+      const q = val.toLowerCase();
+      filtered = filtered.filter(r => {
+        if (field === '_returnTrip')
+          return `${r.returnTripFrom||''} ${r.returnTripTo||''}`.toLowerCase().includes(q);
+        const fv = field === 'returnFlightStatus'
+          ? normalizeFlightStatus(r[field]) : String(r[field] || '');
+        return fv.toLowerCase().includes(q);
+      });
+    });
+
+    if (_rhSortCol) {
+      const dir       = _rhSortDir === 'asc' ? 1 : -1;
+      const sortField = _rhSortCol === '_daysLeft' ? 'programEnd' : _rhSortCol;
+      const col       = RH_TABLE_COLS.find(c => c.field === _rhSortCol);
+      filtered.sort((a, b) => {
+        const aV = a[sortField] || '';
+        const bV = b[sortField] || '';
+        if (col?.datecol || _rhSortCol === '_daysLeft') {
+          return (new Date(aV||0).getTime() - new Date(bV||0).getTime()) * dir;
+        }
+        return String(aV).localeCompare(String(bV)) * dir;
+      });
+    }
+
+    if (!tbody) return;
+    tbody.innerHTML = filtered.length === 0
+      ? `<tr><td colspan="${RH_TABLE_COLS.length + 1}" style="text-align:center;padding:52px;
+          color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
+      : filtered.map(r => buildRow(r)).join('');
+
+    const tabBase = getTabRows();
+    if (countEl) countEl.textContent = filtered.length === tabBase.length
+      ? `${tabBase.length} participants`
+      : `${filtered.length} of ${tabBase.length}`;
+
+    updateKpis(gSt, gSrc, gSp);
+  }
+
+  function attachSortListeners() {
+    document.querySelectorAll('#rhSortRow th[data-rhfield]').forEach(th => {
+      if (!th.classList.contains('sortable')) return;
+      th.addEventListener('click', () => {
+        const field = th.dataset.rhfield;
+        if (_rhSortCol === field) {
+          _rhSortDir = _rhSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          _rhSortCol = field;
+          _rhSortDir = 'asc';
+        }
+        document.querySelectorAll('#rhSortRow .req-sort-icon').forEach(a => a.textContent = '⇅');
+        document.querySelectorAll('#rhSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
+        const icon = th.querySelector('.req-sort-icon');
+        if (icon) icon.textContent = _rhSortDir === 'asc' ? '↑' : '↓';
+        th.classList.add(_rhSortDir === 'asc' ? 'req-sort-asc' : 'req-sort-desc');
+        applyFilters();
+      });
+    });
+  }
+
+  function attachColFilterListeners() {
+    document.querySelectorAll('#rhColFilterRow input[data-rhcol]:not(.req-cf-date-val)').forEach(inp => {
+      inp.addEventListener('input', () => {
+        colFilters[inp.dataset.rhcol] = inp.value.trim();
+        applyFilters();
+      });
+    });
+    document.querySelectorAll('#rhColFilterRow .req-cf-date-cond').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const field = sel.dataset.rhcol;
+        const valEl = document.querySelector(`#rhColFilterRow .req-cf-date-val[data-rhcol="${field}"]`);
+        if (!sel.value && valEl) { valEl.value = ''; delete colFilters[field]; }
+        else if (valEl?.value) colFilters[field] = { cond: sel.value, val: valEl.value };
+        applyFilters();
+      });
+    });
+    document.querySelectorAll('#rhColFilterRow .req-cf-date-val').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const field = inp.dataset.rhcol;
+        const condEl = document.querySelector(`#rhColFilterRow .req-cf-date-cond[data-rhcol="${field}"]`);
+        if (inp.value && condEl?.value) colFilters[field] = { cond: condEl.value, val: inp.value };
+        else delete colFilters[field];
+        applyFilters();
+      });
+    });
+  }
+
+  document.querySelectorAll('.par-tab[data-rh-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _rhActiveTab = btn.dataset.rhTab;
+      _rhSortCol   = null;
+      _rhSortDir   = 'asc';
+      colFilters   = {};
+      document.querySelectorAll('#rhColFilterRow input[data-rhcol]').forEach(inp => inp.value = '');
+      document.querySelectorAll('#rhColFilterRow select[data-rhcol]').forEach(sel => sel.value = '');
+      document.querySelectorAll('.par-tab[data-rh-tab]').forEach(b =>
+        b.classList.toggle('active', b.dataset.rhTab === _rhActiveTab));
+      document.querySelectorAll('#rhSortRow .req-sort-icon').forEach(a => a.textContent = '⇅');
+      document.querySelectorAll('#rhSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
+      applyFilters();
+    });
+  });
+
+  initMS(document.getElementById('main-content'));
+  ['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'].forEach(id =>
+    msOnChange(id, applyFilters));
+
+  clearBtn?.addEventListener('click', () => {
+    ['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'].forEach(id => msClear(id));
+    colFilters = {};
+    document.querySelectorAll('#rhColFilterRow input[data-rhcol]').forEach(inp => inp.value = '');
+    document.querySelectorAll('#rhColFilterRow select[data-rhcol]').forEach(sel => sel.value = '');
+    _rhSortCol = null; _rhSortDir = 'asc';
+    document.querySelectorAll('#rhSortRow .req-sort-icon').forEach(a => a.textContent = '⇅');
+    document.querySelectorAll('#rhSortRow th').forEach(t => t.classList.remove('req-sort-asc','req-sort-desc'));
+    applyFilters();
+  });
+
+  attachSortListeners();
+  attachColFilterListeners();
+  applyFilters();
+
+  // Detail panel
+  document.getElementById('rhTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.rh-detail-btn'); if (!btn) return;
+    const r = allRows[parseInt(btn.dataset.rhidx)]; if (!r) return;
+    showRhDetail(r);
+  });
+
+  function showRhDetail(r) {
+    function fmtD(v) {
+      if (!v || v === '—') return '—';
+      try { return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'})
+        .format(new Date(v+'T00:00:00')); } catch { return v; }
+    }
+    const fld = (label, val, full) => `
+      <div style="${full?'grid-column:1/-1;':''}margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:2px;">${label}</div>
+        <div style="font-size:11px;font-weight:500;${(!val||val==='—')?'color:var(--text-muted);':''}">${escH(String(val||'—'))}</div>
+      </div>`;
+    const status = r.placementStatus || '—';
+    const sColor = PAR_STATUS_COLORS[status] || '#888';
+    const daysLeft = r.programEnd
+      ? Math.ceil((new Date(r.programEnd) - today) / (1000*60*60*24)) : null;
+    const dColor = daysLeft !== null
+      ? (daysLeft <= 7 ? '#DC2626' : daysLeft <= 30 ? '#D97706' : '#059669') : '#888';
+    document.getElementById('modalTitle').textContent = (`${r.firstName||''} ${r.lastName||''}`).trim() || r.name || '—';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:4px 0 10px;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;
+          background:${sColor}0d;border-radius:10px;border:1px solid ${sColor}28;margin-bottom:14px;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${sColor};">J1 Status</div>
+            <div style="margin-top:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;
+              display:inline-block;background:${sColor}18;color:${sColor};border:1px solid ${sColor}40;">${escH(status)}</div>
+          </div>
+          <div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">J1 Source</div>
+            <div style="font-size:12px;font-weight:700;margin-top:3px;">${escH(r.programSource||'—')}</div>
+          </div>
+          ${daysLeft !== null ? `<div style="border-left:1px solid ${sColor}30;padding-left:14px;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);">Days Remaining</div>
+            <div style="font-size:20px;font-weight:800;margin-top:2px;color:${dColor};">${daysLeft}d</div>
+          </div>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('First Name',      r.firstName)}
+          ${fld('Last Name',       r.lastName)}
+          ${fld('Email',           r.email, true)}
+          ${fld('Phone',           r.phone)}
+          ${fld('Passport No.',    r.passportNumber)}
+          ${fld('Country',         r.country)}
+          ${fld('Hosting Company', r.hostCompany)}
+          ${fld('Department',      r.department)}
+          ${fld('Program Start',   fmtD(r.programStart))}
+          ${fld('Program End',     fmtD(r.programEnd))}
+          ${fld('Sponsor',         r.processingSponsor)}
+        </div>
+        <div style="margin:12px 0 8px;font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.07em;color:#1B3A6B;padding-bottom:6px;border-bottom:1px solid var(--border,#eee);">🏠 Return Journey</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+          ${fld('Return Ticket',       r.returnFlightStatus)}
+          ${fld('Return Airline',      r.returnAirline)}
+          ${fld('Return PNR',          r.returnPNR)}
+          ${fld('Trip From',           r.returnTripFrom)}
+          ${fld('Trip To',             r.returnTripTo)}
+          ${fld('Departure Date',      fmtD(r.returnDeparture))}
+          ${fld('Arrival Date',        fmtD(r.returnArrival))}
+          ${fld('Return Gateway',      r.returnGateway)}
+          ${fld('Ticket Price',        r.returnTicketPrice||'—')}
+          ${fld('Payment Status',      r.returnTicketPayStatus)}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:10px;border-top:1px solid var(--border,#eee);">
+          <button id="rhEditBtn" style="padding:8px 20px;border-radius:8px;border:1.5px solid #B01A18;
+            background:transparent;color:#B01A18;font-size:12px;font-weight:700;
+            cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('active');
+
+    const rhSrcs = [...new Set(allRows.map(x=>x.programSource).filter(v=>v&&v!=='—'))].sort();
+    const _rhEB  = document.getElementById('rhEditBtn');
+    if (_rhEB) _rhEB.onclick = () => {
+      openEditModal(r, [
+        { key: 'placementStatus',       label: 'J1 Application Status',        type: 'select', options: PAR_STATUSES },
+        { key: 'programSource',         label: 'J1 Source',                    type: 'select', options: rhSrcs },
+        { key: 'firstName',             label: 'First Name',                   type: 'text' },
+        { key: 'lastName',              label: 'Last Name',                    type: 'text' },
+        { key: 'programEnd',            label: 'Program End Date',             type: 'date' },
+        { key: 'returnFlightStatus',    label: 'Return Ticket Status',         type: 'select',
+          options: ['No Ticket','Requested','Booked','Issued'] },
+        { key: 'returnTripFrom',        label: 'Return Trip From',             type: 'text' },
+        { key: 'returnTripTo',          label: 'Return Trip To',               type: 'text' },
+        { key: 'returnDeparture',       label: 'Return Departure Date',        type: 'date' },
+        { key: 'returnArrival',         label: 'Return Arrival Date',          type: 'date' },
+        { key: 'returnGateway',         label: 'Return Airport Gateway',       type: 'text' },
+        { key: 'returnAirline',         label: 'Return Airline',               type: 'text' },
+        { key: 'returnPNR',             label: 'Return Airline PNR Number',    type: 'text' },
+        { key: 'returnTicketPrice',     label: 'Return Ticket Price',          type: 'number' },
+        { key: 'returnTicketPayStatus', label: 'Return Ticket Payment Status', type: 'select',
+          options: ['Pending','Paid','Not Required'] },
+      ], () => { applyFilters(); });
+    };
+  }
+
+  document.getElementById('modalClose')?.addEventListener('click', () =>
+    document.getElementById('modalOverlay')?.classList.remove('active'));
 };
 
 // ============================
