@@ -4525,6 +4525,15 @@ pages.returnhome = async function () {
   const rhSponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
 
   function buildRhHeaders() {
+    // Helper: compact dropdown select for column-level categorical filter
+    function colSel(field, opts) {
+      const os = opts.map(o => `<option value="${escH(o)}">${escH(o)}</option>`).join('');
+      return `<select class="req-cf req-col-sel" data-rhcol="${field}"
+        style="width:100%;font-size:11px;padding:2px 4px;border:1px solid var(--border,#ddd);
+          border-radius:4px;background:var(--bg,#f9f9f9);color:var(--text,#111);">
+        <option value="">— All —</option>${os}</select>`;
+    }
+
     const th = RH_TABLE_COLS.map(c =>
       c.sortable
         ? `<th data-rhfield="${c.field}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${c.label} <span class="req-sort-icon">⇅</span></th>`
@@ -4542,6 +4551,10 @@ pages.returnhome = async function () {
           <input type="date" class="req-cf req-cf-date-val" data-rhcol="${c.field}"
             style="flex:1;padding:1px 3px;font-size:11px;min-width:0;">
         </div></th>`;
+      if (c.field === 'placementStatus')    return `<th>${colSel(c.field, PAR_STATUSES)}</th>`;
+      if (c.field === 'programSource')      return `<th>${colSel(c.field, rhSources)}</th>`;
+      if (c.field === 'processingSponsor')  return `<th>${colSel(c.field, rhSponsors)}</th>`;
+      if (c.field === 'returnFlightStatus') return `<th>${colSel(c.field, ['No Ticket','Requested','Booked','Issued'])}</th>`;
       return `<th><input class="req-cf req-col-f" data-rhcol="${c.field}" type="text" placeholder="—"></th>`;
     }).join('') + '<th></th>';
 
@@ -4811,6 +4824,15 @@ pageEvents.returnhome = function () {
   }
 
   function attachColFilterListeners() {
+    // Category dropdowns
+    document.querySelectorAll('#rhColFilterRow .req-col-sel[data-rhcol]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (sel.value) colFilters[sel.dataset.rhcol] = sel.value;
+        else delete colFilters[sel.dataset.rhcol];
+        applyFilters();
+      });
+    });
+    // Text inputs
     document.querySelectorAll('#rhColFilterRow input[data-rhcol]:not(.req-cf-date-val)').forEach(inp => {
       inp.addEventListener('input', () => {
         colFilters[inp.dataset.rhcol] = inp.value.trim();
