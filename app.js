@@ -224,7 +224,7 @@ const RECRUIT_FIELD_MAP = {
   visaNumber:            'J1_Visa_Number',
   visaExpiredDate:       'J1_Visa_Expired_Date',
   visaPaymentDate:       'J1_Visa_Payment_Date',
-  refLetterStatus:       'Visa_Supporting_Letter_Status',
+  refLetterStatus:       'Reference_Letter_Status',
   flightBooked:          'Flight_Ticket_Status',
   ticketPricing:         'Ticket_Pricing',
   ticketPayMethod:       'Flight_Ticket_Payment_Method',

@@ -500,7 +500,7 @@ const RECRUIT_FIELDS = {
   visaAppointment:    'J1_Visa_Appointment_Date',
   visaPaymentDate:    'J1_Visa_Payment_Date',
   visaNumber:         'J1_Visa_Number',
-  refLetterStatus:    'Visa_Supporting_Letter_Status',
+  refLetterStatus:    'Reference_Letter_Status',
   flightBooked:       'Flight_Ticket_Status',
   ticketPayStatus:    'Ticket_Payment_Status',
   ticketPricing:      'Ticket_Pricing',
