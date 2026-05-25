@@ -3940,7 +3940,7 @@ pageEvents.talentpool = function () {
     if (_tpEditBtn) _tpEditBtn.onclick = () => {
       const isCRM = r._source === 'crm';
       const sharedTpFields = [
-        { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: [...TP_STATUSES] },
+        { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: [...TP_STATUSES, 'Archived Participants', 'Unqualified Participant'] },
         { key: 'programSource',          label: 'J1 Source',                  type: 'select', options: sources },
         { key: 'firstName',              label: 'First Name',                 type: 'text' },
         { key: 'lastName',               label: 'Last Name',                  type: 'text' },
