@@ -1869,7 +1869,7 @@ pages.requisition = async function () {
   // ── column filter select builder ────────────────────────
   const mkCFSel = (id, opts, placeholder) =>
     `<div class="j1-multiselect req-cf-ms" id="${id}">
-       <button class="j1-ms-btn" type="button" style="height:28px;font-size:11px;max-width:140px;">
+       <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;max-width:140px;">
          <span class="j1-ms-lbl">${escH(placeholder || 'All')}</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
        </button>
        <div class="j1-ms-panel">
