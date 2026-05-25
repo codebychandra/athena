@@ -4599,6 +4599,18 @@ const TRAVEL_RET_COLS = [
   { label:'Return Arrival',   field:'returnArrival',      sortable:true,  datecol:true },
   { label:'Return Airline',   field:'returnAirline',      sortable:true  },
 ];
+const TRAVEL_FOLLOWUP_COLS = [
+  { label:'Type',            field:'_ticketType',      sortable:false, tickettypebadge:true },
+  { label:'J1 App Status',   field:'placementStatus',  sortable:true,  statusbadge:true },
+  { label:'J1 Source',       field:'programSource',    sortable:true  },
+  { label:'First Name',      field:'firstName',        sortable:true  },
+  { label:'Last Name',       field:'lastName',         sortable:true  },
+  { label:'Hosting Company', field:'hostCompany',      sortable:true  },
+  { label:'Program Start',   field:'programStart',     sortable:true,  datecol:true },
+  { label:'Program End',     field:'programEnd',       sortable:true,  datecol:true },
+  { label:'Passport No.',    field:'passportNumber',   sortable:true  },
+  { label:'Ticket Status',   field:'_reqTicketStatus', sortable:false, flightbadge:true },
+];
 let _travelActiveTab = 'departure';
 let _travelSortCol   = null, _travelSortDir = 'asc';
 
@@ -4628,6 +4640,16 @@ pages.travel = async function () {
   state.dataCache['travel-dep-rows'] = depRows;
   state.dataCache['travel-ret-rows'] = retRows;
 
+  // Follow-up: one row per "Requested" ticket (departure + return combined)
+  const followupRows = [];
+  allRows.forEach(r => {
+    if (normalizeFlightStatus(r.flightBooked) === 'Requested')
+      followupRows.push({ ...r, _ticketType: 'departure', _reqTicketStatus: r.flightBooked });
+    if (normalizeFlightStatus(r.returnFlightStatus) === 'Requested')
+      followupRows.push({ ...r, _ticketType: 'return', _reqTicketStatus: r.returnFlightStatus });
+  });
+  state.dataCache['travel-followup-rows'] = followupRows;
+
   // Initial KPI counts (unfiltered)
   function _trvTicketCounts(arr, field) {
     return {
@@ -4646,6 +4668,7 @@ pages.travel = async function () {
   // Global filter options
   const trvSources  = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
   const trvSponsors = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const trvPickups  = [...new Set(allRows.map(r=>r.airportPickup).filter(v=>v&&v!=='—'))].sort();
 
   // Build thead HTML for both tab column sets
   function buildHeaders(cols) {
@@ -4674,8 +4697,9 @@ pages.travel = async function () {
     return { th, tf };
   }
 
-  const depH = buildHeaders(TRAVEL_DEP_COLS);
-  const retH = buildHeaders(TRAVEL_RET_COLS);
+  const depH      = buildHeaders(TRAVEL_DEP_COLS);
+  const retH      = buildHeaders(TRAVEL_RET_COLS);
+  const followupH = buildHeaders(TRAVEL_FOLLOWUP_COLS);
 
   return `
     <div class="req-page-header">
@@ -4691,10 +4715,11 @@ pages.travel = async function () {
 
     <!-- Filter Bar (sticky) -->
     <div class="card req-filter-bar">
-      ${buildMS('travelStatusFilter', 'J1 Status', [...PAR_STATUSES])}
-      ${buildMS('travelSourceFilter', 'Source', trvSources)}
-      ${buildMS('travelSponsorFilter', 'Sponsor', trvSponsors)}
-      ${buildMS('travelTicketFilter', 'Ticket Status', ['No Ticket','Requested','Booked','Issued'])}
+      ${buildMS('travelStatusFilter',  'J1 Status',      [...PAR_STATUSES])}
+      ${buildMS('travelSourceFilter',  'J1 Source',      trvSources)}
+      ${buildMS('travelSponsorFilter', 'Sponsor',        trvSponsors)}
+      ${buildMS('travelTicketFilter',  'Ticket Status',  ['No Ticket','Requested','Booked','Issued'])}
+      ${buildMS('travelPickupFilter',  'Airport Pick-Up', trvPickups.length ? trvPickups : ['Yes','No'])}
       <button id="travelClearBtn" class="req-clear-btn">✕ Clear</button>
       <span id="travelCount" class="req-count-badge">${total} participants</span>
     </div>
@@ -4725,6 +4750,29 @@ pages.travel = async function () {
     <div class="par-tab-bar">
       <button class="par-tab active" data-travel-tab="departure">✈️ Departure Ticket</button>
       <button class="par-tab" data-travel-tab="return">🏠 Return Ticket</button>
+      <button class="par-tab" data-travel-tab="followup">📋 Follow Up
+        ${followupRows.length > 0 ? `<span style="background:#D97706;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${followupRows.length}</span>` : ''}
+      </button>
+    </div>
+
+    <!-- Follow-up instruction banner (shown only on Follow Up tab) -->
+    <div id="trvFollowupBanner" style="display:none;border:1px solid rgba(217,119,6,0.3);border-radius:10px;
+      background:linear-gradient(135deg,rgba(217,119,6,0.07) 0%,rgba(37,99,235,0.05) 100%);
+      padding:14px 18px;margin-bottom:14px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <span style="font-size:22px;line-height:1.2;flex-shrink:0;">📋</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:5px;">
+            Action Required — Pending Ticket Requests
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+            The table below lists all participants who have <strong>requested</strong> a departure or return ticket.
+            Each row represents one pending booking — a participant can appear twice if both tickets are requested.<br>
+            <span style="color:#D97706;font-weight:600;">→ Sort by Program Start / End to prioritise the most urgent bookings.</span><br>
+            Update ticket status to <strong style="color:#2563EB;">Booked</strong> once the flight is confirmed, and <strong style="color:#059669;">Issued</strong> once the e-ticket has been sent to the participant.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Table -->
@@ -4742,6 +4790,7 @@ pages.travel = async function () {
 
     <script type="application/json" id="travelDepHeaders">${JSON.stringify(depH)}<\/script>
     <script type="application/json" id="travelRetHeaders">${JSON.stringify(retH)}<\/script>
+    <script type="application/json" id="travelFollowupHeaders">${JSON.stringify(followupH)}<\/script>
 
     <button class="exec-summary-btn" id="trvSummaryBtn" title="Click to hear travel dashboard summary">
       <svg class="esb-play" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
@@ -4753,9 +4802,10 @@ pages.travel = async function () {
 
 // ── Travel page events ────────────────────────────────────────
 pageEvents.travel = function () {
-  const allRows    = state.dataCache['travel-rows']     || [];
-  const depAllRows = state.dataCache['travel-dep-rows'] || [];
-  const retAllRows = state.dataCache['travel-ret-rows'] || [];
+  const allRows        = state.dataCache['travel-rows']         || [];
+  const depAllRows     = state.dataCache['travel-dep-rows']     || [];
+  const retAllRows     = state.dataCache['travel-ret-rows']     || [];
+  const followupAllRows= state.dataCache['travel-followup-rows']|| [];
 
   // Option arrays for edit modal dropdowns
   const trvSources = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
@@ -4793,6 +4843,14 @@ pageEvents.travel = function () {
       const to   = r.returnTripTo   && r.returnTripTo   !== '—' ? r.returnTripTo   : '—';
       return `${escH(from)} → ${escH(to)}`;
     }
+    if (col.tickettypebadge) {
+      const isDep = v === 'departure';
+      const clr   = isDep ? '#2563EB' : '#059669';
+      const bg    = isDep ? 'rgba(37,99,235,0.12)' : 'rgba(5,150,105,0.12)';
+      const lbl   = isDep ? '✈️ Departure' : '🏠 Return';
+      return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+        background:${bg};color:${clr};white-space:nowrap;">${lbl}</span>`;
+    }
     if (col.statusbadge)  return statusBadgeTravel(v);
     if (col.flightbadge)  return flightBadge(v);
     if (col.datecol)      return fmtDate(v);
@@ -4808,20 +4866,25 @@ pageEvents.travel = function () {
   }
 
   function getCols() {
-    return _travelActiveTab === 'departure' ? TRAVEL_DEP_COLS : TRAVEL_RET_COLS;
+    if (_travelActiveTab === 'departure') return TRAVEL_DEP_COLS;
+    if (_travelActiveTab === 'return')    return TRAVEL_RET_COLS;
+    return TRAVEL_FOLLOWUP_COLS;
   }
   function getTicketField() {
-    return _travelActiveTab === 'departure' ? 'flightBooked' : 'returnFlightStatus';
+    if (_travelActiveTab === 'departure') return 'flightBooked';
+    if (_travelActiveTab === 'return')    return 'returnFlightStatus';
+    return '_reqTicketStatus';
   }
 
-  const ticketSel = document.getElementById('travelTicketFilter');
-  const countEl   = document.getElementById('travelCount');
-  const clearBtn  = document.getElementById('travelClearBtn');
-  const tbody     = document.getElementById('travelTableBody');
-  const sortRow   = document.getElementById('travelSortRow');
-  const filterRow = document.getElementById('travelColFilterRow');
-  const depHeaders = JSON.parse(document.getElementById('travelDepHeaders')?.textContent || '{}');
-  const retHeaders = JSON.parse(document.getElementById('travelRetHeaders')?.textContent || '{}');
+  const ticketSel     = document.getElementById('travelTicketFilter');
+  const countEl       = document.getElementById('travelCount');
+  const clearBtn      = document.getElementById('travelClearBtn');
+  const tbody         = document.getElementById('travelTableBody');
+  const sortRow       = document.getElementById('travelSortRow');
+  const filterRow     = document.getElementById('travelColFilterRow');
+  const depHeaders    = JSON.parse(document.getElementById('travelDepHeaders')?.textContent    || '{}');
+  const retHeaders    = JSON.parse(document.getElementById('travelRetHeaders')?.textContent    || '{}');
+  const followupHeaders = JSON.parse(document.getElementById('travelFollowupHeaders')?.textContent || '{}');
 
   let colFilters = {};
 
@@ -4849,21 +4912,25 @@ pageEvents.travel = function () {
   }
 
   function getTabRows() {
-    return _travelActiveTab === 'departure' ? depAllRows : retAllRows;
+    if (_travelActiveTab === 'departure') return depAllRows;
+    if (_travelActiveTab === 'return')    return retAllRows;
+    return followupAllRows;
   }
 
   function applyFilters() {
     const cols      = getCols();
-    const gSt       = msGetVals('travelStatusFilter');
-    const gSrc      = msGetVals('travelSourceFilter');
-    const gSp       = msGetVals('travelSponsorFilter');
+    const gSt        = msGetVals('travelStatusFilter');
+    const gSrc       = msGetVals('travelSourceFilter');
+    const gSp        = msGetVals('travelSponsorFilter');
     const ticketVals = msGetVals('travelTicketFilter');
-    const ticketFld = getTicketField();
-    let filtered    = [...getTabRows()];
+    const pickupVals = msGetVals('travelPickupFilter');
+    const ticketFld  = getTicketField();
+    let filtered     = [...getTabRows()];
 
-    if (gSt.length)  filtered = filtered.filter(r => gSt.includes(r.placementStatus));
-    if (gSrc.length) filtered = filtered.filter(r => gSrc.includes(r.programSource));
-    if (gSp.length)  filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
+    if (gSt.length)       filtered = filtered.filter(r => gSt.includes(r.placementStatus));
+    if (gSrc.length)      filtered = filtered.filter(r => gSrc.includes(r.programSource));
+    if (gSp.length)       filtered = filtered.filter(r => gSp.includes(r.processingSponsor));
+    if (pickupVals.length) filtered = filtered.filter(r => pickupVals.includes(r.airportPickup));
     if (ticketVals.length) {
       filtered = filtered.filter(r => ticketVals.includes(normalizeFlightStatus(r[ticketFld])));
     }
@@ -4983,11 +5050,13 @@ pageEvents.travel = function () {
     _travelSortCol   = null;
     _travelSortDir   = 'asc';
     colFilters       = {};
-    const headers = tab === 'departure' ? depHeaders : retHeaders;
+    const headers = tab === 'departure' ? depHeaders : tab === 'return' ? retHeaders : followupHeaders;
     if (sortRow)   sortRow.innerHTML   = headers.th || '';
     if (filterRow) filterRow.innerHTML = headers.tf || '';
     document.querySelectorAll('.par-tab[data-travel-tab]').forEach(btn =>
       btn.classList.toggle('active', btn.dataset.travelTab === tab));
+    const banner = document.getElementById('trvFollowupBanner');
+    if (banner) banner.style.display = tab === 'followup' ? 'block' : 'none';
     attachSortListeners();
     attachColFilterListeners();
     applyFilters();
@@ -4997,11 +5066,11 @@ pageEvents.travel = function () {
     btn.addEventListener('click', () => switchTab(btn.dataset.travelTab)));
 
   initMS(document.getElementById('main-content'));
-  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter'].forEach(id =>
+  ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'].forEach(id =>
     msOnChange(id, applyFilters));
 
   clearBtn?.addEventListener('click', () => {
-    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter'].forEach(id => msClear(id));
+    ['travelStatusFilter','travelSourceFilter','travelSponsorFilter','travelTicketFilter','travelPickupFilter'].forEach(id => msClear(id));
     colFilters = {};
     document.querySelectorAll('#travelColFilterRow input[data-travelcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#travelColFilterRow select[data-travelcol]').forEach(sel => sel.value = '');
