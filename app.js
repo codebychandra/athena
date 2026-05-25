@@ -4958,10 +4958,319 @@ pageEvents.returnhome = function () {
 };
 
 // ============================
-// PAGE: TASK (coming soon)
+// PAGE: TASK — Data Maintenance
 // ============================
 pages.task = async function () {
-  return lockedPage('task');
+  return `
+    <div class="req-page-header">
+      <h1>Task</h1>
+      <span class="req-page-sub">Data maintenance &amp; utilities</span>
+    </div>
+
+    <!-- Section header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <span style="font-size:16px;">🛠️</span>
+      <span style="font-size:14px;font-weight:700;color:var(--text);">Data Maintenance</span>
+    </div>
+
+    <!-- Duplicate Checker card -->
+    <div class="card" id="dupCheckerCard" style="max-width:900px;padding:24px 28px;">
+      <!-- Card header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">
+            🔍 Duplicate Checker
+          </div>
+          <div style="font-size:12px;color:var(--text-muted,#888);">
+            Scan Recruit &amp; CRM for duplicate participant records
+          </div>
+        </div>
+        <button id="dupRunBtn" class="req-primary-btn"
+          style="padding:9px 22px;font-size:13px;font-weight:700;border-radius:8px;
+            background:var(--accent,#B01A18);color:#fff;border:none;cursor:pointer;
+            display:flex;align-items:center;gap:7px;">
+          <span id="dupRunBtnIcon">▶</span>
+          <span id="dupRunBtnLabel">Run Check</span>
+        </button>
+      </div>
+
+      <!-- Match criteria -->
+      <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-page,#f9f9f9);
+        border:1px solid var(--border,#e5e7eb);border-radius:10px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
+          color:var(--text-muted,#888);margin-bottom:10px;">Match By (select one or more)</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="dupByEmail" checked
+              style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
+            📧 Email Address
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="dupByPhone"
+              style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
+            📞 Phone Number
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="dupByName"
+              style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
+            👤 Full Name
+          </label>
+        </div>
+      </div>
+
+      <!-- Results area -->
+      <div id="dupResults">
+        <div style="text-align:center;padding:32px 0;color:var(--text-muted,#aaa);font-size:13px;">
+          Select criteria above and click <strong>Run Check</strong> to scan for duplicates.
+        </div>
+      </div>
+    </div>`;
+};
+
+pageEvents.task = function () {
+  const btn       = document.getElementById('dupRunBtn');
+  const btnIcon   = document.getElementById('dupRunBtnIcon');
+  const btnLabel  = document.getElementById('dupRunBtnLabel');
+  const resultsEl = document.getElementById('dupResults');
+
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const byEmail = document.getElementById('dupByEmail')?.checked;
+    const byPhone = document.getElementById('dupByPhone')?.checked;
+    const byName  = document.getElementById('dupByName')?.checked;
+
+    if (!byEmail && !byPhone && !byName) {
+      resultsEl.innerHTML = `<div style="padding:12px 14px;background:rgba(176,26,24,0.07);
+        border:1px solid rgba(176,26,24,0.2);border-radius:8px;color:#B01A18;font-size:13px;">
+        ⚠ Please select at least one match criterion.
+      </div>`;
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    btnIcon.textContent = '⏳';
+    btnLabel.textContent = 'Scanning…';
+    resultsEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:24px 0;
+        color:var(--text-muted,#888);font-size:13px;">
+        <div style="width:18px;height:18px;border:2.5px solid var(--border,#ddd);
+          border-top-color:var(--accent,#B01A18);border-radius:50%;
+          animation:spin 0.65s linear infinite;flex-shrink:0;"></div>
+        Fetching records from Recruit &amp; CRM…
+      </div>`;
+
+    try {
+      // Fetch both sources
+      const [rRes, cRes] = await Promise.allSettled([
+        safeJson(WORKER_URL + '/api/recruit/j1-participants'),
+        safeJson(WORKER_URL + '/api/crm/j1-participants'),
+      ]);
+      const recruitRows = rRes.status === 'fulfilled' ? (rRes.value?.data || []) : [];
+      const crmRows     = cRes.status === 'fulfilled' ? (cRes.value?.data || []) : [];
+      const allRows     = [...recruitRows, ...crmRows];
+
+      if (!allRows.length) {
+        resultsEl.innerHTML = `<div style="text-align:center;padding:28px 0;
+          color:var(--text-muted,#aaa);font-size:13px;">No records returned.</div>`;
+        return;
+      }
+
+      // ── Helper: normalise values ──────────────────────────────
+      function normEmail(v) { return (v || '').toLowerCase().trim().replace(/\s+/g,''); }
+      function normPhone(v) { return (v || '').replace(/\D/g,''); }
+      function normName(v,r){ return (`${r.firstName||''} ${r.lastName||''}`).toLowerCase().trim().replace(/\s+/g,' '); }
+
+      // ── Build duplicate groups ────────────────────────────────
+      // Group rows by each key, keep groups with ≥2 rows
+      function findGroups(rows, keyFn, label) {
+        const map = new Map();
+        rows.forEach(r => {
+          const k = keyFn(r);
+          if (!k || k === '—') return;
+          if (!map.has(k)) map.set(k, []);
+          map.get(k).push(r);
+        });
+        const groups = [];
+        map.forEach((members, key) => {
+          if (members.length >= 2) groups.push({ key, label, members });
+        });
+        return groups;
+      }
+
+      const allGroups = [];
+      const seenKeys  = new Set();   // prevent same pair shown twice from different criteria
+
+      function addGroups(gs) {
+        gs.forEach(g => {
+          // dedup: use sorted id string as key
+          const sigKey = g.label + '|' + g.members.map(r=>r.id).sort().join(',');
+          if (!seenKeys.has(sigKey)) { seenKeys.add(sigKey); allGroups.push(g); }
+        });
+      }
+
+      if (byEmail) addGroups(findGroups(allRows, r => normEmail(r.email),      'Email'));
+      if (byPhone) addGroups(findGroups(allRows, r => normPhone(r.phone),      'Phone'));
+      if (byName)  addGroups(findGroups(allRows, r => normName(null,r),        'Name'));
+
+      // ── Summary stats ─────────────────────────────────────────
+      const totalDups    = allGroups.reduce((s,g) => s + g.members.length, 0);
+      const crossSource  = allGroups.filter(g =>
+        g.members.some(r=>r._source==='recruit') && g.members.some(r=>r._source==='crm')
+      ).length;
+      const sameSource   = allGroups.length - crossSource;
+
+      if (!allGroups.length) {
+        resultsEl.innerHTML = `
+          <div style="display:flex;align-items:center;gap:14px;padding:20px 18px;
+            background:rgba(45,122,85,0.07);border:1px solid rgba(45,122,85,0.22);
+            border-radius:10px;margin-top:4px;">
+            <span style="font-size:28px;">✅</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#2D7A55;margin-bottom:4px;">
+                No duplicates found
+              </div>
+              <div style="font-size:12px;color:var(--text-muted,#888);">
+                Scanned ${allRows.length.toLocaleString()} records
+                (${recruitRows.length} Recruit · ${crmRows.length} CRM).
+                No matching values detected for the selected criteria.
+              </div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      // ── Source badge helper ───────────────────────────────────
+      function srcBadge(src) {
+        const color  = src === 'recruit' ? '#1B3A6B' : '#B87A14';
+        const label2 = src === 'recruit' ? 'Recruit' : 'CRM';
+        return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+          background:${color}18;color:${color};border:1px solid ${color}30;
+          text-transform:uppercase;letter-spacing:0.05em;">${label2}</span>`;
+      }
+
+      // ── Match-type badge ──────────────────────────────────────
+      function matchBadge(label2) {
+        const map2 = { Email:'#1B3A6B', Phone:'#2D7A55', Name:'#B87A14' };
+        const c    = map2[label2] || '#888';
+        return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+          background:${c}15;color:${c};border:1px solid ${c}28;letter-spacing:0.05em;">
+          ${label2 === 'Email' ? '📧' : label2 === 'Phone' ? '📞' : '👤'} ${label2}
+        </span>`;
+      }
+
+      // ── Build results HTML ────────────────────────────────────
+      let html = `
+        <!-- Summary bar -->
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;">
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.07);
+            border:1px solid rgba(176,26,24,0.18);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:#B01A18;">${allGroups.length}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Duplicate Groups</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.05);
+            border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:var(--text);">${totalDups}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Affected Records</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.05);
+            border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:120px;">
+            <div style="font-size:22px;font-weight:800;color:#B87A14;">${crossSource}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Cross-System (Recruit ↔ CRM)</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.05);
+            border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:#1B3A6B;">${sameSource}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Same-System Dupes</div>
+          </div>
+        </div>
+
+        <!-- Scanned note -->
+        <div style="font-size:11px;color:var(--text-muted,#999);margin-bottom:14px;">
+          Scanned ${allRows.length.toLocaleString()} records
+          (${recruitRows.length} Recruit · ${crmRows.length} CRM) ·
+          ${allGroups.length} duplicate group${allGroups.length !== 1 ? 's' : ''} found
+        </div>
+
+        <!-- Groups table -->
+        <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border,#e5e7eb);">
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
+                white-space:nowrap;">#</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Match</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Source</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Name</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Email</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Phone</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Status</th>
+              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
+                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Matched Value</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+      allGroups.forEach((g, gi) => {
+        const isCross = g.members.some(r=>r._source==='recruit') && g.members.some(r=>r._source==='crm');
+        const rowBg   = isCross ? 'rgba(176,26,24,0.03)' : 'transparent';
+        g.members.forEach((r, mi) => {
+          const fullName = (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
+          const rowStyle = `background:${rowBg};border-bottom:1px solid var(--border,#eee);`;
+          const groupNum = mi === 0
+            ? `<td rowspan="${g.members.length}" style="padding:8px 10px;
+                vertical-align:top;font-weight:700;color:var(--text-muted,#999);
+                border-right:2px solid var(--border,#eee);white-space:nowrap;">
+                ${gi + 1}${isCross ? ' <span title="Cross-system duplicate" style="color:#B01A18;">⚡</span>' : ''}
+              </td>
+              <td rowspan="${g.members.length}" style="padding:8px 10px;vertical-align:top;
+                border-right:1px solid var(--border,#eee);">
+                ${matchBadge(g.label)}
+              </td>`
+            : '';
+          html += `<tr style="${rowStyle}">
+            ${groupNum}
+            <td style="padding:8px 10px;">${srcBadge(r._source)}</td>
+            <td style="padding:8px 10px;font-weight:600;white-space:nowrap;">${escH(fullName)}</td>
+            <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.email||'—')}</td>
+            <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.phone||'—')}</td>
+            <td style="padding:8px 10px;">${statusBadgeHtml(r.placementStatus)}</td>
+            <td style="padding:8px 10px;color:var(--text-muted,#888);font-size:11px;
+              max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+              title="${escH(g.key)}">${escH(g.key)}</td>
+          </tr>`;
+        });
+        // Group separator
+        html += `<tr><td colspan="8" style="padding:0;height:6px;
+          background:var(--bg-page,#f9f9f9);border:none;"></td></tr>`;
+      });
+
+      html += `</tbody></table></div>
+        <div style="margin-top:14px;font-size:11px;color:var(--text-muted,#999);">
+          ⚡ = cross-system duplicate (same value found in both Recruit and CRM)
+        </div>`;
+
+      resultsEl.innerHTML = html;
+
+    } catch (err) {
+      resultsEl.innerHTML = `<div style="padding:12px 14px;background:rgba(176,26,24,0.07);
+        border:1px solid rgba(176,26,24,0.2);border-radius:8px;color:#B01A18;font-size:13px;">
+        ⚠ Error: ${escH(err.message || 'Failed to fetch data. Please try again.')}
+      </div>`;
+    } finally {
+      btn.disabled = false;
+      btnIcon.textContent = '▶';
+      btnLabel.textContent = 'Run Check';
+    }
+  });
 };
 
 // ============================
