@@ -183,6 +183,19 @@ const RF = {
   visaAppt2:              'J1_Visa_2nd_Appointment_Date',
   visaAppt3:              'J1_Visa_3rd_Appointment_Date',
   ctiUsaReview:           'CTI_USA_s_Review',
+  passportStatus:          'Passport_Status',
+  policeClearanceStatus:   'Police_Clearance_Status',
+  uniAccreditationStatus:  'University_Accreditation_Status',
+  proofAcademicStatus:     'Proof_of_Academic_Status',
+  educationalCertStatus:   'Educational_Certificate_Status',
+  academicTranscriptStatus:'Academic_Transcripts_Status',
+  englishAssessmentLetterStatus: 'English_Assessment_Letter_Status',
+  signedJ1Policy:          'Signed_J1_Program_Policy',
+  stage1Investment:        'Stage_1_Investment',
+  stage2Investment:        'Stage_2_Investment',
+  stage3Investment:        'Stage_3_Investment',
+  stage4Investment:        'Stage_4_Investment',
+  hcInterviewDate:         'Hosting_Company_Interview_Date',
 };
 
 const CF = {
@@ -317,6 +330,19 @@ function mapRecruit(r) {
     returnTicketPrice:  r[RF.returnTicketPrice]   || null,
     returnTicketPayStatus: r[RF.returnTicketPayStatus] || '—',
     returnTransportCost:   r[RF.returnTransportCost]   || null,
+    passportStatus:          r[RF.passportStatus]          || '—',
+    policeClearanceStatus:   r[RF.policeClearanceStatus]   || '—',
+    uniAccreditationStatus:  r[RF.uniAccreditationStatus]  || '—',
+    proofAcademicStatus:     r[RF.proofAcademicStatus]     || '—',
+    educationalCertStatus:   r[RF.educationalCertStatus]   || '—',
+    academicTranscriptStatus:r[RF.academicTranscriptStatus]|| '—',
+    englishAssessmentLetterStatus: r[RF.englishAssessmentLetterStatus] || '—',
+    signedJ1Policy:          r[RF.signedJ1Policy]          || '—',
+    stage1Investment:        r[RF.stage1Investment]        || null,
+    stage2Investment:        r[RF.stage2Investment]        || null,
+    stage3Investment:        r[RF.stage3Investment]        || null,
+    stage4Investment:        r[RF.stage4Investment]        || null,
+    hcInterviewDate:         r[RF.hcInterviewDate]         || null,
   };
 }
 

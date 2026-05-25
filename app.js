@@ -260,6 +260,19 @@ const RECRUIT_FIELD_MAP = {
   participantRating:     'Participant_Rating',
   attendance:            'Attendance',
   financialReadinessDate:'Financial_Readiness_Date',
+  passportStatus:          'Passport_Status',
+  policeClearanceStatus:   'Police_Clearance_Status',
+  uniAccreditationStatus:  'University_Accreditation_Status',
+  proofAcademicStatus:     'Proof_of_Academic_Status',
+  educationalCertStatus:   'Educational_Certificate_Status',
+  academicTranscriptStatus:'Academic_Transcripts_Status',
+  englishAssessmentLetterStatus: 'English_Assessment_Letter_Status',
+  signedJ1Policy:          'Signed_J1_Program_Policy',
+  stage1Investment:        'Stage_1_Investment',
+  stage2Investment:        'Stage_2_Investment',
+  stage3Investment:        'Stage_3_Investment',
+  stage4Investment:        'Stage_4_Investment',
+  hcInterviewDate:         'Hosting_Company_Interview_Date',
 };
 
 const CRM_FIELD_MAP = {
@@ -1788,26 +1801,156 @@ const PAR_STATUS_COLORS = {
   'USA Onboard':       '#1B3A6B',
   'Program Completed': '#2D7A55',
 };
-// PAR_TABLE_COLS uses object field names, not numeric indices (data is Recruit/CRM objects)
-const PAR_TABLE_COLS = [
-  { label:'Status',            field:'placementStatus',   sortable:true,  statusbadge:true               },
-  { label:'J1 Source',         field:'programSource',     sortable:true                                  },
-  { label:'First Name',        field:'firstName',         sortable:true                                  },
-  { label:'Last Name',         field:'lastName',          sortable:true                                  },
-  { label:'Passport No.',      field:'passportNumber',    sortable:true                                  },
-  { label:'Country',           field:'country',           sortable:true                                  },
-  { label:'Department',        field:'department',        sortable:true,  badge:true                     },
-  { label:'Eligible Programs', field:'eligiblePrograms',  sortable:true                                  },
-  { label:'Sponsor',           field:'processingSponsor', sortable:true                                  },
-  { label:'Hosting Company',   field:'hostCompany',       sortable:true                                  },
-  { label:'Start Date',        field:'programStart',      sortable:true,  datecol:true                   },
-  { label:'End Date',          field:'programEnd',        sortable:true,  datecol:true                   },
-  { label:'App Source',        field:'_source',           sortable:true,  sourcebadge:true               },
+// Per-tab column definitions
+const _PAR_COLS_NEW_SUBMISSION = [
+  { label:'J1 App Status',       field:'placementStatus',        sortable:true, statusbadge:true },
+  { label:'J1 Source',           field:'programSource',          sortable:true },
+  { label:'First Name',          field:'firstName',              sortable:true },
+  { label:'Last Name',           field:'lastName',               sortable:true },
+  { label:'Gender',              field:'gender',                 sortable:true },
+  { label:'Email',               field:'email',                  sortable:true },
+  { label:'Phone',               field:'phone',                  sortable:true },
+  { label:'Date Of Birth',       field:'dateOfBirth',            sortable:true, datecol:true },
+  { label:'Department',          field:'department',             sortable:true, badge:true },
+  { label:'Country',             field:'country',                sortable:true },
+  { label:"CTI USA's Review",    field:'ctiUsaReview',           sortable:true },
+  { label:'Eligible Programs',   field:'eligiblePrograms',       sortable:true },
 ];
+const _PAR_COLS_CONSULTATION = [
+  { label:'J1 App Status',          field:'placementStatus',       sortable:true, statusbadge:true },
+  { label:'J1 Source',              field:'programSource',          sortable:true },
+  { label:'First Name',             field:'firstName',              sortable:true },
+  { label:'Last Name',              field:'lastName',               sortable:true },
+  { label:'Eligible Programs',      field:'eligiblePrograms',       sortable:true },
+  { label:'Department',             field:'department',             sortable:true, badge:true },
+  { label:'Country',                field:'country',                sortable:true },
+  { label:'Consultation Date',      field:'consultationCallDate',   sortable:true, datecol:true },
+  { label:'Call Status',            field:'consultationCallStatus', sortable:true },
+  { label:'Attendance',             field:'attendance',             sortable:true },
+  { label:'Financial Readiness',    field:'financialReadinessDate', sortable:true, datecol:true },
+  { label:'Stage 1 Investment',     field:'stage1Investment',       sortable:true },
+];
+const _PAR_COLS_STAGE1 = [
+  { label:'J1 App Status',          field:'placementStatus',           sortable:true, statusbadge:true },
+  { label:'J1 Source',              field:'programSource',              sortable:true },
+  { label:'First Name',             field:'firstName',                  sortable:true },
+  { label:'Last Name',              field:'lastName',                   sortable:true },
+  { label:'Passport Status',        field:'passportStatus',             sortable:true },
+  { label:'Police Clearance',       field:'policeClearanceStatus',      sortable:true },
+  { label:'Uni Accreditation',      field:'uniAccreditationStatus',     sortable:true },
+  { label:'Proof of Academic',      field:'proofAcademicStatus',        sortable:true },
+  { label:'Educational Cert',       field:'educationalCertStatus',      sortable:true },
+  { label:'Academic Transcripts',   field:'academicTranscriptStatus',   sortable:true },
+  { label:'English Assess. Letter', field:'englishAssessmentLetterStatus', sortable:true },
+  { label:'Signed J1 Policy',       field:'signedJ1Policy',             sortable:true },
+];
+const _PAR_COLS_STAGE2 = [
+  { label:'J1 App Status',       field:'placementStatus',   sortable:true, statusbadge:true },
+  { label:'J1 Source',           field:'programSource',     sortable:true },
+  { label:'First Name',          field:'firstName',         sortable:true },
+  { label:'Last Name',           field:'lastName',          sortable:true },
+  { label:'Stage 2 Investment',  field:'stage2Investment',  sortable:true },
+  { label:'Sponsor',             field:'processingSponsor', sortable:true },
+  { label:'Sponsor Interview',   field:'sponsorStatus',     sortable:true },
+  { label:'Hosting Company',     field:'hostCompany',       sortable:true },
+  { label:'HC Interview Date',   field:'hcInterviewDate',   sortable:true, datecol:true },
+  { label:'HC Interview Status', field:'hcInterviewStatus', sortable:true },
+  { label:'Start Date',          field:'programStart',      sortable:true, datecol:true },
+  { label:'End Date',            field:'programEnd',        sortable:true, datecol:true },
+];
+const _PAR_COLS_STAGE3 = [
+  { label:'J1 App Status',     field:'placementStatus',   sortable:true, statusbadge:true },
+  { label:'J1 Source',         field:'programSource',     sortable:true },
+  { label:'First Name',        field:'firstName',         sortable:true },
+  { label:'Last Name',         field:'lastName',          sortable:true },
+  { label:'Sponsor',           field:'processingSponsor', sortable:true },
+  { label:'Hosting Company',   field:'hostCompany',       sortable:true },
+  { label:'Start Date',        field:'programStart',      sortable:true, datecol:true },
+  { label:'End Date',          field:'programEnd',        sortable:true, datecol:true },
+  { label:'Stage 3 Investment',field:'stage3Investment',  sortable:true },
+  { label:'Visa Status',       field:'visaStatus',        sortable:true },
+  { label:'Visa Expired Date', field:'visaExpiredDate',   sortable:true, datecol:true },
+  { label:'Support Letter',    field:'refLetterStatus',   sortable:true },
+];
+const _PAR_COLS_STAGE4 = [
+  { label:'J1 App Status',         field:'placementStatus',    sortable:true, statusbadge:true },
+  { label:'J1 Source',             field:'programSource',      sortable:true },
+  { label:'First Name',            field:'firstName',          sortable:true },
+  { label:'Last Name',             field:'lastName',           sortable:true },
+  { label:'Sponsor',               field:'processingSponsor',  sortable:true },
+  { label:'Hosting Company',       field:'hostCompany',        sortable:true },
+  { label:'Start Date',            field:'programStart',       sortable:true, datecol:true },
+  { label:'End Date',              field:'programEnd',         sortable:true, datecol:true },
+  { label:'Stage 4 Investment',    field:'stage4Investment',   sortable:true },
+  { label:'Flight Ticket',         field:'flightBooked',       sortable:true },
+  { label:'Ticket Payment',        field:'ticketPayStatus',    sortable:true },
+  { label:'Return Flight',         field:'returnFlightStatus', sortable:true },
+  { label:'Return Ticket Payment', field:'returnTicketPayStatus', sortable:true },
+];
+const _PAR_COLS_USA_ONBOARD = [
+  { label:'J1 App Status',    field:'placementStatus',   sortable:true, statusbadge:true },
+  { label:'J1 Source',        field:'programSource',     sortable:true },
+  { label:'First Name',       field:'firstName',         sortable:true },
+  { label:'Last Name',        field:'lastName',          sortable:true },
+  { label:'Eligible Programs',field:'eligiblePrograms',  sortable:true },
+  { label:'Department',       field:'department',        sortable:true, badge:true },
+  { label:'Country',          field:'country',           sortable:true },
+  { label:'Sponsor',          field:'processingSponsor', sortable:true },
+  { label:'Hosting Company',  field:'hostCompany',       sortable:true },
+  { label:'Start Date',       field:'programStart',      sortable:true, datecol:true },
+  { label:'End Date',         field:'programEnd',        sortable:true, datecol:true },
+  { label:'Flight Ticket',    field:'flightBooked',      sortable:true },
+];
+const _PAR_COLS_COMPLETED = [
+  { label:'J1 App Status',    field:'placementStatus',      sortable:true, statusbadge:true },
+  { label:'J1 Source',        field:'programSource',        sortable:true },
+  { label:'First Name',       field:'firstName',            sortable:true },
+  { label:'Last Name',        field:'lastName',             sortable:true },
+  { label:'Eligible Programs',field:'eligiblePrograms',     sortable:true },
+  { label:'Department',       field:'department',           sortable:true, badge:true },
+  { label:'Country',          field:'country',              sortable:true },
+  { label:'Sponsor',          field:'processingSponsor',    sortable:true },
+  { label:'Hosting Company',  field:'hostCompany',          sortable:true },
+  { label:'Start Date',       field:'programStart',         sortable:true, datecol:true },
+  { label:'End Date',         field:'programEnd',           sortable:true, datecol:true },
+  { label:'Flight Ticket',    field:'flightBooked',         sortable:true },
+  { label:'Return Flight',    field:'returnFlightStatus',   sortable:true },
+];
+const _PAR_COLS_ALL = [
+  { label:'J1 App Status',    field:'placementStatus',   sortable:true, statusbadge:true },
+  { label:'J1 Source',        field:'programSource',     sortable:true },
+  { label:'First Name',       field:'firstName',         sortable:true },
+  { label:'Last Name',        field:'lastName',          sortable:true },
+  { label:'Country',          field:'country',           sortable:true },
+  { label:'Department',       field:'department',        sortable:true, badge:true },
+  { label:'Eligible Programs',field:'eligiblePrograms',  sortable:true },
+  { label:'Sponsor',          field:'processingSponsor', sortable:true },
+  { label:'Hosting Company',  field:'hostCompany',       sortable:true },
+  { label:'Start Date',       field:'programStart',      sortable:true, datecol:true },
+  { label:'End Date',         field:'programEnd',        sortable:true, datecol:true },
+];
+const PAR_TAB_COLS = {
+  'All':               _PAR_COLS_ALL,
+  'Total Placement':   _PAR_COLS_ALL,
+  'New Submission':    _PAR_COLS_NEW_SUBMISSION,
+  'On Hold':           _PAR_COLS_NEW_SUBMISSION,
+  'Consultation Call': _PAR_COLS_CONSULTATION,
+  'Sales Call':        _PAR_COLS_CONSULTATION,
+  'Stage 1':           _PAR_COLS_STAGE1,
+  'Stage 2':           _PAR_COLS_STAGE2,
+  'Stage 3':           _PAR_COLS_STAGE3,
+  'Stage 4':           _PAR_COLS_STAGE4,
+  'USA Onboard':       _PAR_COLS_USA_ONBOARD,
+  'Program Completed': _PAR_COLS_COMPLETED,
+};
+function getParCols() {
+  return PAR_TAB_COLS[_parActiveTab] || _PAR_COLS_ALL;
+}
 // Sort state — Participant
 let _parSortCol   = null;
 let _parSortDir   = 'asc';
 let _parActiveTab = 'All';
+let _parLastHeaderTab = null;
 
 // ── Visa page constants ───────────────────────────────
 const VISA_STATUS_COLORS = {
@@ -2552,7 +2695,8 @@ pages.participant = async function () {
   }).join('');
 
   // Table sort header
-  const thSort = PAR_TABLE_COLS.map(col =>
+  const _initCols = getParCols();
+  const thSort = _initCols.map(col =>
     col.sortable
       ? `<th data-pfield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;${col.center?'text-align:center;':''}white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
       : `<th style="white-space:nowrap;">${col.label}</th>`
@@ -2567,7 +2711,7 @@ pages.participant = async function () {
     'processingSponsor': sponsors,
     'eligiblePrograms':  eligibleOpts,
   };
-  const thFilter = PAR_TABLE_COLS.map(col => {
+  const thFilter = _initCols.map(col => {
     if (col.money || col.sourcebadge) return '<th></th>';
     if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;">
       <div style="display:flex;gap:2px;align-items:center;">
@@ -2669,6 +2813,11 @@ pageEvents.participant = function () {
   const depts     = [...new Set(allRows.map(r=>r.department).filter(v=>v&&v!=='—'))].sort();
   const countries = [...new Set(allRows.map(r=>r.country).filter(v=>v&&v!=='—'))].sort();
   const sponsors  = [...new Set(allRows.map(r=>r.processingSponsor).filter(v=>v&&v!=='—'))].sort();
+  const eligibleSet2 = new Set();
+  allRows.forEach(r => {
+    if (r.eligiblePrograms) r.eligiblePrograms.split(',').forEach(p => { const t = p.trim(); if (t) eligibleSet2.add(t); });
+  });
+  const eligibleOpts2 = [...eligibleSet2].sort();
 
   function getTabRows() {
     if (_parActiveTab === 'All') return [...allRows];
@@ -2713,9 +2862,59 @@ pageEvents.participant = function () {
     return escH(str);
   }
 
+  function rebuildParTableHeaders() {
+    if (_parLastHeaderTab === _parActiveTab) return;
+    _parLastHeaderTab = _parActiveTab;
+    const cols = getParCols();
+    const cfDropdowns2 = {
+      'placementStatus':   [...PAR_STATUSES],
+      'programSource':     sources,
+      'department':        depts,
+      'country':           countries,
+      'processingSponsor': sponsors,
+      'eligiblePrograms':  eligibleOpts2,
+    };
+    const newThSort = cols.map(col =>
+      col.sortable
+        ? `<th data-pfield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
+        : `<th style="white-space:nowrap;">${col.label}</th>`
+    ).join('') + '<th style="width:52px;"></th>';
+    const newThFilter = cols.map(col => {
+      if (col.money || col.sourcebadge) return '<th></th>';
+      if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;"><div style="display:flex;gap:2px;align-items:center;"><select class="req-cf req-cf-date-cond" data-pfield="${escH(col.field)}" title="Before / On or Before / On / On or After / After" style="width:42px;flex-shrink:0;padding:1px 2px;font-size:12px;text-align:center;"><option value="">–</option><option value="lt">&lt;</option><option value="lte">≤</option><option value="eq">=</option><option value="gte">≥</option><option value="gt">&gt;</option></select><input type="date" class="req-cf req-cf-date-val" data-pfield="${escH(col.field)}" style="flex:1;padding:1px 3px;font-size:11px;min-width:0;"></div></th>`;
+      const opts2 = cfDropdowns2[col.field];
+      return `<th>${opts2
+        ? `<div id="parCF_${col.field}" class="j1-multiselect req-cf-ms"><button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;"><span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span></button><div class="j1-ms-panel"><div class="j1-ms-list">${opts2.map(v=>`<label class="j1-ms-item"><input type="checkbox" class="j1-ms-cb" value="${escH(v)}"><span class="j1-ms-opt">${escH(v)}</span></label>`).join('')}</div><div class="j1-ms-footer"><button class="j1-ms-clear-one" type="button">Clear</button><span class="j1-ms-sel-count"></span></div></div></div>`
+        : `<input class="req-cf req-col-f" data-pfield="${escH(col.field)}" type="text" placeholder="—">`
+      }</th>`;
+    }).join('') + '<th></th>';
+    const sortRowEl = document.getElementById('parSortRow');
+    const filterRowEl = document.getElementById('parColFilterRow');
+    if (sortRowEl) sortRowEl.innerHTML = newThSort;
+    if (filterRowEl) {
+      filterRowEl.innerHTML = newThFilter;
+      initMS(filterRowEl);
+    }
+    // Re-attach column filter listeners
+    document.querySelectorAll('#parColFilterRow .req-cf').forEach(el =>
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
+    document.querySelectorAll('#parColFilterRow .req-cf-ms').forEach(el => msOnChange(el.id, refresh));
+    document.querySelectorAll('#parColFilterRow .req-cf-date-cond').forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (!sel.value) {
+          const valInput = document.querySelector(`#parColFilterRow .req-cf-date-val[data-pfield="${sel.dataset.pfield}"]`);
+          if (valInput) valInput.value = '';
+        }
+        refresh();
+      });
+    });
+    _parSortCol = null; _parSortDir = 'asc';
+  }
+
   function renderRows(subset) {
-    if (!subset.length) return `<tr><td colspan="${PAR_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
-    return subset.map(r => `<tr>${PAR_TABLE_COLS.map(col =>
+    const cols = getParCols();
+    if (!subset.length) return `<tr><td colspan="${cols.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
+    return subset.map(r => `<tr>${cols.map(col =>
       `<td style="${col.center?'text-align:center;':''}">${cellContent(r, col)}</td>`
     ).join('')}<td style="text-align:center;"><button class="req-detail-btn" data-pidx="${allRows.indexOf(r)}">Details</button></td></tr>`
     ).join('');
@@ -2902,6 +3101,7 @@ pageEvents.participant = function () {
   let _currentRows = [...allRows];
 
   function refresh() {
+    rebuildParTableHeaders();
     _currentRows = doSort(applyFilters(getTabRows()));
     const tbody = document.getElementById('parTableBody');
     if (tbody) tbody.innerHTML = renderRows(_currentRows);
@@ -2950,11 +3150,6 @@ pageEvents.participant = function () {
   ['parStartDateCond','parStartDateFilter','parEndDateCond','parEndDateFilter']
     .forEach(id => document.getElementById(id)?.addEventListener('change', refresh));
 
-  // Column-level filters (text inputs, date condition+value)
-  document.querySelectorAll('#parColFilterRow .req-cf').forEach(el =>
-    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refresh));
-  document.querySelectorAll('#parColFilterRow .req-cf-ms').forEach(el => msOnChange(el.id, refresh));
-
   // Clear all
   document.getElementById('parClearBtn')?.addEventListener('click', () => {
     ['parStatusFilter','parSourceFilter','parDeptFilter','parCountryFilter','parSponsorFilter']
@@ -2968,16 +3163,6 @@ pageEvents.participant = function () {
     document.querySelectorAll('#parSortRow .req-sort-icon').forEach(el => el.textContent = '⇅');
     document.querySelectorAll('#parSortRow th').forEach(th => th.classList.remove('req-sort-asc','req-sort-desc'));
     refresh();
-  });
-  // Also clear date column filters when condition resets to blank
-  document.querySelectorAll('#parColFilterRow .req-cf-date-cond').forEach(sel => {
-    sel.addEventListener('change', () => {
-      if (!sel.value) {
-        const valInput = document.querySelector(`#parColFilterRow .req-cf-date-val[data-pfield="${sel.dataset.pfield}"]`);
-        if (valInput) valInput.value = '';
-      }
-      refresh();
-    });
   });
 
   // Details modal
