@@ -1666,7 +1666,8 @@ pageEvents.j1visa = function () {
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
 
-    document.getElementById('visaEditBtn')?.addEventListener('click', () => {
+    const _visaEditBtn = document.getElementById('visaEditBtn');
+    if (_visaEditBtn) _visaEditBtn.onclick = () => {
       openEditModal(r, [
         { key: 'placementStatus',  label: 'J1 Application Status',        type: 'select', options: PAR_STATUSES },
         { key: 'programSource',    label: 'J1 Source',                    type: 'select', options: sources },
@@ -1684,7 +1685,7 @@ pageEvents.j1visa = function () {
         { key: 'visaExpiredDate',  label: 'J1 Visa Expired Date',         type: 'date' },
         { key: 'refLetterStatus',  label: 'Visa Supporting Letter Status', type: 'select', options: refLetters },
       ], () => { refresh(); });
-    });
+    };
   }
 
   document.getElementById('modalClose')?.addEventListener('click', () =>
@@ -3043,7 +3044,8 @@ pageEvents.participant = function () {
     document.getElementById('modalOverlay').classList.add('active');
 
     // Edit button — open edit form (fields differ by source)
-    document.getElementById('parEditBtn')?.addEventListener('click', () => {
+    const _parEditBtn = document.getElementById('parEditBtn');
+    if (_parEditBtn) _parEditBtn.onclick = () => {
       const isCRM = r._source === 'crm';
       const editFields = isCRM ? [
         { key: 'placementStatus',        label: 'J1 Application Status',    type: 'select', options: PAR_STATUSES },
@@ -3088,7 +3090,7 @@ pageEvents.participant = function () {
         { key: 'ctiUsaReview',      label: "CTI USA's Review",       type: 'text',   full: true },
       ];
       openEditModal(r, editFields, () => { refresh(); });
-    });
+    };
   }
 
   document.getElementById('parTableBody')?.addEventListener('click', e => {
@@ -3670,7 +3672,8 @@ pageEvents.talentpool = function () {
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
 
-    document.getElementById('tpEditBtn')?.addEventListener('click', () => {
+    const _tpEditBtn = document.getElementById('tpEditBtn');
+    if (_tpEditBtn) _tpEditBtn.onclick = () => {
       const isCRM = r._source === 'crm';
       const sharedTpFields = [
         { key: 'placementStatus',        label: 'J1 Application Status',      type: 'select', options: [...TP_STATUSES] },
@@ -3692,7 +3695,7 @@ pageEvents.talentpool = function () {
       ];
       const editFields = sharedTpFields;
       openEditModal(r, editFields, () => { refresh(); });
-    });
+    };
   }
 
   document.getElementById('modalClose')?.addEventListener('click', () =>
@@ -4141,7 +4144,8 @@ pageEvents.housing = function () {
     document.getElementById('modalOverlay').classList.add('active');
 
     // Edit button
-    document.getElementById('hsgEditBtn')?.addEventListener('click', () => {
+    const _hsgEditBtn = document.getElementById('hsgEditBtn');
+    if (_hsgEditBtn) _hsgEditBtn.onclick = () => {
       openEditModal(r, [
         { key: 'placementStatus',    label: 'J1 Application Status',               type: 'select', options: PAR_STATUSES },
         { key: 'programSource',      label: 'J1 Source',                           type: 'select', options: sources },
@@ -4156,7 +4160,7 @@ pageEvents.housing = function () {
         { key: 'housingPaymentMo',   label: 'Monthly Housing Payment',             type: 'number' },
         { key: 'housingAddress',     label: 'Housing Address',                     type: 'text',   full: true },
       ], () => { refresh(); });
-    });
+    };
   }
 
   document.getElementById('modalClose')?.addEventListener('click', () =>
@@ -4835,7 +4839,8 @@ pageEvents.travel = function () {
       </div>`;
     document.getElementById('modalOverlay').classList.add('active');
 
-    document.getElementById('trvEditBtn')?.addEventListener('click', () => {
+    const _trvEditBtn = document.getElementById('trvEditBtn');
+    if (_trvEditBtn) _trvEditBtn.onclick = () => {
       openEditModal(r, [
         { key: 'placementStatus',      label: 'J1 Application Status',         type: 'select', options: PAR_STATUSES },
         { key: 'programSource',        label: 'J1 Source',                     type: 'select', options: trvSources },
@@ -4869,7 +4874,7 @@ pageEvents.travel = function () {
         { key: 'returnAirline',        label: 'Return Airline',                type: 'text' },
         { key: 'returnPNR',            label: 'Return Airline PNR Number',     type: 'text' },
       ], () => { applyFilters(); });
-    });
+    };
   }
 
   document.getElementById('modalClose')?.addEventListener('click', () =>
