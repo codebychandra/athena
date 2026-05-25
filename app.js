@@ -4858,9 +4858,11 @@ pageEvents.travel = function () {
     return escH(String(v));
   }
 
-  function buildRow(r, cols) {
-    const idx = allRows.indexOf(r);
-    return `<tr>${cols.map(col => `<td>${cellContent(r, col)}</td>`).join('')}<td style="text-align:center;"><button class="trv-detail-btn" data-trvidx="${idx}"
+  function buildRow(r, cols, rowSrc) {
+    const src = rowSrc || 'main';
+    const arr = src === 'followup' ? followupAllRows : allRows;
+    const idx = arr.indexOf(r);
+    return `<tr>${cols.map(col => `<td>${cellContent(r, col)}</td>`).join('')}<td style="text-align:center;"><button class="trv-detail-btn" data-trvtab="${src}" data-trvidx="${idx}"
       style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
         background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`;
   }
@@ -4984,7 +4986,7 @@ pageEvents.travel = function () {
     tbody.innerHTML = filtered.length === 0
       ? `<tr><td colspan="${cols.length}" style="text-align:center;padding:52px;
           color:var(--text-muted,#aaa);">No participants match the current filters</td></tr>`
-      : filtered.map(r => buildRow(r, cols)).join('');
+      : filtered.map(r => buildRow(r, cols, _travelActiveTab === 'followup' ? 'followup' : 'main')).join('');
 
     const tabBase = getTabRows();
     if (countEl) countEl.textContent = filtered.length === tabBase.length
@@ -5087,7 +5089,9 @@ pageEvents.travel = function () {
   // Detail + edit modal for Travel
   document.getElementById('travelTableBody')?.addEventListener('click', e => {
     const btn = e.target.closest('.trv-detail-btn'); if (!btn) return;
-    const r = allRows[parseInt(btn.dataset.trvidx)]; if (!r) return;
+    const src = btn.dataset.trvtab || 'main';
+    const arr = src === 'followup' ? followupAllRows : allRows;
+    const r = arr[parseInt(btn.dataset.trvidx)]; if (!r) return;
     showTravelDetail(r);
   });
 
