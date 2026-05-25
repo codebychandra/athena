@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cruise Line — CTI Group</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23B01A18'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='9' font-family='serif' font-style='italic' font-weight='bold'>CL</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../core/style.css?v=20260525k">
+  <!-- Auth must load before app.js -->
+  <script src="../core/auth.js?v=20260526J"></script>
+</head>
+<body>
+
+  <!-- Auth guard -->
+  <script>
+    if (!CTIAuth.requireAuth()) { document.body.innerHTML = ''; }
+  </script>
+
+  <div class="app-shell">
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Logo / Brand -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-label">CTI Group</div>
+          <div class="brand-name">Cruise Line Portal</div>
+        </div>
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">
+          <svg class="collapse-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <!-- Requisition -->
+        <a href="#" class="nav-link active" data-page="requisition" title="Requisition">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+          <span class="nav-text">Requisition</span>
+        </a>
+        <!-- Candidate -->
+        <a href="#" class="nav-link" data-page="candidate" title="Candidate">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span class="nav-text">Candidate</span>
+        </a>
+        <!-- Final Interview -->
+        <a href="#" class="nav-link" data-page="finalinterview" title="Final Interview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span class="nav-text">Final Interview</span>
+        </a>
+        <!-- Seafarer -->
+        <a href="#" class="nav-link" data-page="seafarer" title="Seafarer">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12"/><path d="M2 12l10-9 10 9"/><path d="M4 15h16"/><path d="M4 19h16"/><path d="M2 22h20"/></svg>
+          <span class="nav-text">Seafarer</span>
+        </a>
+        <!-- Visa -->
+        <a href="#" class="nav-link" data-page="visa" title="Visa">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          <span class="nav-text">Visa</span>
+        </a>
+        <!-- Deployment -->
+        <a href="#" class="nav-link" data-page="deployment" title="Deployment">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 4s-2 1-3.5 2.5L11 8 2.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+          <span class="nav-text">Deployment</span>
+        </a>
+        <!-- Report -->
+        <a href="#" class="nav-link" data-page="reports" title="Report">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span class="nav-text">Report</span>
+        </a>
+        <!-- Task -->
+        <a href="#" class="nav-link" data-page="task" title="Task">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="nav-text">Task</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar footer: user + hub + logout -->
+      <div class="sidebar-user-footer" id="sidebarUserFooter">
+        <!-- Back to Hub -->
+        <button class="sidebar-logout-btn" title="Back to Athena Hub"
+          style="margin-bottom:6px;width:100%;justify-content:center;gap:6px;
+            color:var(--sidebar-text,#aaa);opacity:0.7;"
+          onclick="CTIAuth.goHub()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          </svg>
+          <span style="font-size:10px;letter-spacing:0.05em;">ATHENA HUB</span>
+        </button>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-avatar" id="userAvatarSidebar">AD</div>
+          <div class="sidebar-user-details">
+            <div class="sidebar-user-name" id="usernameSidebar">Admin</div>
+            <div class="sidebar-user-role" id="userRoleSidebar">Administrator</div>
+          </div>
+        </div>
+        <button class="sidebar-logout-btn" id="logoutBtn" title="Sign out">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" id="hamburger" aria-label="Toggle sidebar">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="topbar-breadcrumb">
+            <span class="breadcrumb-app" style="cursor:pointer;opacity:0.7;"
+              onclick="CTIAuth.goHub()" title="Back to Athena Hub">Athena</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-app">Cruise Line</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-page" id="topbar-title">Requisition</span>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <span class="topbar-date" id="topbar-date"></span>
+          <button class="theme-toggle" id="theme-toggle">
+            <span class="theme-toggle-light">Light</span>
+            <span class="theme-toggle-dark">Dark</span>
+          </button>
+          <div class="user-chip" id="userChip">
+            <div class="user-avatar" id="topbarAvatar" title="Signed in">AD</div>
+            <span class="user-chip-name" id="topbarUsername">Admin</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <main class="main-content" id="main-content">
+        <div class="loading-state" id="loading-state">
+          <div class="skeleton-block tall"></div>
+          <div class="skeleton-row-group">
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="main-footer">
+        © 2026 CTI Group Worldwide Services, Inc. · All rights reserved
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js?v=20260526J"></script>
+  <script>
+    (function () {
+      const s = CTIAuth.getSession();
+      if (!s) return;
+      const name = s.user.charAt(0).toUpperCase() + s.user.slice(1);
+      const ini  = name.charAt(0).toUpperCase();
+      const role = s.role === 'admin' ? 'Administrator' : 'Guest';
+
+      document.getElementById('usernameSidebar').textContent   = name;
+      document.getElementById('userRoleSidebar').textContent   = role;
+      document.getElementById('userAvatarSidebar').textContent = ini;
+      document.getElementById('topbarAvatar').textContent      = ini;
+      document.getElementById('topbarAvatar').title            = `${name} (${role})`;
+      document.getElementById('topbarUsername').textContent    = name;
+    }());
+
+    document.getElementById('logoutBtn')?.addEventListener('click', () => {
+      CTIAuth.logout();
+    });
+  </script>
+</body>
+</html>
