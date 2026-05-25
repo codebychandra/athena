@@ -1828,7 +1828,7 @@ const _PAR_COLS_NEW_SUBMISSION = [
   { label:'Gender',              field:'gender',                 sortable:true },
   { label:'Email',               field:'email',                  sortable:true },
   { label:'Phone',               field:'phone',                  sortable:true },
-  { label:'Date Of Birth',       field:'dateOfBirth',            sortable:true, datecol:true },
+  { label:'Age',                 field:'age',                    sortable:true },
   { label:'Department',          field:'department',             sortable:true, badge:true },
   { label:'Country',             field:'country',                sortable:true },
   { label:"CTI USA's Review",    field:'ctiUsaReview',           sortable:true },

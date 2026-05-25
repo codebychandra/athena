@@ -295,6 +295,7 @@ function mapRecruit(r) {
     visaPaymentDate:     r[RF.visaPaymentDate]    || null,
     refLetterStatus:     r[RF.refLetterStatus]    || '—',
     dateOfBirth:              r[RF.dateOfBirth]              || null,
+    age: r[RF.dateOfBirth] ? Math.floor((Date.now() - new Date(r[RF.dateOfBirth])) / (365.25*24*3600*1000)) : '—',
     consultationCallDate:     r[RF.consultationCallDate]     || null,
     consultationCallBy:       r[RF.consultationCallBy]       || '—',
     consultationCallNotes:    r[RF.consultationCallNotes]    || '—',
