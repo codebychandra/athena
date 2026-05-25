@@ -834,6 +834,20 @@ function mapJobRecord(r) {
 // ─────────────────────────────────────────────────
 
 // GET all J1 Participants from Recruit
+// Raw field dump — returns all keys of the first record to verify API field names
+app.get('/api/recruit/raw-fields', async (req, res) => {
+  try {
+    const module = process.env.RECRUIT_J1_MODULE || 'J1_Participants';
+    const data   = await recruitGet(module, { per_page: 1 });
+    const record = data.data?.[0] || {};
+    const keys   = Object.keys(record).sort();
+    const visaKeys = keys.filter(k => /visa|letter|supporting/i.test(k));
+    res.json({ total_fields: keys.length, visa_related: visaKeys, all_keys: keys, sample: record });
+  } catch (err) {
+    res.status(500).json({ error: err.message, details: err.response?.data });
+  }
+});
+
 app.get('/api/recruit/j1-participants', async (req, res) => {
   try {
     const cached = getCached('recruit-j1-participants');
