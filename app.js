@@ -1099,58 +1099,48 @@ function generateJ1Summary(rows) {
 // PAGE: REPORTS
 // ============================
 pages.reports = async function () {
-  const reports = [
-    { icon:'👥', title:'Recruitment Report',
-      desc:'Candidate pipeline, sourcing channels, and recruitment funnel across all divisions.' },
-    { icon:'📋', title:'Onboarding Report',
-      desc:'New hire onboarding progress, documentation status, and completion rates by division.' },
-    { icon:'🛳️', title:'C1/D Visa Report',
-      desc:'Crew member C1/D visa application statuses, approval rates, and processing timelines.' },
-    { icon:'🎓', title:'J1 Visa Report',
-      desc:'J1 exchange visitor visa statuses, sponsor activity, and program compliance data.' },
-    { icon:'🚢', title:'Cruise Line Deployment Report',
-      desc:'Crew deployment schedules, vessel assignments, and rotation status for cruise clients.' },
-    { icon:'📊', title:'J1 Placement Report',
-      desc:'Full J1 participant placement data — host, role, dates, sponsor, and application status.' },
-    { icon:'📅', title:'CUK Weekly Report',
-      desc:'Weekly activity summary for Carnival UK (CUK Maritime) operations and crew status.' },
-    { icon:'🗺️', title:'CUK RAG Heat Map Report',
-      desc:'Red-Amber-Green status heat map for CUK crew readiness and compliance indicators.' }
-  ];
-
-  const lockBtn = (label) => `
-    <button disabled
-      style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
-        background:var(--bg-page,#f9f9f9);color:var(--text-muted,#bbb);
-        font-size:12px;font-weight:600;cursor:not-allowed;display:flex;
-        align-items:center;justify-content:center;gap:5px;">
-      🔒 ${label}
-    </button>`;
-
-  const cards = reports.map(r => `
-    <div class="report-card">
-      <div style="font-size:30px;line-height:1;margin-bottom:6px;">${r.icon}</div>
-      <h4>${r.title}</h4>
-      <p>${r.desc}</p>
-      <div class="report-actions" style="display:flex;gap:8px;margin-top:4px;">
-        ${lockBtn('Generate PDF')}
-        ${lockBtn('Export CSV')}
-      </div>
-    </div>`).join('');
-
   return `
-    <div class="page-header"><h1>Reports</h1>
-      <p class="subtitle">Available reports for CTI Group operations</p>
+    <div class="req-page-header">
+      <h1>Reports</h1>
+      <span class="req-page-sub">J1 Programme reporting</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;
-      background:rgba(176,26,24,0.06);border:1px solid rgba(176,26,24,0.2);
-      border-radius:8px;margin-bottom:24px;">
-      <span style="font-size:16px;">🔒</span>
-      <span style="font-size:13px;color:#B01A18;font-weight:500;">
-        Report generation and export are being configured and will be available soon.
-      </span>
-    </div>
-    <div class="report-grid">${cards}</div>`;
+
+    <!-- Placement Report card (locked) -->
+    <div class="card" style="max-width:560px;padding:28px 30px;">
+      <div style="display:flex;align-items:flex-start;gap:18px;">
+        <div style="font-size:36px;line-height:1;flex-shrink:0;">📊</div>
+        <div style="flex:1;">
+          <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">
+            J1 Placement Report
+          </div>
+          <div style="font-size:13px;color:var(--text-muted,#888);line-height:1.6;margin-bottom:18px;">
+            Full J1 participant placement data — hosting company, role, programme dates, sponsor,
+            source, and application status. Exportable as PDF and CSV.
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button disabled style="padding:9px 20px;border-radius:8px;
+              border:1.5px solid var(--border,#ddd);background:var(--bg-page,#f9f9f9);
+              color:var(--text-muted,#bbb);font-size:12px;font-weight:700;
+              cursor:not-allowed;display:flex;align-items:center;gap:6px;">
+              🔒 Generate PDF
+            </button>
+            <button disabled style="padding:9px 20px;border-radius:8px;
+              border:1.5px solid var(--border,#ddd);background:var(--bg-page,#f9f9f9);
+              color:var(--text-muted,#bbb);font-size:12px;font-weight:700;
+              cursor:not-allowed;display:flex;align-items:center;gap:6px;">
+              🔒 Export CSV
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border,#eee);
+        display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;">🔒</span>
+        <span style="font-size:12px;color:var(--text-muted,#999);">
+          Report generation is being configured and will be available soon.
+        </span>
+      </div>
+    </div>`;
 };
 
 // ============================
