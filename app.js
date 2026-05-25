@@ -1,10 +1,7 @@
 ﻿'use strict';
 
 // ── Cloudflare Worker URL ─────────────────────────────────────────────────
-// After deploying the Worker, replace ACCOUNT_SUBDOMAIN with your actual
-// workers.dev subdomain (found in Cloudflare dashboard → Workers & Pages).
-// Example: 'https://cti-athena.myname.workers.dev'
-const WORKER_URL = 'https://cti-athena.ACCOUNT_SUBDOMAIN.workers.dev';
+const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
 
 // ============================
 // CONSTANTS
