@@ -198,7 +198,7 @@ const RECRUIT_FIELD_MAP = {
   placementStatus:       'J1_Application_Status',
   programSource:         'J1_Program_Sources',
   firstName:             'First_Name',
-  lastName:              'Last_Name',
+  lastName:              'CustomModule2_Name',   // Recruit custom module uses this, not Last_Name
   passportNumber:        'Passport_Number',
   gender:                'Gender',
   email:                 'Email',

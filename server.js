@@ -922,15 +922,18 @@ app.patch('/api/recruit/:module/:id', async (req, res) => {
     const body = req.body.data
       ? req.body
       : { data: [{ ...req.body }] };
+    console.log(`🔧 Recruit PATCH payload:`, JSON.stringify(body, null, 2));
     const data = await recruitPatch(`${req.params.module}/${req.params.id}`, body);
     // Bust participant cache so next fetch returns fresh data
     clearCache('recruit-j1-participants');
     console.log(`✅ Recruit UPDATE ${req.params.module}/${req.params.id} — cache cleared`);
     res.json(data);
   } catch (err) {
+    const zohoDetail = err.response?.data;
+    const zohoMsg    = zohoDetail?.data?.[0]?.message || zohoDetail?.message || null;
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error(`Recruit UPDATE ${req.params.module}/${req.params.id}:`, err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
+    console.error(`Recruit UPDATE ${req.params.module}/${req.params.id}:`, zohoDetail || err.message);
+    res.status(status).json({ error: zohoMsg || err.message, details: zohoDetail });
   }
 });
 
@@ -987,15 +990,18 @@ app.patch('/api/crm/:module/:id', async (req, res) => {
     const body = req.body.data
       ? req.body
       : { data: [{ ...req.body }] };
+    console.log(`🔧 CRM PATCH payload:`, JSON.stringify(body, null, 2));
     const data = await crmPatch(`${req.params.module}/${req.params.id}`, body);
     // Bust participant cache so next fetch returns fresh data
     clearCache('crm-j1-participants');
     console.log(`✅ CRM UPDATE ${req.params.module}/${req.params.id} — cache cleared`);
     res.json(data);
   } catch (err) {
+    const zohoDetail = err.response?.data;
+    const zohoMsg    = zohoDetail?.data?.[0]?.message || zohoDetail?.message || null;
     const status = err.message === 'NOT_AUTHENTICATED' ? 401 : 500;
-    console.error(`CRM UPDATE ${req.params.module}/${req.params.id}:`, err.response?.data || err.message);
-    res.status(status).json({ error: err.message, details: err.response?.data });
+    console.error(`CRM UPDATE ${req.params.module}/${req.params.id}:`, zohoDetail || err.message);
+    res.status(status).json({ error: zohoMsg || err.message, details: zohoDetail });
   }
 });
 
