@@ -1158,7 +1158,76 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('sidebarOverlay')?.classList.remove('visible');
     });
   });
+
+  // Server status badge + last-updated + refresh button
+  checkServerStatus();
+  startLastUpdatedTicker();
+  document.getElementById('refreshDataBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.spinning === '1') return;
+    btn.dataset.spinning = '1';
+    btn.style.pointerEvents = 'none';
+    btn.style.animation = 'spin 0.65s linear infinite';
+    try {
+      await fetchCruiseData(true);     // force refetch seafarers + sheet
+      await checkServerStatus();
+      _lastUpdated = Date.now();
+      renderLastUpdated();
+      await navigate(state.page);      // re-render current page with fresh data
+    } finally {
+      btn.style.animation = '';
+      btn.style.pointerEvents = '';
+      btn.dataset.spinning = '0';
+    }
+  });
 });
+
+// ── Server status badge (mirrors J1) ────────────────────────────────────────
+const zohoState = { connected: false, checked: false };
+async function checkServerStatus() {
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res   = await fetch(WORKER_URL + '/api/status', { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('no server');
+    const data = await res.json();
+    zohoState.connected = !!data.connected;
+  } catch {
+    zohoState.connected = false;
+  }
+  zohoState.checked = true;
+  updateServerBadge();
+}
+function updateServerBadge() {
+  const badge = document.getElementById('zohoBadge');
+  if (!badge) return;
+  if (zohoState.connected) {
+    badge.textContent      = 'Server Live';
+    badge.style.background  = 'rgba(45,122,85,0.15)';
+    badge.style.color       = '#2D7A55';
+  } else {
+    badge.textContent      = 'Server';
+    badge.style.background   = 'rgba(176,26,24,0.12)';
+    badge.style.color        = '#B01A18';
+  }
+}
+
+// ── Last-updated ticker ──────────────────────────────────────────────────────
+let _lastUpdated = Date.now();
+function renderLastUpdated() {
+  const el = document.getElementById('lastUpdatedTime');
+  if (!el) return;
+  const secs = Math.round((Date.now() - _lastUpdated) / 1000);
+  if (secs < 10)      el.textContent = 'Just now';
+  else if (secs < 60) el.textContent = `${secs}s ago`;
+  else if (secs < 3600) el.textContent = `${Math.floor(secs/60)}m ago`;
+  else el.textContent = `${Math.floor(secs/3600)}h ago`;
+}
+function startLastUpdatedTicker() {
+  renderLastUpdated();
+  setInterval(renderLastUpdated, 15000);
+}
 
 function applyThemeToggle() {
   const btn = document.getElementById('theme-toggle');
