@@ -364,9 +364,11 @@ input, select, textarea { font-family: inherit; }
   display: none;
 }
 .sidebar.collapsed .hub-nav-link {
-  justify-content: center;
-  padding: 10px 0;
-  gap: 0;
+  justify-content: center !important;
+  padding: 10px 0 !important;
+  gap: 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  margin-bottom: 4px !important;
 }
 
 /* Locked nav links */
