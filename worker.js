@@ -694,7 +694,7 @@ export default {
         const token   = await getToken(env);
         const fields  = Object.values(SF).join(',');
 
-        const moduleName = url.searchParams.get('module') || 'Seafarer';
+        const moduleName = url.searchParams.get('module') || 'Candidates';
 
         if (url.searchParams.get('debug')) {
           // Probe the module directly so we can see what Zoho says.
