@@ -5405,10 +5405,12 @@ pageEvents.task = function () {
   let _alertDays    = 30;
   let _alertRows    = null;   // cached after first fetch
 
-  const TH_STYLE = `padding:8px 12px;text-align:left;font-size:10px;font-weight:700;
+  const TH_STYLE = `padding:10px 14px;text-align:left;font-size:10px;font-weight:700;
     letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
-    border-bottom:2px solid var(--border,#e5e7eb);white-space:nowrap;`;
-  const TD_STYLE = `padding:9px 12px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;`;
+    background:var(--bg-page,#fafafa);
+    border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;`;
+  const TD_STYLE = `padding:11px 14px;border-bottom:1px solid var(--border,#f0f0f0);
+    font-size:12px;vertical-align:middle;`;
 
   function daysFromToday(dateStr) {
     if (!dateStr) return null;
@@ -5482,44 +5484,68 @@ pageEvents.task = function () {
     document.getElementById('alertBadgeProg').textContent   = `${progRows.length} participant${progRows.length!==1?'s':''}`;
     document.getElementById('alertBadgeTicket').textContent = `${ticketRows.length} participant${ticketRows.length!==1?'s':''}`;
 
-    const NAME_COL   = { label:'Name',          render: r => `<span style="font-weight:600;">${escH((`${r.firstName||''} ${r.lastName||''}`).trim()||'—')}</span>` };
-    const SOURCE_COL = { label:'Source',         render: r => srcBadgeAlert(r._source) };
-    const STATUS_COL = { label:'Status',         render: r => taskStatusBadge(r.placementStatus) };
-    const HC_COL     = { label:'Host Company',   render: r => escH(r.hostCompany||'—') };
-    const SPONSOR_COL= { label:'Sponsor',        render: r => escH(r.processingSponsor||'—') };
+    // Helpers
+    const ticketBadge = (raw, urgentColors) => {
+      const s = normalizeFlightStatus(raw);
+      const c = urgentColors
+        ? (s==='Requested'?'#B87A14':'#6B7280')
+        : (s==='Issued'?'#2D7A55':s==='Booked'?'#1B3A6B':s==='Requested'?'#B87A14':'#6B7280');
+      return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+        background:${c}15;color:${c};border:1px solid ${c}28;white-space:nowrap;">${s}</span>`;
+    };
+    const emailCell = r => r.email
+      ? `<a href="mailto:${escH(r.email)}" style="color:var(--accent,#B01A18);text-decoration:none;font-size:11.5px;"
+          onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escH(r.email)}</a>`
+      : `<span style="color:var(--text-muted,#aaa);">—</span>`;
+    const phoneCell = r => r.phone
+      ? `<a href="tel:${escH(String(r.phone).replace(/\s+/g,''))}" style="color:var(--text);text-decoration:none;font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums;"
+          onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escH(r.phone)}</a>`
+      : `<span style="color:var(--text-muted,#aaa);">—</span>`;
 
-    // DS-2019 table
+    // Shared columns
+    const NAME_COL   = { label:'Name',         render: r => `<span style="font-weight:600;color:var(--text);">${escH((`${r.firstName||''} ${r.lastName||''}`).trim()||'—')}</span>` };
+    const SOURCE_COL = { label:'Source',       render: r => srcBadgeAlert(r._source) };
+    const COUNTRY_COL= { label:'Country',      render: r => `<span style="font-size:11.5px;">${escH(r.country||'—')}</span>` };
+    const EMAIL_COL  = { label:'Email',        render: emailCell };
+    const PHONE_COL  = { label:'Phone',        render: phoneCell };
+    const HC_COL     = { label:'Host Company', render: r => `<span style="font-size:11.5px;">${escH(r.hostCompany||'—')}</span>` };
+    const SPONSOR_COL= { label:'Sponsor',      render: r => `<span style="font-size:11.5px;">${escH(r.processingSponsor||'—')}</span>` };
+
+    // 1. DS-2019 Expiring — needs sponsor extension or return coordination
     document.getElementById('alertTableVisa').innerHTML = alertTable(visaRows, [
-      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
-      { label:'DS-2019 Expiry', render: r => fmtDate(r.visaExpiredDate||r.ds2019End) },
+      SOURCE_COL, NAME_COL, COUNTRY_COL,
+      { label:'DS-2019 Expiry', render: r => `<span style="font-size:11.5px;font-weight:600;">${fmtDate(r.visaExpiredDate||r.ds2019End)}</span>` },
       { label:'Days Left',      render: r => daysBadge(daysFromToday(r.visaExpiredDate||r.ds2019End), '#B87A14') },
+      SPONSOR_COL, HC_COL, EMAIL_COL, PHONE_COL,
     ]);
 
-    // Program ending table
+    // 2. Program Ending — coordinate departure / ticket
     document.getElementById('alertTableProg').innerHTML = alertTable(progRows, [
-      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
-      { label:'Program End',  render: r => fmtDate(r.programEnd) },
+      SOURCE_COL, NAME_COL, COUNTRY_COL,
+      { label:'Program End',  render: r => `<span style="font-size:11.5px;font-weight:600;">${fmtDate(r.programEnd)}</span>` },
       { label:'Days Left',    render: r => daysBadge(daysFromToday(r.programEnd), '#B87A14') },
-      { label:'Return Ticket', render: r => {
-          const s = normalizeFlightStatus(r.returnFlightStatus);
-          const c = s==='Issued'?'#2D7A55':s==='Booked'?'#1B3A6B':s==='Requested'?'#B87A14':'#6B7280';
-          return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
-            background:${c}15;color:${c};border:1px solid ${c}28;">${s}</span>`;
-      }},
+      { label:'Return Ticket', render: r => ticketBadge(r.returnFlightStatus, false) },
+      { label:'Return Date',   render: r => `<span style="font-size:11.5px;">${r.returnDeparture ? fmtDate(r.returnDeparture) : '—'}</span>` },
+      HC_COL, EMAIL_COL, PHONE_COL,
     ]);
 
-    // No return ticket table
+    // 3. No Return Ticket — most urgent follow-up
     document.getElementById('alertTableTicket').innerHTML = alertTable(ticketRows, [
-      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
-      { label:'Program End',   render: r => fmtDate(r.programEnd) },
+      SOURCE_COL, NAME_COL, COUNTRY_COL,
+      { label:'Program End',   render: r => `<span style="font-size:11.5px;font-weight:600;">${fmtDate(r.programEnd)}</span>` },
       { label:'Days Left',     render: r => daysBadge(daysFromToday(r.programEnd), '#B87A14') },
-      { label:'Ticket Status', render: r => {
-          const s = normalizeFlightStatus(r.returnFlightStatus);
-          const c = s==='Requested'?'#B87A14':'#6B7280';
-          return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
-            background:${c}15;color:${c};border:1px solid ${c}28;">${s}</span>`;
-      }},
+      { label:'Ticket Status', render: r => ticketBadge(r.returnFlightStatus, true) },
+      SPONSOR_COL, HC_COL, EMAIL_COL, PHONE_COL,
     ]);
+
+    // Auto-expand all alert groups so details are visible immediately
+    ['alertTableVisa','alertTableProg','alertTableTicket'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'block';
+    });
+    document.querySelectorAll('.alert-group-header .alert-chev svg').forEach(c => {
+      c.style.transform = 'rotate(180deg)';
+    });
   }
 
   async function loadAlerts(forceRefresh) {
