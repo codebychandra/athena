@@ -4961,6 +4961,10 @@ pageEvents.returnhome = function () {
 // PAGE: TASK — Data Maintenance
 // ============================
 pages.task = async function () {
+  const chev = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;">
+    <polyline points="6 9 12 15 18 9"/></svg>`;
+
   return `
     <div class="req-page-header">
       <h1>Task</h1>
@@ -4971,77 +4975,68 @@ pages.task = async function () {
 
       <!-- Task tab bar (top) -->
       <nav class="task-tabbar">
-        <button class="task-sub-link active" data-section="duplicate">
-          <span style="font-size:15px;">🔍</span>
-          <span>Duplicate Checker</span>
-        </button>
-        <button class="task-sub-link" data-section="alerts">
-          <span style="font-size:15px;">⚠️</span>
-          <span>Alerts &amp; Deadlines</span>
-        </button>
+        <button class="task-sub-link active" data-section="duplicate">Duplicate Checker</button>
+        <button class="task-sub-link" data-section="alerts">Alerts &amp; Deadlines</button>
       </nav>
 
-      <!-- Task content area (only active section visible, full width) -->
+      <!-- Task content area -->
       <div class="task-content">
 
       <!-- ═══ Section: Duplicate Checker ═══ -->
       <section class="task-section" data-section="duplicate">
 
-    <!-- Section header -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-      <span style="font-size:16px;">🛠️</span>
-      <span style="font-size:14px;font-weight:700;color:var(--text);">Data Maintenance</span>
-    </div>
-
-    <!-- Duplicate Checker card -->
-    <div class="card" id="dupCheckerCard" style="padding:24px 28px;">
+    <div class="card" id="dupCheckerCard" style="padding:28px 32px;">
       <!-- Card header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;
+        margin-bottom:24px;flex-wrap:wrap;gap:16px;
+        padding-bottom:20px;border-bottom:1px solid var(--border,#eee);">
         <div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">
-            🔍 Duplicate Checker
+          <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:-0.01em;">
+            Duplicate Checker
           </div>
-          <div style="font-size:12px;color:var(--text-muted,#888);">
-            Scan Recruit &amp; CRM for duplicate participant records
+          <div style="font-size:12.5px;color:var(--text-muted,#888);">
+            Scan Recruit and CRM for duplicate participant records.
           </div>
         </div>
-        <button id="dupRunBtn" class="req-primary-btn"
-          style="padding:9px 22px;font-size:13px;font-weight:700;border-radius:8px;
+        <button id="dupRunBtn"
+          style="padding:10px 22px;font-size:13px;font-weight:600;border-radius:8px;
             background:var(--accent,#B01A18);color:#fff;border:none;cursor:pointer;
-            display:flex;align-items:center;gap:7px;">
-          <span id="dupRunBtnIcon">▶</span>
+            font-family:inherit;transition:background 0.15s,opacity 0.15s;
+            display:inline-flex;align-items:center;gap:8px;">
+          <svg id="dupRunBtnIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4"/>
+          </svg>
           <span id="dupRunBtnLabel">Run Check</span>
         </button>
       </div>
 
       <!-- Match criteria -->
-      <div style="margin-bottom:20px;padding:14px 16px;background:var(--bg-page,#f9f9f9);
-        border:1px solid var(--border,#e5e7eb);border-radius:10px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
-          color:var(--text-muted,#888);margin-bottom:10px;">Match By (select one or more)</div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+      <div style="margin-bottom:24px;">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
+          color:var(--text-muted,#888);margin-bottom:12px;">Match Criteria</div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
             <input type="checkbox" id="dupByEmail" checked
               style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
-            📧 Email Address
+            Email Address
           </label>
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
             <input type="checkbox" id="dupByPhone"
               style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
-            📞 Phone Number
+            Phone Number
           </label>
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
             <input type="checkbox" id="dupByName"
               style="width:15px;height:15px;accent-color:var(--accent,#B01A18);cursor:pointer;">
-            👤 Full Name
+            Full Name
           </label>
         </div>
       </div>
 
       <!-- Results area -->
       <div id="dupResults">
-        <div style="text-align:center;padding:32px 0;color:var(--text-muted,#aaa);font-size:13px;">
-          Select criteria above and click <strong>Run Check</strong> to scan for duplicates.
+        <div style="text-align:center;padding:40px 0;color:var(--text-muted,#aaa);font-size:13px;">
+          Select criteria above and click <strong style="color:var(--text);">Run Check</strong> to scan for duplicates.
         </div>
       </div>
     </div>
@@ -5051,91 +5046,82 @@ pages.task = async function () {
       <!-- ═══ Section: Alerts & Deadlines ═══ -->
       <section class="task-section" data-section="alerts" style="display:none;">
 
-    <!-- ── Alerts & Deadlines ─────────────────────────────── -->
-    <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px;">
-      <span style="font-size:16px;">⚠️</span>
-      <span style="font-size:14px;font-weight:700;color:var(--text);">Alerts &amp; Deadlines</span>
-      <!-- Threshold picker -->
-      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-        <span style="font-size:11px;color:var(--text-muted,#888);">Show next</span>
-        ${[30,60,90].map(d=>`
-          <button class="alert-thresh-btn" data-days="${d}"
-            style="padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;
-              border:1.5px solid var(--border,#ddd);background:${d===30?'#B01A18':'transparent'};
-              color:${d===30?'#fff':'var(--text-muted,#888)'};transition:all 0.15s;">
-            ${d}d
-          </button>`).join('')}
-        <button id="alertRefreshBtn"
-          style="margin-left:6px;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;
-            cursor:pointer;border:1.5px solid var(--border,#ddd);background:transparent;
-            color:var(--text-muted,#888);font-family:inherit;transition:all 0.15s;">
-          🔄 Refresh
-        </button>
-      </div>
+    <!-- Threshold picker bar -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:18px;">
+      <span style="font-size:11px;color:var(--text-muted,#888);margin-right:4px;">Window</span>
+      ${[30,60,90].map(d=>`
+        <button class="alert-thresh-btn" data-days="${d}"
+          style="padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+            border:1px solid ${d===30?'#B01A18':'var(--border,#ddd)'};
+            background:${d===30?'#B01A18':'transparent'};
+            color:${d===30?'#fff':'var(--text-muted,#888)'};
+            font-family:inherit;transition:all 0.15s;">
+          ${d} days
+        </button>`).join('')}
+      <button id="alertRefreshBtn"
+        style="margin-left:8px;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;
+          cursor:pointer;border:1px solid var(--border,#ddd);background:transparent;
+          color:var(--text-muted,#888);font-family:inherit;transition:all 0.15s;">
+        Refresh
+      </button>
     </div>
 
     <!-- Alert summary cards -->
     <div id="alertSummaryRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
-      <div class="card" style="padding:18px 20px;text-align:center;">
-        <div style="font-size:28px;font-weight:800;color:#B01A18;" id="alertCountVisa">—</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">🛂 DS-2019 Expiring</div>
+      <div class="card" style="padding:22px 24px;border-top:3px solid #B01A18;">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
+          color:var(--text-muted,#888);margin-bottom:8px;">DS-2019 Expiring</div>
+        <div style="font-size:30px;font-weight:700;color:var(--text);letter-spacing:-0.02em;" id="alertCountVisa">—</div>
       </div>
-      <div class="card" style="padding:18px 20px;text-align:center;">
-        <div style="font-size:28px;font-weight:800;color:#B87A14;" id="alertCountProg">—</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">⏰ Program Ending</div>
+      <div class="card" style="padding:22px 24px;border-top:3px solid #B87A14;">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
+          color:var(--text-muted,#888);margin-bottom:8px;">Program Ending</div>
+        <div style="font-size:30px;font-weight:700;color:var(--text);letter-spacing:-0.02em;" id="alertCountProg">—</div>
       </div>
-      <div class="card" style="padding:18px 20px;text-align:center;">
-        <div style="font-size:28px;font-weight:800;color:#1B3A6B;" id="alertCountTicket">—</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">✈️ No Return Ticket</div>
+      <div class="card" style="padding:22px 24px;border-top:3px solid #1B3A6B;">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
+          color:var(--text-muted,#888);margin-bottom:8px;">No Return Ticket</div>
+        <div style="font-size:30px;font-weight:700;color:var(--text);letter-spacing:-0.02em;" id="alertCountTicket">—</div>
       </div>
     </div>
 
     <!-- Alert tables -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
 
       <!-- DS-2019 Expiry table -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
-          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
-          onclick="document.getElementById('alertTableVisa').style.display=
-            document.getElementById('alertTableVisa').style.display==='none'?'block':'none'">
-          <span style="font-size:15px;">🛂</span>
-          <span style="font-size:13px;font-weight:700;color:var(--text);">DS-2019 Expiring</span>
-          <span id="alertBadgeVisa" style="margin-left:auto;font-size:10px;font-weight:800;
-            padding:2px 10px;border-radius:12px;background:rgba(176,26,24,0.1);color:#B01A18;"></span>
-          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+      <div class="card alert-group" style="padding:0;overflow:hidden;">
+        <div class="alert-group-header" data-target="alertTableVisa"
+          style="padding:16px 22px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <span style="font-size:13.5px;font-weight:700;color:var(--text);">DS-2019 Expiring</span>
+          <span id="alertBadgeVisa" style="font-size:10px;font-weight:700;
+            padding:2px 9px;border-radius:10px;background:rgba(176,26,24,0.1);color:#B01A18;"></span>
+          <span class="alert-chev" style="margin-left:auto;color:var(--text-muted,#aaa);display:flex;">${chev}</span>
         </div>
-        <div id="alertTableVisa" style="overflow-x:auto;"></div>
+        <div id="alertTableVisa" style="overflow-x:auto;display:none;border-top:1px solid var(--border,#eee);"></div>
       </div>
 
       <!-- Program Ending table -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
-          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
-          onclick="document.getElementById('alertTableProg').style.display=
-            document.getElementById('alertTableProg').style.display==='none'?'block':'none'">
-          <span style="font-size:15px;">⏰</span>
-          <span style="font-size:13px;font-weight:700;color:var(--text);">Program Ending Soon</span>
-          <span id="alertBadgeProg" style="margin-left:auto;font-size:10px;font-weight:800;
-            padding:2px 10px;border-radius:12px;background:rgba(184,122,20,0.1);color:#B87A14;"></span>
-          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+      <div class="card alert-group" style="padding:0;overflow:hidden;">
+        <div class="alert-group-header" data-target="alertTableProg"
+          style="padding:16px 22px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <span style="font-size:13.5px;font-weight:700;color:var(--text);">Program Ending Soon</span>
+          <span id="alertBadgeProg" style="font-size:10px;font-weight:700;
+            padding:2px 9px;border-radius:10px;background:rgba(184,122,20,0.1);color:#B87A14;"></span>
+          <span class="alert-chev" style="margin-left:auto;color:var(--text-muted,#aaa);display:flex;">${chev}</span>
         </div>
-        <div id="alertTableProg" style="overflow-x:auto;"></div>
+        <div id="alertTableProg" style="overflow-x:auto;display:none;border-top:1px solid var(--border,#eee);"></div>
       </div>
 
       <!-- No Return Ticket table -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
-          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
-          onclick="document.getElementById('alertTableTicket').style.display=
-            document.getElementById('alertTableTicket').style.display==='none'?'block':'none'">
-          <span style="font-size:15px;">✈️</span>
-          <span style="font-size:13px;font-weight:700;color:var(--text);">No Return Ticket Booked</span>
-          <span id="alertBadgeTicket" style="margin-left:auto;font-size:10px;font-weight:800;
-            padding:2px 10px;border-radius:12px;background:rgba(27,58,107,0.1);color:#1B3A6B;"></span>
-          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+      <div class="card alert-group" style="padding:0;overflow:hidden;">
+        <div class="alert-group-header" data-target="alertTableTicket"
+          style="padding:16px 22px;display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <span style="font-size:13.5px;font-weight:700;color:var(--text);">No Return Ticket Booked</span>
+          <span id="alertBadgeTicket" style="font-size:10px;font-weight:700;
+            padding:2px 9px;border-radius:10px;background:rgba(27,58,107,0.1);color:#1B3A6B;"></span>
+          <span class="alert-chev" style="margin-left:auto;color:var(--text-muted,#aaa);display:flex;">${chev}</span>
         </div>
-        <div id="alertTableTicket" style="overflow-x:auto;"></div>
+        <div id="alertTableTicket" style="overflow-x:auto;display:none;border-top:1px solid var(--border,#eee);"></div>
       </div>
 
     </div>
@@ -5148,7 +5134,7 @@ pages.task = async function () {
 };
 
 pageEvents.task = function () {
-  // ── Sub-sidebar section switching ────────────────────────────────────────
+  // ── Tab switching ────────────────────────────────────────
   document.querySelectorAll('.task-sub-link').forEach(link => {
     link.addEventListener('click', () => {
       const target = link.dataset.section;
@@ -5157,6 +5143,17 @@ pageEvents.task = function () {
       document.querySelectorAll('.task-section').forEach(s => {
         s.style.display = s.dataset.section === target ? '' : 'none';
       });
+    });
+  });
+
+  // ── Collapsible alert groups ─────────────────────────────
+  document.querySelectorAll('.alert-group-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const tgt  = document.getElementById(h.dataset.target);
+      const chev = h.querySelector('.alert-chev svg');
+      const open = tgt.style.display === 'none' || !tgt.style.display;
+      tgt.style.display = open ? 'block' : 'none';
+      if (chev) chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
     });
   });
 
@@ -5182,7 +5179,10 @@ pageEvents.task = function () {
 
     // Loading state
     btn.disabled = true;
-    btnIcon.textContent = '⏳';
+    btn.style.opacity = '0.75';
+    btnIcon.outerHTML = `<span id="dupRunBtnIcon" style="width:13px;height:13px;
+      border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;
+      display:inline-block;animation:spin 0.65s linear infinite;"></span>`;
     btnLabel.textContent = 'Scanning…';
     resultsEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:24px 0;
@@ -5391,7 +5391,12 @@ pageEvents.task = function () {
       </div>`;
     } finally {
       btn.disabled = false;
-      btnIcon.textContent = '▶';
+      btn.style.opacity = '';
+      const spinnerEl = document.getElementById('dupRunBtnIcon');
+      if (spinnerEl) {
+        spinnerEl.outerHTML = `<svg id="dupRunBtnIcon" width="13" height="13"
+          viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+      }
       btnLabel.textContent = 'Run Check';
     }
   });
