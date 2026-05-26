@@ -383,6 +383,7 @@ const SF = {
   onboardingStatus:   'Onboarding_Status',
   gender:             'Gender',
   email:              'Email',
+  phone:              'Mobile',               // 'Phone' doesn't exist; field is named 'Mobile'
   country:            'Country',
 };
 
@@ -579,6 +580,7 @@ function mapSeafarer(r) {
     onboardingStatus: r[SF.onboardingStatus]  || null,
     gender:           r[SF.gender]            || '—',
     email:            r[SF.email]             || '—',
+    phone:            r[SF.phone]             || '—',
     country:          r[SF.country]           || '—',
   };
 }
