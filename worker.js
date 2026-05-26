@@ -671,7 +671,7 @@ export default {
 
         const token   = await getToken(env);
         const fields  = Object.values(SF).join(',');
-        const records = await fetchAll(token, ZOHO_RECRUIT, 'Seafarers', fields);
+        const records = await fetchAll(token, ZOHO_RECRUIT, 'Seafarer', fields);
         const data    = records.map(mapSeafarer);
         const payload = { source: 'recruit-seafarers', count: data.length, data };
         await setCached(env, 'cruise-seafarers', payload);
