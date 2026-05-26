@@ -198,7 +198,8 @@ pages.reports = async function () {
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;">
               <button id="rptRegenBtn" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
-              <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
+              <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Download This Brand</button>
+              <button id="rptDownloadAllBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download All Brands</button>
             </div>
           </div>
         </div>
@@ -313,6 +314,26 @@ pageEvents.reports = function () {
       document.getElementById('rptBrand').value,
       new Date(document.getElementById('rptDate').value)
     );
+  });
+  document.getElementById('rptDownloadAllBtn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const reportDate = new Date(document.getElementById('rptDate').value);
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    try {
+      const { seafarers, finalInt } = await fetchCruiseData(false);
+      for (let i = 0; i < CRUISE_BRANDS.length; i++) {
+        const brand = CRUISE_BRANDS[i];
+        btn.textContent = `Downloading ${i+1}/${CRUISE_BRANDS.length}…`;
+        await downloadBrandPDF(brand, reportDate, seafarers, finalInt);
+      }
+      btn.textContent = 'All 3 downloaded ✓';
+      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1800);
+    } catch (err) {
+      btn.textContent = 'Failed — see console';
+      console.error(err);
+      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 2400);
+    }
   });
   regenerate();
 
@@ -753,26 +774,57 @@ const REPORT_STYLES = `
 `;
 
 // ── PDF download via html2pdf ────────────────────────────────────────────────
-async function downloadReportPDF(brand, reportDate) {
-  // Lazy-load html2pdf.js
-  if (!window.html2pdf) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
+async function ensureHtml2Pdf() {
+  if (window.html2pdf) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function reportFilename(brand, reportDate) {
+  const datePart = reportDate.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})
+    .replace(/[\s,]+/g,'_').toUpperCase();
+  return `${brand.replace(/[^a-z0-9]/gi,'_').toUpperCase()}_WEEKLY_REPORT_${datePart}.pdf`;
+}
+
+async function pdfFromHTML(htmlString, filename) {
+  // Render into an off-screen container so we don't disturb the visible preview
+  const hidden = document.createElement('div');
+  hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:1100px;background:#fff;';
+  hidden.innerHTML = htmlString;
+  document.body.appendChild(hidden);
+  try {
+    const target = hidden.querySelector('#rptDoc') || hidden;
+    await window.html2pdf().set({
+      margin:       [10, 10, 10, 10],
+      filename,
+      image:        { type:'jpeg', quality:0.98 },
+      html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff' },
+      jsPDF:        { unit:'mm', format:'a4', orientation:'landscape' },
+    }).from(target).save();
+  } finally {
+    document.body.removeChild(hidden);
   }
-  const doc = document.getElementById('rptDoc');
-  if (!doc) return;
-  const filename = `${brand.replace(/[^a-z0-9]/gi,'_').toUpperCase()}_WEEKLY_REPORT_${reportDate.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'}).replace(/[\s,]+/g,'_').toUpperCase()}.pdf`;
-  await window.html2pdf().set({
-    margin:       [10, 10, 10, 10],
-    filename,
-    image:        { type:'jpeg', quality:0.98 },
-    html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff' },
-    jsPDF:        { unit:'mm', format:'a4', orientation:'landscape' },
-  }).from(doc).save();
+}
+
+// Download the brand currently in the preview
+async function downloadReportPDF(brand, reportDate) {
+  await ensureHtml2Pdf();
+  const { seafarers, finalInt } = await fetchCruiseData(false);
+  const html = buildReportHTML(brand, reportDate, seafarers, finalInt);
+  await pdfFromHTML(html, reportFilename(brand, reportDate));
+  logHistory(brand, fmtReportDate(reportDate));
+  renderHistory();
+}
+
+// Download a specific brand with already-fetched data (used by "Download All")
+async function downloadBrandPDF(brand, reportDate, seafarers, finalInt) {
+  await ensureHtml2Pdf();
+  const html = buildReportHTML(brand, reportDate, seafarers, finalInt);
+  await pdfFromHTML(html, reportFilename(brand, reportDate));
   logHistory(brand, fmtReportDate(reportDate));
   renderHistory();
 }
