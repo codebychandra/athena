@@ -665,12 +665,20 @@ export default {
 
       // ── GET /api/cruise/seafarers ──────────────────────────────────────
       // All seafarer hires across brands. Front-end filters by Cruise_Line value.
+      // ?debug=1 returns the first raw Zoho response for diagnosis.
       if (method === 'GET' && path === '/api/cruise/seafarers') {
         const cached = await getCached(env, 'cruise-seafarers');
-        if (cached) return json(cached, 200, ch);
+        if (cached && !url.searchParams.get('debug')) return json(cached, 200, ch);
 
         const token   = await getToken(env);
         const fields  = Object.values(SF).join(',');
+
+        if (url.searchParams.get('debug')) {
+          // Probe the module directly so we can see what Zoho says.
+          const probe = await zGet(`${ZOHO_RECRUIT}/Seafarer`, token, { fields, page: 1, per_page: 5 });
+          return json({ probe, fieldsRequested: fields }, 200, ch);
+        }
+
         const records = await fetchAll(token, ZOHO_RECRUIT, 'Seafarer', fields);
         const data    = records.map(mapSeafarer);
         const payload = { source: 'recruit-seafarers', count: data.length, data };
