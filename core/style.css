@@ -392,7 +392,6 @@ input, select, textarea { font-family: inherit; }
   padding: 0;
   border-bottom: 1.5px solid var(--border, #e5e7eb);
   margin-bottom: 4px;
-  overflow-x: auto;
   flex-wrap: wrap;
 }
 .task-sub-link {
