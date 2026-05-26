@@ -5220,11 +5220,6 @@ pageEvents.task = function () {
           <thead>
             <tr style="border-bottom:2px solid var(--border,#e5e7eb);">
               <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
-                white-space:nowrap;">#</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Match</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
                 letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Source</th>
               <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
                 letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Name</th>
@@ -5232,52 +5227,28 @@ pageEvents.task = function () {
                 letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Email</th>
               <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
                 letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Phone</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Status</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Matched Value</th>
             </tr>
           </thead>
           <tbody>`;
 
-      allGroups.forEach((g, gi) => {
+      allGroups.forEach((g) => {
         const isCross = g.members.some(r=>r._source==='recruit') && g.members.some(r=>r._source==='crm');
         const rowBg   = isCross ? 'rgba(176,26,24,0.03)' : 'transparent';
-        g.members.forEach((r, mi) => {
+        g.members.forEach((r) => {
           const fullName = (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
-          const rowStyle = `background:${rowBg};border-bottom:1px solid var(--border,#eee);`;
-          const groupNum = mi === 0
-            ? `<td rowspan="${g.members.length}" style="padding:8px 10px;
-                vertical-align:top;font-weight:700;color:var(--text-muted,#999);
-                border-right:2px solid var(--border,#eee);white-space:nowrap;">
-                ${gi + 1}${isCross ? ' <span title="Cross-system duplicate" style="color:#B01A18;">⚡</span>' : ''}
-              </td>
-              <td rowspan="${g.members.length}" style="padding:8px 10px;vertical-align:top;
-                border-right:1px solid var(--border,#eee);">
-                ${matchBadge(g.label)}
-              </td>`
-            : '';
-          html += `<tr style="${rowStyle}">
-            ${groupNum}
+          html += `<tr style="background:${rowBg};border-bottom:1px solid var(--border,#eee);">
             <td style="padding:8px 10px;">${srcBadge(r._source)}</td>
             <td style="padding:8px 10px;font-weight:600;white-space:nowrap;">${escH(fullName)}</td>
             <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.email||'—')}</td>
             <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.phone||'—')}</td>
-            <td style="padding:8px 10px;">${taskStatusBadge(r.placementStatus)}</td>
-            <td style="padding:8px 10px;color:var(--text-muted,#888);font-size:11px;
-              max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-              title="${escH(g.key)}">${escH(g.key)}</td>
           </tr>`;
         });
         // Group separator
-        html += `<tr><td colspan="8" style="padding:0;height:6px;
+        html += `<tr><td colspan="4" style="padding:0;height:6px;
           background:var(--bg-page,#f9f9f9);border:none;"></td></tr>`;
       });
 
-      html += `</tbody></table></div>
-        <div style="margin-top:14px;font-size:11px;color:var(--text-muted,#999);">
-          ⚡ = cross-system duplicate (same value found in both Recruit and CRM)
-        </div>`;
+      html += `</tbody></table></div>`;
 
       resultsEl.innerHTML = html;
 
