@@ -44,12 +44,6 @@
       </div>
 
       <nav class="sidebar-nav">
-        <!-- Athena Hub -->
-        <a href="../index.html" class="nav-link nav-hub" title="Athena Hub"
-          style="opacity:0.55;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:4px;padding-bottom:10px;">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          <span class="nav-text">Athena Hub</span>
-        </a>
         <!-- Requisition -->
         <a href="#" class="nav-link" data-page="requisition" title="Requisition">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
@@ -105,7 +99,10 @@
       <!-- Sidebar footer: user + logout -->
       <div class="sidebar-user-footer" id="sidebarUserFooter">
         <div class="sidebar-user-info">
-          <div class="sidebar-user-avatar" id="userAvatarSidebar">AD</div>
+          <a href="../index.html" class="sidebar-user-avatar" id="userAvatarSidebar"
+            title="Back to Athena Hub"
+            style="text-decoration:none;cursor:pointer;transition:opacity 0.15s;"
+            onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">AD</a>
           <div class="sidebar-user-details">
             <div class="sidebar-user-name" id="usernameSidebar">Admin</div>
             <div class="sidebar-user-role" id="userRoleSidebar">Administrator</div>
