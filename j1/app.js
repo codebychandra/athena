@@ -5347,37 +5347,50 @@ pageEvents.task = function () {
         </div>
 
         <!-- Groups table -->
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:auto;border:1px solid var(--border,#e5e7eb);border-radius:10px;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead>
-            <tr style="border-bottom:2px solid var(--border,#e5e7eb);">
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Source</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Name</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Email</th>
-              <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;
-                letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);">Phone</th>
+            <tr style="background:var(--bg-page,#fafafa);">
+              ${['Source','Name','Country','Status','Email','Phone','Host Company','Sponsor','DOB'].map(h=>`
+                <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;
+                  letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
+                  border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${h}</th>
+              `).join('')}
             </tr>
           </thead>
           <tbody>`;
 
-      allGroups.forEach((g) => {
+      const dupEmail = e => e
+        ? `<a href="mailto:${escH(e)}" style="color:var(--accent,#B01A18);text-decoration:none;"
+            onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escH(e)}</a>`
+        : `<span style="color:var(--text-muted,#aaa);">—</span>`;
+      const dupPhone = p => p
+        ? `<a href="tel:${escH(String(p).replace(/\s+/g,''))}" style="color:var(--text);text-decoration:none;white-space:nowrap;font-variant-numeric:tabular-nums;"
+            onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escH(p)}</a>`
+        : `<span style="color:var(--text-muted,#aaa);">—</span>`;
+
+      allGroups.forEach((g, gi) => {
         const isCross = g.members.some(r=>r._source==='recruit') && g.members.some(r=>r._source==='crm');
-        const rowBg   = isCross ? 'rgba(176,26,24,0.03)' : 'transparent';
+        const rowBg   = isCross ? 'rgba(176,26,24,0.035)' : 'transparent';
         g.members.forEach((r) => {
           const fullName = (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
-          html += `<tr style="background:${rowBg};border-bottom:1px solid var(--border,#eee);">
-            <td style="padding:8px 10px;">${srcBadge(r._source)}</td>
-            <td style="padding:8px 10px;font-weight:600;white-space:nowrap;">${escH(fullName)}</td>
-            <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.email||'—')}</td>
-            <td style="padding:8px 10px;color:var(--text-muted,#777);">${escH(r.phone||'—')}</td>
+          html += `<tr style="background:${rowBg};border-bottom:1px solid var(--border,#f0f0f0);">
+            <td style="padding:11px 14px;">${srcBadge(r._source)}</td>
+            <td style="padding:11px 14px;font-weight:600;white-space:nowrap;color:var(--text);">${escH(fullName)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);">${escH(r.country||'—')}</td>
+            <td style="padding:11px 14px;">${taskStatusBadge(r.placementStatus)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;">${dupEmail(r.email)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;">${dupPhone(r.phone)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;">${escH(r.hostCompany||'—')}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;">${escH(r.processingSponsor||'—')}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;">${r.dateOfBirth ? fmtDate(r.dateOfBirth) : '—'}</td>
           </tr>`;
         });
-        // Group separator
-        html += `<tr><td colspan="4" style="padding:0;height:6px;
-          background:var(--bg-page,#f9f9f9);border:none;"></td></tr>`;
+        // Group separator (skip after last group)
+        if (gi < allGroups.length - 1) {
+          html += `<tr><td colspan="9" style="padding:0;height:6px;
+            background:var(--bg-page,#f5f5f5);border:none;"></td></tr>`;
+        }
       });
 
       html += `</tbody></table></div>`;
