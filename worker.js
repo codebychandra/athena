@@ -666,6 +666,53 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/cruise/debug/brandscan?brand=Cunard%20Line ────────────
+      // Walks every page of Candidates, counts how many records per brand
+      // pass the eligibility filter, and how many of those have a non-empty
+      // Crew_ID_Number / Position_Applied. Names the first 3 samples per
+      // bucket so we can confirm the right records are matching.
+      if (method === 'GET' && path === '/api/cruise/debug/brandscan') {
+        const brand = url.searchParams.get('brand') || 'Cunard Line';
+        const token = await getToken(env);
+        const fields = ['Full_Name','Cruise_Line','Employment_Status','Sign_On_Date',
+                        'Onboarding_Status','Position_Applied','Position_Hired_2',
+                        'Crew_ID_Number','Hired_Date'].join(',');
+        const eligibleOB = new Set(['Completing Documents','Ready to Go','Rescheduled']);
+        let all = [], page = 1, more = true;
+        while (more && page <= 50) {
+          const r = await zGet(`${ZOHO_RECRUIT}/Candidates`, token, { fields, page, per_page: 200 });
+          all = all.concat(r.data || []);
+          more = r.info?.more_records === true;
+          page++;
+        }
+        const totals = { scanned: all.length, brandMatch: 0, eligible: 0,
+                         withId: 0, withPos: 0, eligibleWithId: 0 };
+        const sampleIds = [], samplePos = [], sampleElig = [];
+        all.forEach(r => {
+          if (r.Cruise_Line !== brand) return;
+          totals.brandMatch++;
+          const eligible = r.Employment_Status === 'New Hire'
+            && !r.Sign_On_Date
+            && eligibleOB.has(r.Onboarding_Status);
+          if (eligible) totals.eligible++;
+          if (r.Crew_ID_Number) { totals.withId++; if (sampleIds.length < 3) sampleIds.push({
+            name: r.Full_Name, hired: r.Hired_Date, position: r.Position_Applied,
+            id: r.Crew_ID_Number, emp: r.Employment_Status, signOn: r.Sign_On_Date,
+            onb: r.Onboarding_Status,
+          });}
+          if (r.Position_Applied) { totals.withPos++; if (samplePos.length < 3) samplePos.push({
+            name: r.Full_Name, hired: r.Hired_Date, position: r.Position_Applied,
+          });}
+          if (eligible && r.Crew_ID_Number) { totals.eligibleWithId++;
+            if (sampleElig.length < 3) sampleElig.push({
+              name: r.Full_Name, position: r.Position_Applied, id: r.Crew_ID_Number,
+              hired: r.Hired_Date, onb: r.Onboarding_Status,
+            });
+          }
+        });
+        return json({ brand, totals, sampleIds, samplePos, sampleElig }, 200, ch);
+      }
+
       // ── GET /api/cruise/debug/idsearch ─────────────────────────────────
       // Searches the Candidates module for records that have a non-empty
       // value in any of the ID-like fields, to find which one the team is
