@@ -653,43 +653,52 @@ function isTalentPoolEligible(s) {
 }
 
 function aggregateBrandData(brand, allSeafarers, allFinalInt) {
+  // Talent-pool eligible Seafarers (used by Talent Pool calculations everywhere)
   const seafarers = allSeafarers.filter(s =>
     (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
   );
+  // Final Interview pre-hires (only used by monthly-demand calculations)
   const finalInt  = allFinalInt.filter(f =>
     brand === 'CUK Maritime'
       ? (f.cruiseLine === 'CUK Maritime')
       : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine));
 
-  // Group by Position Hired + month
-  const byPosMonth = {}; // { position: { '2026-05': { hires: [], hiresWithId, hiresPending, m, f }}}
-  function bucket(pos, month) {
-    byPosMonth[pos] = byPosMonth[pos] || {};
-    byPosMonth[pos][month] = byPosMonth[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
-    return byPosMonth[pos][month];
+  // Two parallel buckets, indexed [position][monthKey] = {withId, pending, male, female}
+  //   byPosMonthTP    -> Recruit Seafarers only       (drives Talent Pool numbers)
+  //   byPosMonthAll   -> Seafarers + Final Interview  (drives Monthly Demand numbers)
+  const byPosMonthTP  = {};
+  const byPosMonthAll = {};
+  function bkt(map, pos, month) {
+    map[pos] = map[pos] || {};
+    map[pos][month] = map[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
+    return map[pos][month];
   }
 
   seafarers.forEach(s => {
     const mk = monthKey(s.hiredDate);
     if (!mk || !s.positionHired || s.positionHired === '—') return;
-    const b = bucket(s.positionHired, mk);
     const hasId = s.seafarerIdNumber && String(s.seafarerIdNumber).trim();
-    if (hasId) b.withId++; else b.pending++;
-    if ((s.gender || '').toLowerCase().startsWith('m')) b.male++;
-    else if ((s.gender || '').toLowerCase().startsWith('f')) b.female++;
+    const isM = (s.gender || '').toLowerCase().startsWith('m');
+    const isF = (s.gender || '').toLowerCase().startsWith('f');
+    [byPosMonthTP, byPosMonthAll].forEach(map => {
+      const b = bkt(map, s.positionHired, mk);
+      if (hasId) b.withId++; else b.pending++;
+      if (isM) b.male++; else if (isF) b.female++;
+    });
   });
 
-  // Pre-hires from Final Interview sheet — count as "pending" (no Seafarer ID yet)
+  // Final Interview pre-hires count as pending in the combined bucket ONLY
   finalInt.forEach(f => {
     const mk = monthKey(f.hiredDate);
     if (!mk || !f.positionHired || f.positionHired === '—') return;
-    const b = bucket(f.positionHired, mk);
+    const b = bkt(byPosMonthAll, f.positionHired, mk);
     b.pending++;
     if ((f.gender || '').toLowerCase().startsWith('m')) b.male++;
     else if ((f.gender || '').toLowerCase().startsWith('f')) b.female++;
   });
 
-  return { byPosMonth, seafarers, finalInt };
+  // Back-compat alias: callers using agg.byPosMonth get the Talent Pool bucket
+  return { byPosMonth: byPosMonthTP, byPosMonthTP, byPosMonthAll, seafarers, finalInt };
 }
 
 function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
@@ -795,7 +804,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
   const talentPool= node.talentPool || {};
   const months = new Set();
   Object.keys(monthly).forEach(mk => { if (mk.startsWith(String(year))) months.add(mk); });
-  Object.values(agg.byPosMonth).forEach(byMo => Object.keys(byMo).forEach(mk => {
+  Object.values(agg.byPosMonthAll).forEach(byMo => Object.keys(byMo).forEach(mk => {
     if (mk.startsWith(String(year))) months.add(mk);
   }));
   const monthList = Array.from(months).sort();
@@ -840,19 +849,20 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
   }
 
   // Build monthly block: each month gets a sub-header, then positions
+  // Uses the COMBINED bucket (Recruit Seafarers + Final Interview pre-hires).
   let monthlyBlocks = '';
   monthList.forEach(mk => {
     const monthDemand = monthly[mk] || {};
     const positions   = new Set(Object.keys(monthDemand));
-    Object.keys(agg.byPosMonth).forEach(p => {
-      if (agg.byPosMonth[p][mk]) positions.add(p);
+    Object.keys(agg.byPosMonthAll).forEach(p => {
+      if (agg.byPosMonthAll[p][mk]) positions.add(p);
     });
     // Exclude positions covered by Talent Pool — to avoid double-counting
     tpPositions.forEach(p => positions.delete(p));
     const posList = Array.from(positions).sort();
     const rows = posList.map(p => {
       const dem      = Number(monthDemand[p] || 0);
-      const b        = (agg.byPosMonth[p] && agg.byPosMonth[p][mk]) || { withId:0, pending:0, male:0, female:0 };
+      const b        = (agg.byPosMonthAll[p] && agg.byPosMonthAll[p][mk]) || { withId:0, pending:0, male:0, female:0 };
       const hired    = b.withId;                       // strictly with ID
       const pending  = b.pending;
       const remaining= Math.max(0, dem - (hired + pending));
@@ -915,14 +925,17 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
   `;
 }
 
-// Auto-generate Recruiting Notes from data
+// Auto-generate Recruiting Notes from data.
+// Talent-pool notes use Seafarers only; monthly-demand notes use
+// the combined bucket (Seafarers + Final Interview pre-hires).
 function generateNotes(brand, agg, layout) {
   const notes = [];
   const currentMonth = monthKey(new Date());
-  const positions = Object.keys(agg.byPosMonth);
+  const source = layout === 'monthly-demand' ? agg.byPosMonthAll : agg.byPosMonthTP;
+  const positions = Object.keys(source);
 
   positions.forEach(p => {
-    const cur = agg.byPosMonth[p][currentMonth];
+    const cur = source[p][currentMonth];
     if (!cur) return;
     const pending = cur.pending;
     if (cur.withId > 0 && pending === 0) {
