@@ -801,20 +801,24 @@ function buildTalentPoolReport(brand, reportDate, agg) {
   });
   const posList = Array.from(positions).sort();
 
-  let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0;
+  // Talent Pool Fulfilment counts ONLY records with Seafarer ID Number filled
+  // (Zoho filter: Seafarer ID Number = Not Empty). Pending-ID records are
+  // surfaced separately in the Recruiting Notes.
+  let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0, totalPending = 0;
   const rows = posList.map(pos => {
     const req = Number(talentPool[pos] || 0);
-    let fulfil = 0, male = 0, female = 0;
+    let fulfil = 0, pending = 0, male = 0, female = 0;
     Object.entries(agg.byPosMonth[pos] || {}).forEach(([mk, b]) => {
       if (!mk.startsWith(String(year))) return;
-      fulfil += b.withId + b.pending;
-      male   += b.male;
-      female += b.female;
+      fulfil  += b.withId;       // ← only those with Seafarer ID
+      pending += b.pending;
+      male    += b.male;
+      female  += b.female;
     });
     const remaining = Math.max(0, req - fulfil);
     totalReq += req; totalRem += remaining; totalFul += fulfil;
-    totalM += male; totalF += female;
-    return { pos, req, remaining, fulfil, male, female };
+    totalM += male; totalF += female; totalPending += pending;
+    return { pos, req, remaining, fulfil, pending, male, female };
   });
 
   const notes = generateNotes(brand, agg, 'talent-pool');
