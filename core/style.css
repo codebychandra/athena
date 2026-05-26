@@ -379,88 +379,50 @@ input, select, textarea { font-family: inherit; }
   margin: 0 !important;
 }
 
-/* ── Task page sub-sidebar ────────────────────────────────── */
+/* ── Task page tab bar (top) ──────────────────────────────── */
 .task-layout {
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-.task-subsidebar {
-  width: 220px;
-  flex-shrink: 0;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  padding: 10px;
-  position: sticky;
-  top: 76px;
-  display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 20px;
 }
-.task-subsidebar-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-muted, #888);
-  padding: 6px 12px 8px;
-  border-bottom: 1px solid var(--border, #eee);
-  margin-bottom: 4px;
-}
-.task-sub-link {
+.task-tabbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 0;
+  border-bottom: 1.5px solid var(--border, #e5e7eb);
+  margin-bottom: 4px;
+  overflow-x: auto;
+  flex-wrap: wrap;
+}
+.task-sub-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;   /* overlap parent border */
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted, #6B7280);
   cursor: pointer;
-  text-align: left;
   font-family: inherit;
-  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .task-sub-link:hover {
-  background: var(--bg-hover, rgba(0,0,0,0.04));
   color: var(--text, #1A1A1A);
+  background: var(--bg-hover, rgba(0,0,0,0.03));
 }
 .task-sub-link.active {
-  background: rgba(176,26,24,0.08);
   color: #B01A18;
+  border-bottom-color: #B01A18;
 }
 .task-content {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-}
-
-/* Responsive: stack on small screens */
-@media (max-width: 840px) {
-  .task-layout {
-    flex-direction: column;
-  }
-  .task-subsidebar {
-    width: 100%;
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .task-subsidebar-label {
-    border-bottom: none;
-    border-right: 1px solid var(--border, #eee);
-    padding: 0 12px 0 6px;
-    margin-bottom: 0;
-  }
-  .task-sub-link {
-    width: auto;
-    flex: 1;
-    min-width: 160px;
-  }
 }
 
 /* Locked nav links */

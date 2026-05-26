@@ -4969,9 +4969,8 @@ pages.task = async function () {
 
     <div class="task-layout">
 
-      <!-- Task sub-sidebar -->
-      <aside class="task-subsidebar">
-        <div class="task-subsidebar-label">Sections</div>
+      <!-- Task tab bar (top) -->
+      <nav class="task-tabbar">
         <button class="task-sub-link active" data-section="duplicate">
           <span style="font-size:15px;">🔍</span>
           <span>Duplicate Checker</span>
@@ -4980,9 +4979,9 @@ pages.task = async function () {
           <span style="font-size:15px;">⚠️</span>
           <span>Alerts &amp; Deadlines</span>
         </button>
-      </aside>
+      </nav>
 
-      <!-- Task content area (only active section visible) -->
+      <!-- Task content area (only active section visible, full width) -->
       <div class="task-content">
 
       <!-- ═══ Section: Duplicate Checker ═══ -->
@@ -4995,7 +4994,7 @@ pages.task = async function () {
     </div>
 
     <!-- Duplicate Checker card -->
-    <div class="card" id="dupCheckerCard" style="max-width:900px;padding:24px 28px;">
+    <div class="card" id="dupCheckerCard" style="padding:24px 28px;">
       <!-- Card header -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
         <div>
@@ -5076,7 +5075,7 @@ pages.task = async function () {
     </div>
 
     <!-- Alert summary cards -->
-    <div id="alertSummaryRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:900px;margin-bottom:20px;">
+    <div id="alertSummaryRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
       <div class="card" style="padding:18px 20px;text-align:center;">
         <div style="font-size:28px;font-weight:800;color:#B01A18;" id="alertCountVisa">—</div>
         <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">🛂 DS-2019 Expiring</div>
@@ -5092,7 +5091,7 @@ pages.task = async function () {
     </div>
 
     <!-- Alert tables -->
-    <div style="max-width:900px;display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;flex-direction:column;gap:16px;">
 
       <!-- DS-2019 Expiry table -->
       <div class="card" style="padding:0;overflow:hidden;">
