@@ -4,6 +4,8 @@
 // All sections are currently in development (coming soon).
 // This file will grow as cruise-specific Zoho integrations are wired up.
 
+const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
+
 const CRUISE_PAGE_TITLES = {
   requisition:    'Requisition',
   candidate:      'Candidate',
@@ -15,11 +17,86 @@ const CRUISE_PAGE_TITLES = {
   task:           'Task',
 };
 
+const CRUISE_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
+
+// Brand-specific layout selection
+const BRAND_LAYOUT = {
+  'Cunard Line':  'talent-pool',     // rolling Talent Pool table
+  'CUK Maritime': 'talent-pool',
+  'P&O Cruises':  'monthly-demand',  // grouped by month
+};
+
 // ── State ─────────────────────────────────────────────────────────────────────
 const state = {
   page:  'requisition',
   theme: localStorage.getItem('cti-theme') || 'light',
 };
+
+// ── Tiny helpers ──────────────────────────────────────────────────────────────
+function escH(v) {
+  return String(v ?? '').replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+async function safeJson(url, opts = {}) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
+  return r.json();
+}
+function monthKey(d) {
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt)) return null;
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+function monthLabel(key) {
+  const [y, m] = key.split('-');
+  const dt = new Date(parseInt(y), parseInt(m)-1, 1);
+  return dt.toLocaleDateString('en-US', { month:'long', year:'numeric' }).toUpperCase();
+}
+function todayKey() { return monthKey(new Date()); }
+function fmtReportDate(d) {
+  const dt = d ? new Date(d) : new Date();
+  return dt.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }).toUpperCase();
+}
+
+// ── Demand config (localStorage) ─────────────────────────────────────────────
+function loadDemand() {
+  try { return JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
+  catch (_) { return {}; }
+}
+function saveDemand(d) {
+  try { localStorage.setItem('cti-cruise-demand', JSON.stringify(d)); } catch (_) {}
+}
+function demandFor(brand, monthKey, position) {
+  const d = loadDemand();
+  return Number(d?.[brand]?.[monthKey]?.[position] || 0);
+}
+function setDemand(brand, monthKey, position, value) {
+  const d = loadDemand();
+  d[brand] = d[brand] || {};
+  d[brand][monthKey] = d[brand][monthKey] || {};
+  d[brand][monthKey][position] = Number(value) || 0;
+  saveDemand(d);
+}
+
+// ── Data fetch (cached in module) ────────────────────────────────────────────
+let _seafarersCache = null;
+let _finalIntCache  = null;
+async function fetchCruiseData(forceRefresh) {
+  if (forceRefresh) { _seafarersCache = null; _finalIntCache = null; }
+  if (!_seafarersCache) {
+    try {
+      const r = await safeJson(WORKER_URL + '/api/cruise/seafarers');
+      _seafarersCache = r.data || [];
+    } catch (e) { console.error('Seafarers fetch failed:', e); _seafarersCache = []; }
+  }
+  if (!_finalIntCache) {
+    try {
+      const r = await safeJson(WORKER_URL + '/api/cruise/final-interview');
+      _finalIntCache = r.data || [];
+    } catch (e) { console.error('Final Interview fetch failed:', e); _finalIntCache = []; }
+  }
+  return { seafarers: _seafarersCache, finalInt: _finalIntCache };
+}
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 (function applyTheme() {
@@ -50,13 +127,527 @@ function lockedPage(key) {
 
 // ── Pages ─────────────────────────────────────────────────────────────────────
 const pages = {};
+const pageEvents = {};
 Object.keys(CRUISE_PAGE_TITLES).forEach(key => {
   pages[key] = async () => lockedPage(key);
 });
 
+// ═════════════════════════════════════════════════════════════════════════════
+// REPORT PAGE — Weekly cruise hiring report generator
+// ═════════════════════════════════════════════════════════════════════════════
+pages.reports = async function () {
+  return `
+    <div class="req-page-header">
+      <h1>Report</h1>
+      <span class="req-page-sub">Weekly cruise hiring report — sent to CUK every Tuesday</span>
+    </div>
+
+    <div class="task-layout">
+      <nav class="task-tabbar">
+        <button class="task-sub-link active" data-section="generate">Generate Report</button>
+        <button class="task-sub-link" data-section="demand">Demand Setup</button>
+        <button class="task-sub-link" data-section="history">History</button>
+      </nav>
+
+      <div class="task-content">
+
+      <!-- ═══ Generate Report ═══ -->
+      <section class="task-section" data-section="generate">
+        <div class="card" style="padding:22px 26px;margin-bottom:18px;">
+          <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Brand</div>
+              <select id="rptBrand" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);min-width:200px;">
+                ${CRUISE_BRANDS.map(b => `<option value="${escH(b)}">${escH(b)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date (Tuesday)</div>
+              <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button id="rptRegenBtn" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
+              <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- The actual report preview, styled to match the CUK PDF -->
+        <div id="rptPreview" class="card" style="padding:0;"></div>
+      </section>
+
+      <!-- ═══ Demand Setup ═══ -->
+      <section class="task-section" data-section="demand" style="display:none;">
+        <div class="card" style="padding:24px 28px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px;border-bottom:1px solid var(--border,#eee);padding-bottom:16px;">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">Monthly Demand Targets</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">Set the headcount target per position for each brand and month.</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <select id="dmdBrand" style="padding:7px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);">
+                ${CRUISE_BRANDS.map(b => `<option value="${escH(b)}">${escH(b)}</option>`).join('')}
+              </select>
+              <input type="month" id="dmdMonth" style="padding:7px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);">
+            </div>
+          </div>
+
+          <div id="dmdTable"></div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-top:16px;">
+            <input id="dmdNewPos" placeholder="Add position name (e.g. Sailor OS)" style="flex:1;padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            <input id="dmdNewQty" type="number" min="0" placeholder="Qty" style="width:90px;padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            <button id="dmdAddBtn" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:6px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Add Position</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ History ═══ -->
+      <section class="task-section" data-section="history" style="display:none;">
+        <div class="card" style="padding:24px 28px;">
+          <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Generated Reports</div>
+          <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:18px;">Reports you've downloaded from this device.</div>
+          <div id="histList"></div>
+        </div>
+      </section>
+
+      </div><!-- /.task-content -->
+    </div><!-- /.task-layout -->
+  `;
+};
+
+pageEvents.reports = function () {
+  // Tab switching
+  document.querySelectorAll('.task-sub-link').forEach(link => {
+    link.addEventListener('click', () => {
+      const target = link.dataset.section;
+      document.querySelectorAll('.task-sub-link').forEach(l =>
+        l.classList.toggle('active', l === link));
+      document.querySelectorAll('.task-section').forEach(s => {
+        s.style.display = s.dataset.section === target ? '' : 'none';
+      });
+    });
+  });
+
+  // Default report date = today (or the nearest Tuesday)
+  const dateEl  = document.getElementById('rptDate');
+  const today   = new Date();
+  dateEl.value  = today.toISOString().slice(0, 10);
+
+  // ── Generate Report wiring ─────────────────────────────────────────────────
+  async function regenerate() {
+    const brand = document.getElementById('rptBrand').value;
+    const date  = new Date(document.getElementById('rptDate').value);
+    const preview = document.getElementById('rptPreview');
+    preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
+    try {
+      const { seafarers, finalInt } = await fetchCruiseData(false);
+      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt);
+    } catch (e) {
+      preview.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
+    }
+  }
+  document.getElementById('rptBrand').addEventListener('change', regenerate);
+  document.getElementById('rptDate').addEventListener('change', regenerate);
+  document.getElementById('rptRegenBtn').addEventListener('click', async () => {
+    await fetchCruiseData(true);
+    regenerate();
+  });
+  document.getElementById('rptDownloadBtn').addEventListener('click', () => {
+    downloadReportPDF(
+      document.getElementById('rptBrand').value,
+      new Date(document.getElementById('rptDate').value)
+    );
+  });
+  regenerate();
+
+  // ── Demand Setup wiring ────────────────────────────────────────────────────
+  const dmdBrand = document.getElementById('dmdBrand');
+  const dmdMonth = document.getElementById('dmdMonth');
+  dmdMonth.value = todayKey();
+  function renderDemandTable() {
+    const brand = dmdBrand.value;
+    const mk    = dmdMonth.value;
+    const d     = loadDemand();
+    const positions = Object.keys(d?.[brand]?.[mk] || {}).sort();
+    const tbl = document.getElementById('dmdTable');
+    if (!positions.length) {
+      tbl.innerHTML = `<div style="padding:28px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;border:1px dashed var(--border,#ddd);border-radius:8px;">
+        No positions set for ${escH(brand)} — ${escH(monthLabel(mk))}. Add one below.</div>`;
+      return;
+    }
+    tbl.innerHTML = `
+      <div style="border:1px solid var(--border,#eee);border-radius:8px;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--bg-page,#fafafa);">
+          <th style="padding:10px 14px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">Position</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);width:110px;">Demand</th>
+          <th style="border-bottom:1px solid var(--border,#eee);width:60px;"></th>
+        </tr></thead>
+        <tbody>
+          ${positions.map(p => `<tr>
+            <td style="padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
+            <td style="padding:6px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;">
+              <input data-pos="${escH(p)}" type="number" min="0" value="${d[brand][mk][p]}" class="dmd-qty"
+                style="width:80px;padding:5px 8px;border:1px solid var(--border,#ddd);border-radius:5px;font-size:13px;text-align:right;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            </td>
+            <td style="padding:6px 14px;text-align:center;border-bottom:1px solid var(--border,#f3f3f3);">
+              <button data-pos="${escH(p)}" class="dmd-del" title="Remove" style="background:none;border:none;color:var(--text-muted,#aaa);cursor:pointer;font-size:18px;line-height:1;">×</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+    document.querySelectorAll('.dmd-qty').forEach(i => {
+      i.addEventListener('change', () => setDemand(brand, mk, i.dataset.pos, i.value));
+    });
+    document.querySelectorAll('.dmd-del').forEach(b => {
+      b.addEventListener('click', () => {
+        const all = loadDemand();
+        if (all[brand]?.[mk]) { delete all[brand][mk][b.dataset.pos]; saveDemand(all); }
+        renderDemandTable();
+      });
+    });
+  }
+  dmdBrand.addEventListener('change', renderDemandTable);
+  dmdMonth.addEventListener('change', renderDemandTable);
+  document.getElementById('dmdAddBtn').addEventListener('click', () => {
+    const p = document.getElementById('dmdNewPos').value.trim();
+    const q = document.getElementById('dmdNewQty').value;
+    if (!p) return;
+    setDemand(dmdBrand.value, dmdMonth.value, p, q || 0);
+    document.getElementById('dmdNewPos').value = '';
+    document.getElementById('dmdNewQty').value = '';
+    renderDemandTable();
+  });
+  renderDemandTable();
+
+  // ── History wiring ─────────────────────────────────────────────────────────
+  renderHistory();
+};
+
+function renderHistory() {
+  const wrap = document.getElementById('histList');
+  if (!wrap) return;
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem('cti-cruise-report-history') || '[]'); }
+  catch (_) {}
+  if (!hist.length) {
+    wrap.innerHTML = `<div style="padding:28px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;border:1px dashed var(--border,#ddd);border-radius:8px;">No reports downloaded yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;">
+    ${hist.slice().reverse().map(h => `<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border:1px solid var(--border,#eee);border-radius:8px;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${escH(h.brand)}</div>
+        <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Report date: ${escH(h.reportDate)} · Generated: ${escH(new Date(h.ts).toLocaleString())}</div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+function logHistory(brand, reportDate) {
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem('cti-cruise-report-history') || '[]'); } catch (_) {}
+  hist.push({ brand, reportDate, ts: Date.now() });
+  if (hist.length > 50) hist = hist.slice(-50);
+  try { localStorage.setItem('cti-cruise-report-history', JSON.stringify(hist)); } catch (_) {}
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Report builder
+// ═════════════════════════════════════════════════════════════════════════════
+function aggregateBrandData(brand, allSeafarers, allFinalInt) {
+  const seafarers = allSeafarers.filter(s => (s.cruiseLine || '').trim() === brand);
+  const finalInt  = allFinalInt.filter(f =>
+    brand === 'CUK Maritime'
+      ? (f.cruiseLine === 'CUK Maritime')
+      : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine));
+
+  // Group by Position Hired + month
+  const byPosMonth = {}; // { position: { '2026-05': { hires: [], hiresWithId, hiresPending, m, f }}}
+  function bucket(pos, month) {
+    byPosMonth[pos] = byPosMonth[pos] || {};
+    byPosMonth[pos][month] = byPosMonth[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
+    return byPosMonth[pos][month];
+  }
+
+  seafarers.forEach(s => {
+    const mk = monthKey(s.hiredDate);
+    if (!mk || !s.positionHired || s.positionHired === '—') return;
+    const b = bucket(s.positionHired, mk);
+    const hasId = s.seafarerIdNumber && String(s.seafarerIdNumber).trim();
+    if (hasId) b.withId++; else b.pending++;
+    if ((s.gender || '').toLowerCase().startsWith('m')) b.male++;
+    else if ((s.gender || '').toLowerCase().startsWith('f')) b.female++;
+  });
+
+  // Pre-hires from Final Interview sheet — count as "pending" (no Seafarer ID yet)
+  finalInt.forEach(f => {
+    const mk = monthKey(f.hiredDate);
+    if (!mk || !f.positionHired || f.positionHired === '—') return;
+    const b = bucket(f.positionHired, mk);
+    b.pending++;
+    if ((f.gender || '').toLowerCase().startsWith('m')) b.male++;
+    else if ((f.gender || '').toLowerCase().startsWith('f')) b.female++;
+  });
+
+  return { byPosMonth, seafarers, finalInt };
+}
+
+function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
+  const agg    = aggregateBrandData(brand, allSeafarers, allFinalInt);
+  const layout = BRAND_LAYOUT[brand] || 'talent-pool';
+  return layout === 'monthly-demand'
+    ? buildMonthlyDemandReport(brand, reportDate, agg)
+    : buildTalentPoolReport(brand, reportDate, agg);
+}
+
+// ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
+function buildTalentPoolReport(brand, reportDate, agg) {
+  const year   = reportDate.getFullYear();
+  const demand = loadDemand()[brand] || {};
+  // Aggregate demand and hires across the full year (rolling)
+  const positions = new Set();
+  Object.keys(demand).forEach(mk => {
+    if (mk.startsWith(String(year))) Object.keys(demand[mk]).forEach(p => positions.add(p));
+  });
+  Object.keys(agg.byPosMonth).forEach(p => positions.add(p));
+  const posList = Array.from(positions).sort();
+
+  let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0;
+  const rows = posList.map(pos => {
+    let req = 0, fulfil = 0, male = 0, female = 0;
+    Object.keys(demand).forEach(mk => {
+      if (mk.startsWith(String(year))) req += Number(demand[mk][pos] || 0);
+    });
+    Object.values(agg.byPosMonth[pos] || {}).forEach(b => {
+      fulfil += b.withId + b.pending;
+      male   += b.male;
+      female += b.female;
+    });
+    const remaining = Math.max(0, req - fulfil);
+    totalReq += req; totalRem += remaining; totalFul += fulfil;
+    totalM += male; totalF += female;
+    return { pos, req, remaining, fulfil, male, female };
+  });
+
+  const notes = generateNotes(brand, agg, 'talent-pool');
+
+  return `
+    <div id="rptDoc" class="rpt-doc">
+      <div class="rpt-title">MONTHLY TALENT POOL ${year}</div>
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th class="rpt-th">DEMAND POSITIONS</th>
+            <th class="rpt-th rpt-num">TALENT POOL<br>REQUEST</th>
+            <th class="rpt-th rpt-num">TALENT POOL<br>REMAINING</th>
+            <th class="rpt-th rpt-num">TALENT POOL<br>FULFILMENT</th>
+            <th class="rpt-th rpt-num">MALE<br>HEADCOUNT</th>
+            <th class="rpt-th rpt-num">FEMALE<br>HEADCOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="rpt-section">
+            <td colspan="6"><strong>MONTHLY TALENT POOL ${year}</strong></td>
+          </tr>
+          ${rows.length ? rows.map(r => `
+            <tr>
+              <td class="rpt-td">${escH(r.pos)}</td>
+              <td class="rpt-td rpt-num">${r.req}</td>
+              <td class="rpt-td rpt-num">${r.remaining}</td>
+              <td class="rpt-td rpt-num">${r.fulfil}</td>
+              <td class="rpt-td rpt-num">${r.male}</td>
+              <td class="rpt-td rpt-num">${r.female}</td>
+            </tr>`).join('') : `
+            <tr><td colspan="6" class="rpt-empty">No demand configured for ${year}. Add positions in <strong>Demand Setup</strong>.</td></tr>`}
+          <tr class="rpt-total">
+            <td class="rpt-td"><strong>TOTAL</strong></td>
+            <td class="rpt-td rpt-num"><strong>${totalReq}</strong></td>
+            <td class="rpt-td rpt-num"><strong>${totalRem}</strong></td>
+            <td class="rpt-td rpt-num"><strong>${totalFul}</strong></td>
+            <td class="rpt-td rpt-num"><strong>${totalM}</strong></td>
+            <td class="rpt-td rpt-num"><strong>${totalF}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="rpt-notes-h">RECRUITING NOTES</div>
+      <ul class="rpt-notes">
+        ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
+      </ul>
+
+      <div class="rpt-footer">
+        <span>DATE: ${fmtReportDate(reportDate)}</span>
+        <span>PAGE 1</span>
+        <span>CTI GROUP WORLDWIDE SERVICES, INC.</span>
+      </div>
+    </div>
+    ${REPORT_STYLES}
+  `;
+}
+
+// ── Layout B: Monthly Demand vs Hiring (P&O Cruises) ─────────────────────────
+function buildMonthlyDemandReport(brand, reportDate, agg) {
+  const year   = reportDate.getFullYear();
+  const demand = loadDemand()[brand] || {};
+  const months = new Set();
+  Object.keys(demand).forEach(mk => { if (mk.startsWith(String(year))) months.add(mk); });
+  Object.values(agg.byPosMonth).forEach(byMo => Object.keys(byMo).forEach(mk => {
+    if (mk.startsWith(String(year))) months.add(mk);
+  }));
+  const monthList = Array.from(months).sort();
+  // Range label e.g. "JANUARY - MAY 2026"
+  let rangeLabel = String(year);
+  if (monthList.length) {
+    const first = monthLabel(monthList[0]).split(' ')[0];
+    const last  = monthLabel(monthList[monthList.length-1]).split(' ')[0];
+    rangeLabel  = first === last ? `${first} ${year}` : `${first} - ${last} ${year}`;
+  }
+
+  // Build monthly block: each month gets a sub-header, then positions
+  let monthlyBlocks = '';
+  monthList.forEach(mk => {
+    const monthDemand = demand[mk] || {};
+    const positions   = new Set(Object.keys(monthDemand));
+    Object.keys(agg.byPosMonth).forEach(p => {
+      if (agg.byPosMonth[p][mk]) positions.add(p);
+    });
+    const posList = Array.from(positions).sort();
+    let mDemand = 0, mRem = 0, mHired = 0, mM = 0, mF = 0, mPending = 0;
+    const rows = posList.map(p => {
+      const dem      = Number(monthDemand[p] || 0);
+      const b        = (agg.byPosMonth[p] && agg.byPosMonth[p][mk]) || { withId:0, pending:0, male:0, female:0 };
+      const hired    = b.withId;                       // strictly with ID
+      const pending  = b.pending;
+      const remaining= Math.max(0, dem - (hired + pending));
+      mDemand += dem; mRem += remaining; mHired += hired;
+      mM += b.male; mF += b.female; mPending += pending;
+      return { p, dem, remaining, hired, male:b.male, female:b.female, pending };
+    });
+    monthlyBlocks += `
+      <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
+      ${rows.length ? rows.map(r => `
+        <tr>
+          <td class="rpt-td">${escH(r.p)}</td>
+          <td class="rpt-td rpt-num">${r.dem}</td>
+          <td class="rpt-td rpt-num">${r.remaining}</td>
+          <td class="rpt-td rpt-num">${r.hired}</td>
+          <td class="rpt-td rpt-num">${r.male}</td>
+          <td class="rpt-td rpt-num">${r.female}</td>
+          <td class="rpt-td rpt-num">${r.pending}</td>
+        </tr>`).join('') : `
+        <tr><td colspan="7" class="rpt-empty">No positions configured for ${escH(monthLabel(mk))}.</td></tr>`}
+    `;
+  });
+
+  const notes = generateNotes(brand, agg, 'monthly-demand');
+
+  return `
+    <div id="rptDoc" class="rpt-doc">
+      <div class="rpt-title">${escH(rangeLabel)}</div>
+      <table class="rpt-table">
+        <thead>
+          <tr>
+            <th class="rpt-th">DEMAND POSITIONS</th>
+            <th class="rpt-th rpt-num">DEMAND<br>YEAR TO DATE</th>
+            <th class="rpt-th rpt-num">DEMAND<br>REMAINING</th>
+            <th class="rpt-th rpt-num">HIRED<br>YEAR TO DATE</th>
+            <th class="rpt-th rpt-num">MALE<br>HEADCOUNT</th>
+            <th class="rpt-th rpt-num">FEMALE<br>HEADCOUNT</th>
+            <th class="rpt-th rpt-num">PENDING<br>MISTRAL ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${monthList.length ? monthlyBlocks : `<tr><td colspan="7" class="rpt-empty">No demand or hires configured for ${year}.</td></tr>`}
+        </tbody>
+      </table>
+
+      <div class="rpt-notes-h">RECRUITING NOTES</div>
+      <ul class="rpt-notes">
+        ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
+      </ul>
+
+      <div class="rpt-footer">
+        <span>DATE: ${fmtReportDate(reportDate)}</span>
+        <span>PAGE 1</span>
+        <span>CTI GROUP WORLDWIDE SERVICES, INC.</span>
+      </div>
+    </div>
+    ${REPORT_STYLES}
+  `;
+}
+
+// Auto-generate Recruiting Notes from data
+function generateNotes(brand, agg, layout) {
+  const notes = [];
+  const currentMonth = monthKey(new Date());
+  const positions = Object.keys(agg.byPosMonth);
+
+  positions.forEach(p => {
+    const cur = agg.byPosMonth[p][currentMonth];
+    if (!cur) return;
+    const pending = cur.pending;
+    if (cur.withId > 0 && pending === 0) {
+      notes.push(`${p}: Demand has been fulfilled. ${cur.withId} candidate${cur.withId>1?'s':''} hired with Seafarer ID.`);
+    } else if (cur.withId > 0 && pending > 0) {
+      notes.push(`${p}: ${cur.withId} hired with ID, ${pending} pending Mistral ID registration.`);
+    } else if (pending > 0) {
+      notes.push(`CTI has hired ${pending} ${p} to fulfil talent pool, with Mistral ID registration currently in process.`);
+    }
+  });
+
+  return notes;
+}
+
+// Inline styles for the report (shared by both layouts)
+const REPORT_STYLES = `
+<style>
+.rpt-doc { background:#fff; color:#1A1A1A; padding:32px 36px 24px; font-family:'Inter',system-ui,sans-serif; }
+.rpt-title { text-align:center; font-size:14px; font-weight:700; letter-spacing:0.08em; margin-bottom:14px; }
+.rpt-table { width:100%; border-collapse:collapse; font-size:11px; }
+.rpt-th { background:#1F1F1F; color:#fff; padding:9px 8px; text-align:left; font-weight:700; font-size:9px; letter-spacing:0.04em; border:1px solid #1F1F1F; vertical-align:middle; }
+.rpt-th.rpt-num { text-align:center; }
+.rpt-td { padding:7px 8px; border:1px solid #ddd; vertical-align:middle; }
+.rpt-td.rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
+.rpt-section td { background:#F0F0F0; padding:7px 8px; border:1px solid #ddd; font-size:11px; }
+.rpt-total td { background:#F8F8F8; border:1px solid #ccc; }
+.rpt-empty { padding:14px; text-align:center; color:#999; font-size:11.5px; font-style:italic; }
+.rpt-notes-h { margin-top:18px; font-size:11px; font-weight:700; letter-spacing:0.05em; padding-bottom:4px; border-bottom:1px solid #333; }
+.rpt-notes { margin:8px 0 0 18px; font-size:11px; line-height:1.55; padding-left:0; }
+.rpt-notes li { margin-bottom:4px; }
+.rpt-footer { margin-top:22px; padding-top:10px; border-top:1px solid #333; display:flex; justify-content:space-between; font-size:9.5px; font-weight:600; letter-spacing:0.04em; color:#444; }
+</style>
+`;
+
+// ── PDF download via html2pdf ────────────────────────────────────────────────
+async function downloadReportPDF(brand, reportDate) {
+  // Lazy-load html2pdf.js
+  if (!window.html2pdf) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  const doc = document.getElementById('rptDoc');
+  if (!doc) return;
+  const filename = `${brand.replace(/[^a-z0-9]/gi,'_').toUpperCase()}_WEEKLY_REPORT_${reportDate.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'}).replace(/[\s,]+/g,'_').toUpperCase()}.pdf`;
+  await window.html2pdf().set({
+    margin:       [10, 10, 10, 10],
+    filename,
+    image:        { type:'jpeg', quality:0.98 },
+    html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff' },
+    jsPDF:        { unit:'mm', format:'a4', orientation:'landscape' },
+  }).from(doc).save();
+  logHistory(brand, fmtReportDate(reportDate));
+  renderHistory();
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 async function navigate(page) {
   state.page = page;
+  try { localStorage.setItem('cti-cruise-page', page); } catch (_) {}
 
   // Breadcrumb
   const titleEl = document.getElementById('topbar-title');
@@ -73,6 +664,7 @@ async function navigate(page) {
   content.style.opacity = '0';
   try {
     content.innerHTML = await pages[page]();
+    if (pageEvents[page]) pageEvents[page]();
   } catch (err) {
     content.innerHTML = `<div style="padding:40px;color:#B01A18;">Error loading page: ${err.message}</div>`;
   }
@@ -84,7 +676,14 @@ document.addEventListener('DOMContentLoaded', () => {
   applyThemeToggle();
   applyDateBadge();
   applySidebar();
-  navigate(state.page);
+
+  // Restore last visited page (falls back to requisition)
+  let _startPage = 'requisition';
+  try {
+    const saved = localStorage.getItem('cti-cruise-page');
+    if (saved && CRUISE_PAGE_TITLES[saved]) _startPage = saved;
+  } catch (_) {}
+  navigate(_startPage);
 
   // Nav click
   document.querySelectorAll('.nav-link[data-page]').forEach(a => {

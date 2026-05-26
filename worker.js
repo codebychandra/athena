@@ -103,6 +103,116 @@ async function fetchAll(token, base, module, fields) {
   return all;
 }
 
+// ── Zoho Sheet: read "CUK Final Interview" workbook ───────────────────────
+// Requires ZohoSheet.dataAPI.READ scope on the refresh token.
+// Set env.ZOHO_SHEET_RESOURCE_ID to the workbook's resource_id from the URL
+// (https://sheet.zoho.com/sheet/open/<RESOURCE_ID>).
+const ZOHO_SHEET_API   = 'https://sheet.zoho.com/api/v2';
+const FINAL_INTERVIEW_TABS = [
+  { name: 'CUK Final Interview Candidates', defaultBrand: null   }, // brand inferred from row
+  { name: 'CUK Maritime',                   defaultBrand: 'CUK Maritime' },
+];
+
+function csvParseLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+    else if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+function csvToObjects(csv) {
+  const lines = csv.split(/\r?\n/).filter(l => l.length > 0);
+  if (lines.length < 2) return [];
+  const header = csvParseLine(lines[0]).map(h => h.replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const cells = csvParseLine(line).map(c => c.replace(/^"|"$/g,''));
+    const obj = {};
+    header.forEach((h, i) => { obj[h] = cells[i] ?? ''; });
+    return obj;
+  });
+}
+
+async function fetchSheetTabAsCSV(token, resourceId, worksheetName) {
+  const body = new URLSearchParams({
+    method:         'worksheet.records.fetch',
+    worksheet_name: worksheetName,
+  });
+  const url = `${ZOHO_SHEET_API}/${resourceId}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization:  `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  });
+  if (!r.ok) throw new Error(`Sheet API ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  // Zoho Sheet returns records under data.records (array of arrays) with headers in data.header_row.
+  // Normalize to objects.
+  if (data.records && data.header_row) {
+    const headers = data.header_row;
+    return data.records.map(row => {
+      const o = {}; headers.forEach((h, i) => { o[h] = row[i] ?? ''; }); return o;
+    });
+  }
+  if (data.data?.records) {
+    const headers = data.data.header_row || [];
+    return data.data.records.map(row => {
+      const o = {}; headers.forEach((h, i) => { o[h] = row[i] ?? ''; }); return o;
+    });
+  }
+  return [];
+}
+
+async function fetchFinalInterviewSheet(env) {
+  if (!env.ZOHO_SHEET_RESOURCE_ID) {
+    throw new Error('Set ZOHO_SHEET_RESOURCE_ID secret to the CUK Final Interview workbook id');
+  }
+  const token = await getToken(env);
+  const all   = [];
+
+  for (const tab of FINAL_INTERVIEW_TABS) {
+    let rows = [];
+    try { rows = await fetchSheetTabAsCSV(token, env.ZOHO_SHEET_RESOURCE_ID, tab.name); }
+    catch (e) { console.error(`Sheet tab "${tab.name}" failed:`, e.message); continue; }
+
+    rows.forEach(r => {
+      const finStat   = String(r['Final Interview Status']     || '').trim();
+      const offerStat = String(r['Offer Letter Status']        || '').trim();
+      const moveStat  = String(r['Move to Processing Stage']   || '').trim();
+      if (finStat.toLowerCase() !== 'approved')   return;
+      if (offerStat.toLowerCase() !== 'completed') return;
+      if (moveStat) return;  // blank only
+
+      const brand = tab.defaultBrand
+        || r['Cruise Line'] || r['Brand'] || r['Cruise_Line'] || '—';
+
+      all.push({
+        _source:        'sheet-final-interview',
+        cruiseLine:     brand,
+        fullName:       r['Full Name'] || r['Name'] || [r['First Name'], r['Last Name']].filter(Boolean).join(' ') || '—',
+        positionHired:  r['Position Hired'] || r['Position'] || '—',
+        hiredDate:      r['Hired Date'] || r['Final Interview Date'] || null,
+        seafarerIdNumber: r['Seafarer ID Number'] || null,
+        gender:         r['Gender'] || '—',
+        email:          r['Email']  || '—',
+        phone:          r['Phone']  || '—',
+        country:        r['Country'] || '—',
+        finalInterviewStatus: finStat,
+        offerLetterStatus:    offerStat,
+      });
+    });
+  }
+  return all;
+}
+
 // ── KV data cache helpers ─────────────────────────────────────────────────
 async function getCached(env, key) {
   try { return await env.TOKEN_CACHE.get(key, { type: 'json' }); } catch (_) { return null; }
@@ -254,6 +364,21 @@ const JF = {
   contractLength:    'Contract_Length',
   j1ProgramType:     'xx',
   clientName:        'Client_Name',
+};
+
+// ── Cruise Line Seafarer field map (Zoho Recruit "Seafarers" module) ──
+const SF = {
+  fullName:           'Full_Name',
+  firstName:          'First_Name',
+  lastName:           'Last_Name',
+  cruiseLine:         'Cruise_Line',
+  positionHired:      'Position_Hired',
+  hiredDate:          'Hired_Date',
+  seafarerIdNumber:   'Seafarer_ID_Number',
+  gender:             'Gender',
+  email:              'Email',
+  phone:              'Phone',
+  country:            'Country',
 };
 
 // ── Record mappers ────────────────────────────────────────────────────────
@@ -427,6 +552,30 @@ function mapJob(r) {
   };
 }
 
+// Cruise Seafarer mapper (Zoho Recruit "Seafarers" module)
+function mapSeafarer(r) {
+  const cl = r[SF.cruiseLine];
+  return {
+    _source:          'recruit',
+    id:               r.id,
+    createdTime:      r.Created_Time  || null,
+    modifiedTime:     r.Modified_Time || null,
+    fullName:         r[SF.fullName] || [r[SF.firstName], r[SF.lastName]].filter(Boolean).join(' ') || '—',
+    firstName:        r[SF.firstName] || '—',
+    lastName:         r[SF.lastName]  || '—',
+    cruiseLine:       Array.isArray(cl) ? cl.join(', ') : (cl?.name || cl || '—'),
+    positionHired:    Array.isArray(r[SF.positionHired])
+                        ? r[SF.positionHired].join(', ')
+                        : (r[SF.positionHired]?.name || r[SF.positionHired] || '—'),
+    hiredDate:        r[SF.hiredDate]         || null,
+    seafarerIdNumber: r[SF.seafarerIdNumber]  || null,
+    gender:           r[SF.gender]            || '—',
+    email:            r[SF.email]             || '—',
+    phone:            r[SF.phone]             || '—',
+    country:          r[SF.country]           || '—',
+  };
+}
+
 // Requisition column map (same as server.js REQ_COL_MAP)
 const REQ_COLS = [
   ['Hosting Company',      j => j.hostingCompany],
@@ -474,6 +623,8 @@ export default {
           clearCached(env, 'crm-j1-participants'),
           clearCached(env, 'recruit-job-openings'),
           clearCached(env, 'j1-requisition'),
+          clearCached(env, 'cruise-seafarers'),
+          clearCached(env, 'cruise-final-interview'),
         ]);
         return json({ success: true, message: 'Cache cleared' }, 200, ch);
       }
@@ -504,6 +655,41 @@ export default {
         const payload = { source: 'crm', count: data.length, data };
         await setCached(env, 'crm-j1-participants', payload);
         return json(payload, 200, ch);
+      }
+
+      // ── GET /api/cruise/seafarers ──────────────────────────────────────
+      // All seafarer hires across brands. Front-end filters by Cruise_Line value.
+      if (method === 'GET' && path === '/api/cruise/seafarers') {
+        const cached = await getCached(env, 'cruise-seafarers');
+        if (cached) return json(cached, 200, ch);
+
+        const token   = await getToken(env);
+        const fields  = Object.values(SF).join(',');
+        const records = await fetchAll(token, ZOHO_RECRUIT, 'Seafarers', fields);
+        const data    = records.map(mapSeafarer);
+        const payload = { source: 'recruit-seafarers', count: data.length, data };
+        await setCached(env, 'cruise-seafarers', payload);
+        return json(payload, 200, ch);
+      }
+
+      // ── GET /api/cruise/final-interview ────────────────────────────────
+      // Reads Zoho Sheet "CUK Final Interview" — two tabs:
+      //   'CUK Final Interview Candidates' (Cunard + P&O)
+      //   'CUK Maritime'
+      // Filters rows: Final Interview Status=Approved, Offer Letter Status=Completed,
+      // Move to Processing Stage=blank.
+      if (method === 'GET' && path === '/api/cruise/final-interview') {
+        const cached = await getCached(env, 'cruise-final-interview');
+        if (cached) return json(cached, 200, ch);
+
+        try {
+          const data = await fetchFinalInterviewSheet(env);
+          const payload = { source: 'zoho-sheet', count: data.length, data };
+          await setCached(env, 'cruise-final-interview', payload);
+          return json(payload, 200, ch);
+        } catch (err) {
+          return json({ error: 'sheet_fetch_failed', message: err.message, data: [] }, 200, ch);
+        }
       }
 
       // ── GET /api/recruit/job-openings ─────────────────────────────────
