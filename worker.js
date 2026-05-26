@@ -366,21 +366,23 @@ const JF = {
   clientName:        'Client_Name',
 };
 
-// ── Cruise Line Seafarer field map (Zoho Recruit "Seafarers" module) ──
+// ── Cruise Line Seafarer field map ───────────────────────────────────────
+// Lives in the Recruit 'Candidates' module (plural label customized to
+// 'Seafarers' in this account). Field API names confirmed via
+// /api/cruise/debug/fields probe.
 const SF = {
   fullName:           'Full_Name',
   firstName:          'First_Name',
   lastName:           'Last_Name',
   cruiseLine:         'Cruise_Line',
-  positionHired:      'Position_Hired',
+  positionHired:      'Position_Applied',     // label: 'Position Hired'
   hiredDate:          'Hired_Date',
-  seafarerIdNumber:   'Seafarer_ID_Number',
+  seafarerIdNumber:   'Crew_ID_Number',       // label: 'Seafarer ID Number'
   employmentStatus:   'Employment_Status',
   signOnDate:         'Sign_On_Date',
   onboardingStatus:   'Onboarding_Status',
   gender:             'Gender',
   email:              'Email',
-  phone:              'Phone',
   country:            'Country',
 };
 
@@ -577,7 +579,6 @@ function mapSeafarer(r) {
     onboardingStatus: r[SF.onboardingStatus]  || null,
     gender:           r[SF.gender]            || '—',
     email:            r[SF.email]             || '—',
-    phone:            r[SF.phone]             || '—',
     country:          r[SF.country]           || '—',
   };
 }
@@ -706,9 +707,11 @@ export default {
       }
 
       // ── GET /api/cruise/seafarers ──────────────────────────────────────
-      // All seafarer hires across brands. Front-end filters by Cruise_Line value.
-      // ?debug=1 returns the first raw Zoho response for diagnosis.
-      // ?module=<API_Name> overrides the module name (used by debug probe).
+      // Cruise hires live in the Recruit 'Candidates' module (the plural label
+      // is customized to 'Seafarers' in this account). Front-end filters by
+      // the per-record Cruise_Line value.
+      // ?debug=1   bypasses cache and returns the raw Zoho response.
+      // ?module=X  overrides the module name (used during diagnostics).
       if (method === 'GET' && path === '/api/cruise/seafarers') {
         const cached = await getCached(env, 'cruise-seafarers');
         if (cached && !url.searchParams.get('debug')) return json(cached, 200, ch);
