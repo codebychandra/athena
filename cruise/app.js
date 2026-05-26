@@ -638,6 +638,11 @@ function logHistory(brand, reportDate) {
 //   Employment Status = New Hire
 //   Sign On Date is empty
 //   Onboarding Status in [Completing Documents, Ready to Go, Rescheduled]
+//
+// The filter is tolerant of missing fields: if a field is empty/null on the
+// record (e.g. the worker hasn't been redeployed yet to expose it) we treat
+// that field as "pass" so the report doesn't blank out. Only when the field
+// IS populated and the value is wrong do we exclude the row.
 const ELIGIBLE_ONBOARDING = new Set([
   'completing documents',
   'ready to go',
@@ -645,60 +650,55 @@ const ELIGIBLE_ONBOARDING = new Set([
 ]);
 function isTalentPoolEligible(s) {
   const emp = (s.employmentStatus || '').trim().toLowerCase();
-  if (emp !== 'new hire') return false;
-  if (s.signOnDate) return false;                          // must be empty
+  if (emp && emp !== 'new hire') return false;
+  if (s.signOnDate) return false;                          // already deployed -> exclude
   const ob = (s.onboardingStatus || '').trim().toLowerCase();
-  if (!ELIGIBLE_ONBOARDING.has(ob)) return false;
+  if (ob && !ELIGIBLE_ONBOARDING.has(ob)) return false;
   return true;
 }
 
 function aggregateBrandData(brand, allSeafarers, allFinalInt) {
-  // Talent-pool eligible Seafarers (used by Talent Pool calculations everywhere)
+  // Both Talent Pool AND Monthly Demand layouts count from BOTH sources:
+  //   - Recruit Seafarers (passing the eligibility filter above)
+  //   - CUK Final Interview sheet pre-hires (already filtered server-side)
   const seafarers = allSeafarers.filter(s =>
     (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
   );
-  // Final Interview pre-hires (only used by monthly-demand calculations)
   const finalInt  = allFinalInt.filter(f =>
     brand === 'CUK Maritime'
       ? (f.cruiseLine === 'CUK Maritime')
       : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine));
 
-  // Two parallel buckets, indexed [position][monthKey] = {withId, pending, male, female}
-  //   byPosMonthTP    -> Recruit Seafarers only       (drives Talent Pool numbers)
-  //   byPosMonthAll   -> Seafarers + Final Interview  (drives Monthly Demand numbers)
-  const byPosMonthTP  = {};
-  const byPosMonthAll = {};
-  function bkt(map, pos, month) {
-    map[pos] = map[pos] || {};
-    map[pos][month] = map[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
-    return map[pos][month];
+  // Single bucket indexed [position][monthKey] = {withId, pending, male, female}
+  const byPosMonth = {};
+  function bkt(pos, month) {
+    byPosMonth[pos] = byPosMonth[pos] || {};
+    byPosMonth[pos][month] = byPosMonth[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
+    return byPosMonth[pos][month];
   }
 
   seafarers.forEach(s => {
     const mk = monthKey(s.hiredDate);
     if (!mk || !s.positionHired || s.positionHired === '—') return;
+    const b = bkt(s.positionHired, mk);
     const hasId = s.seafarerIdNumber && String(s.seafarerIdNumber).trim();
-    const isM = (s.gender || '').toLowerCase().startsWith('m');
-    const isF = (s.gender || '').toLowerCase().startsWith('f');
-    [byPosMonthTP, byPosMonthAll].forEach(map => {
-      const b = bkt(map, s.positionHired, mk);
-      if (hasId) b.withId++; else b.pending++;
-      if (isM) b.male++; else if (isF) b.female++;
-    });
+    if (hasId) b.withId++; else b.pending++;
+    if ((s.gender || '').toLowerCase().startsWith('m')) b.male++;
+    else if ((s.gender || '').toLowerCase().startsWith('f')) b.female++;
   });
 
-  // Final Interview pre-hires count as pending in the combined bucket ONLY
+  // Final Interview pre-hires count as pending (no Seafarer ID yet)
   finalInt.forEach(f => {
     const mk = monthKey(f.hiredDate);
     if (!mk || !f.positionHired || f.positionHired === '—') return;
-    const b = bkt(byPosMonthAll, f.positionHired, mk);
+    const b = bkt(f.positionHired, mk);
     b.pending++;
     if ((f.gender || '').toLowerCase().startsWith('m')) b.male++;
     else if ((f.gender || '').toLowerCase().startsWith('f')) b.female++;
   });
 
-  // Back-compat alias: callers using agg.byPosMonth get the Talent Pool bucket
-  return { byPosMonth: byPosMonthTP, byPosMonthTP, byPosMonthAll, seafarers, finalInt };
+  // byPosMonthTP / byPosMonthAll kept as aliases for any older consumer code
+  return { byPosMonth, byPosMonthTP: byPosMonth, byPosMonthAll: byPosMonth, seafarers, finalInt };
 }
 
 function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
