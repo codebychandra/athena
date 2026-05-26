@@ -5303,6 +5303,65 @@ pageEvents.task = function () {
           text-transform:uppercase;letter-spacing:0.05em;">${label2}</span>`;
       }
 
+      // ── Recommendation scoring ────────────────────────────────
+      // Higher score = more complete / more progressed / more established
+      function dupScore(r) {
+        let s = 0;
+        const filled = v => v && v !== '—' && v !== '' && v !== null;
+        // Completeness — basic identity fields (1pt each)
+        ['firstName','lastName','email','phone','country','dateOfBirth',
+         'gender','passportNumber'].forEach(f => { if (filled(r[f])) s += 1; });
+        // Process depth — placement milestones (2-3pt each)
+        if (filled(r.hostCompany))       s += 2;
+        if (filled(r.processingSponsor)) s += 2;
+        if (filled(r.programStart))      s += 2;
+        if (filled(r.programEnd))        s += 2;
+        if (filled(r.visaNumber))        s += 3;
+        if (filled(r.visaExpiredDate))   s += 3;
+        if (filled(r.placementStatus) && r.placementStatus !== 'New Submission') s += 2;
+        // Age bonus — older records have more accumulated context (cap +6)
+        if (r.createdTime) {
+          const ageDays = (Date.now() - new Date(r.createdTime).getTime()) / 86400000;
+          if (ageDays > 0) s += Math.min(Math.floor(ageDays / 60), 6); // +1 per ~2 months
+        }
+        return s;
+      }
+      function recBadge(rec) {
+        const m = {
+          KEEP:   { c:'#2D7A55', l:'KEEP'   },
+          DELETE: { c:'#B01A18', l:'DELETE' },
+          REVIEW: { c:'#B87A14', l:'REVIEW' },
+        }[rec];
+        return `<span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:10px;
+          background:${m.c}18;color:${m.c};border:1px solid ${m.c}40;
+          letter-spacing:0.06em;white-space:nowrap;">${m.l}</span>`;
+      }
+      function processAge(r) {
+        if (!r.createdTime) return '—';
+        const created  = new Date(r.createdTime);
+        const modified = r.modifiedTime ? new Date(r.modifiedTime) : new Date();
+        const days     = Math.max(1, Math.round((modified - created) / 86400000));
+        if (days < 31)  return `${days}d`;
+        if (days < 365) return `${Math.round(days/30)}mo`;
+        return `${(days/365).toFixed(1)}y`;
+      }
+      function fmtCreatedShort(t) {
+        if (!t) return '—';
+        const d = new Date(t); if (isNaN(d)) return '—';
+        return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+      }
+      // Annotate every group: sort by score desc, top = KEEP, low (with gap≥3) = DELETE
+      allGroups.forEach(g => {
+        g.members.forEach(r => { r._dupScore = dupScore(r); });
+        g.members.sort((a,b) => b._dupScore - a._dupScore);
+        const top = g.members[0]._dupScore;
+        g.members.forEach((r, i) => {
+          if (i === 0) r._dupRec = 'KEEP';
+          else if (i === g.members.length - 1 && (top - r._dupScore) >= 3) r._dupRec = 'DELETE';
+          else r._dupRec = 'REVIEW';
+        });
+      });
+
       // ── Match-type badge ──────────────────────────────────────
       function matchBadge(label2) {
         const map2 = { Email:'#1B3A6B', Phone:'#2D7A55', Name:'#B87A14' };
@@ -5312,6 +5371,13 @@ pageEvents.task = function () {
           ${label2 === 'Email' ? '📧' : label2 === 'Phone' ? '📞' : '👤'} ${label2}
         </span>`;
       }
+
+      // Count recommendations
+      let recDelete = 0, recReview = 0;
+      allGroups.forEach(g => g.members.forEach(r => {
+        if (r._dupRec === 'DELETE') recDelete++;
+        else if (r._dupRec === 'REVIEW') recReview++;
+      }));
 
       // ── Build results HTML ────────────────────────────────────
       let html = `
@@ -5327,15 +5393,25 @@ pageEvents.task = function () {
             <div style="font-size:22px;font-weight:800;color:var(--text);">${totalDups}</div>
             <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Affected Records</div>
           </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.06);
+            border:1px solid rgba(176,26,24,0.22);border-radius:10px;text-align:center;min-width:120px;">
+            <div style="font-size:22px;font-weight:800;color:#B01A18;">${recDelete}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Recommend Delete</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(184,122,20,0.06);
+            border:1px solid rgba(184,122,20,0.22);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:#B87A14;">${recReview}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Manual Review</div>
+          </div>
           <div style="padding:12px 18px;background:rgba(176,26,24,0.05);
             border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:120px;">
             <div style="font-size:22px;font-weight:800;color:#B87A14;">${crossSource}</div>
-            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Cross-System (Recruit ↔ CRM)</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Cross-System</div>
           </div>
           <div style="padding:12px 18px;background:rgba(176,26,24,0.05);
             border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:100px;">
             <div style="font-size:22px;font-weight:800;color:#1B3A6B;">${sameSource}</div>
-            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Same-System Dupes</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Same-System</div>
           </div>
         </div>
 
@@ -5346,12 +5422,21 @@ pageEvents.task = function () {
           ${allGroups.length} duplicate group${allGroups.length !== 1 ? 's' : ''} found
         </div>
 
+        <!-- Recommendation legend -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;
+          font-size:11px;color:var(--text-muted,#888);">
+          <span>Recommendation based on:</span>
+          <span><strong style="color:var(--text);">Completeness</strong> · fields filled</span>
+          <span><strong style="color:var(--text);">Progress</strong> · placement milestones</span>
+          <span><strong style="color:var(--text);">Age</strong> · created time</span>
+        </div>
+
         <!-- Groups table -->
         <div style="overflow-x:auto;border:1px solid var(--border,#e5e7eb);border-radius:10px;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead>
             <tr style="background:var(--bg-page,#fafafa);">
-              ${['Source','Name','Country','Status','Email','Phone','Host Company','Sponsor','DOB'].map(h=>`
+              ${['Recommend','Score','Source','Name','Country','Status','Created','Process Age','Email','Phone','Host Company','Sponsor','DOB'].map(h=>`
                 <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;
                   letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
                   border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${h}</th>
@@ -5374,11 +5459,16 @@ pageEvents.task = function () {
         const rowBg   = isCross ? 'rgba(176,26,24,0.035)' : 'transparent';
         g.members.forEach((r) => {
           const fullName = (`${r.firstName||''} ${r.lastName||''}`).trim() || '—';
-          html += `<tr style="background:${rowBg};border-bottom:1px solid var(--border,#f0f0f0);">
+          const rowAccent = r._dupRec === 'DELETE' ? 'opacity:0.85;' : '';
+          html += `<tr style="background:${rowBg};border-bottom:1px solid var(--border,#f0f0f0);${rowAccent}">
+            <td style="padding:11px 14px;">${recBadge(r._dupRec)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;color:var(--text-muted,#888);font-variant-numeric:tabular-nums;">${r._dupScore}</td>
             <td style="padding:11px 14px;">${srcBadge(r._source)}</td>
             <td style="padding:11px 14px;font-weight:600;white-space:nowrap;color:var(--text);">${escH(fullName)}</td>
             <td style="padding:11px 14px;color:var(--text-muted,#777);">${escH(r.country||'—')}</td>
             <td style="padding:11px 14px;">${taskStatusBadge(r.placementStatus)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;">${fmtCreatedShort(r.createdTime)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums;">${processAge(r)}</td>
             <td style="padding:11px 14px;font-size:11.5px;">${dupEmail(r.email)}</td>
             <td style="padding:11px 14px;font-size:11.5px;">${dupPhone(r.phone)}</td>
             <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;">${escH(r.hostCompany||'—')}</td>
@@ -5388,7 +5478,7 @@ pageEvents.task = function () {
         });
         // Group separator (skip after last group)
         if (gi < allGroups.length - 1) {
-          html += `<tr><td colspan="9" style="padding:0;height:6px;
+          html += `<tr><td colspan="13" style="padding:0;height:6px;
             background:var(--bg-page,#f5f5f5);border:none;"></td></tr>`;
         }
       });

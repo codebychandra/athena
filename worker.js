@@ -262,6 +262,8 @@ function mapRecruit(r) {
   return {
     _source:             'recruit',
     id:                  r.id,
+    createdTime:         r.Created_Time  || null,
+    modifiedTime:        r.Modified_Time || null,
     name:                r[RF.name] || [r[RF.firstName], r[RF.lastName]].filter(Boolean).join(' ') || '—',
     firstName:           r[RF.firstName]          || '—',
     lastName:            r[RF.lastName]           || '—',
@@ -359,6 +361,8 @@ function mapCRM(r) {
   return {
     _source:                'crm',
     id:                     'crm_' + r.id,
+    createdTime:            r.Created_Time  || null,
+    modifiedTime:           r.Modified_Time || null,
     name:                   fullN || [firstN, lastN].filter(Boolean).join(' ') || '—',
     firstName:              firstN || '—',
     lastName:               lastN  || '—',
