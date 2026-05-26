@@ -108,6 +108,17 @@ function deletePosition(brand, type, monthKey, position) {
   else if (n.monthly[monthKey]) delete n.monthly[monthKey][position];
   saveDemand(d);
 }
+function renamePosition(brand, type, monthKey, oldName, newName) {
+  if (!newName || newName === oldName) return false;
+  const d = loadDemand(); const n = brandNode(d, brand);
+  const bucket = type === 'talentPool' ? n.talentPool : (n.monthly[monthKey] = n.monthly[monthKey] || {});
+  if (!(oldName in bucket)) return false;
+  if (newName in bucket) return false;   // collision — caller should warn
+  bucket[newName] = bucket[oldName];
+  delete bucket[oldName];
+  saveDemand(d);
+  return true;
+}
 
 // ── Data fetch (cached in module) ────────────────────────────────────────────
 let _seafarersCache = null;
@@ -176,7 +187,7 @@ pages.reports = async function () {
     <div class="task-layout">
       <nav class="task-tabbar">
         <button class="task-sub-link active" data-section="generate">Generate Report</button>
-        <button class="task-sub-link" data-section="demand">Demand Setup</button>
+        <button class="task-sub-link" data-section="demand">Requisition Setup</button>
         <button class="task-sub-link" data-section="history">History</button>
       </nav>
 
@@ -385,29 +396,72 @@ pageEvents.reports = function () {
         <thead><tr style="background:var(--bg-page,#fafafa);">
           <th style="padding:10px 14px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">Position</th>
           <th style="padding:10px 14px;text-align:right;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);width:140px;">${colLabel}</th>
-          <th style="border-bottom:1px solid var(--border,#eee);width:60px;"></th>
+          <th style="padding:10px 14px;text-align:center;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);width:120px;">Actions</th>
         </tr></thead>
         <tbody>
-          ${positions.map(p => `<tr>
-            <td style="padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
+          ${positions.map(p => `<tr data-row="${escH(p)}">
+            <td class="dmd-name-cell" data-pos="${escH(p)}" style="padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border,#f3f3f3);">
+              <span class="dmd-name-text">${escH(p)}</span>
+            </td>
             <td style="padding:6px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;">
               <input data-pos="${escH(p)}" type="number" min="0" value="${source[p]}" class="dmd-qty"
                 style="width:80px;padding:5px 8px;border:1px solid var(--border,#ddd);border-radius:5px;font-size:13px;text-align:right;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </td>
-            <td style="padding:6px 14px;text-align:center;border-bottom:1px solid var(--border,#f3f3f3);">
-              <button data-pos="${escH(p)}" class="dmd-del" title="Remove" style="background:none;border:none;color:var(--text-muted,#aaa);cursor:pointer;font-size:18px;line-height:1;">×</button>
+            <td style="padding:6px 14px;text-align:center;border-bottom:1px solid var(--border,#f3f3f3);white-space:nowrap;">
+              <button data-pos="${escH(p)}" class="dmd-edit" title="Rename" style="background:none;border:none;color:var(--text-muted,#888);cursor:pointer;padding:4px 8px;border-radius:5px;font-family:inherit;font-size:12px;font-weight:600;">
+                Edit
+              </button>
+              <button data-pos="${escH(p)}" class="dmd-del" title="Remove" style="background:none;border:none;color:var(--text-muted,#aaa);cursor:pointer;padding:4px 8px;border-radius:5px;font-family:inherit;font-size:14px;line-height:1;">
+                ×
+              </button>
             </td>
           </tr>`).join('')}
         </tbody>
       </table></div>`;
+
     document.querySelectorAll('.dmd-qty').forEach(i => {
       i.addEventListener('change', () => {
         if (dmdType === 'talentPool') setTalentPool(brand, i.dataset.pos, i.value);
         else setMonthlyDemand(brand, mk, i.dataset.pos, i.value);
       });
     });
+
+    // Edit (rename) action
+    document.querySelectorAll('.dmd-edit').forEach(b => {
+      b.addEventListener('click', () => {
+        const oldName = b.dataset.pos;
+        const cell    = document.querySelector(`.dmd-name-cell[data-pos="${CSS.escape(oldName)}"]`);
+        if (!cell) return;
+        // Swap in an inline editor
+        cell.innerHTML = `
+          <input class="dmd-rename-input" type="text" value="${escH(oldName)}"
+            style="width:100%;padding:6px 9px;border:1px solid var(--accent,#B01A18);border-radius:5px;
+              font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);outline:none;">
+        `;
+        const input = cell.querySelector('.dmd-rename-input');
+        input.focus(); input.select();
+        const commit = (save) => {
+          const newName = save ? input.value.trim() : oldName;
+          if (save && newName && newName !== oldName) {
+            const ok = renamePosition(brand, dmdType, mk, oldName, newName);
+            if (!ok) {
+              alert(`A position named "${newName}" already exists.`);
+              return renderDemandTable();
+            }
+          }
+          renderDemandTable();
+        };
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter')      commit(true);
+          else if (e.key === 'Escape') commit(false);
+        });
+        input.addEventListener('blur', () => commit(true));
+      });
+    });
+
     document.querySelectorAll('.dmd-del').forEach(b => {
       b.addEventListener('click', () => {
+        if (!confirm(`Remove "${b.dataset.pos}"?`)) return;
         deletePosition(brand, dmdType, mk, b.dataset.pos);
         renderDemandTable();
       });
@@ -576,7 +630,7 @@ function buildTalentPoolReport(brand, reportDate, agg) {
               <td class="rpt-td rpt-num">${r.male}</td>
               <td class="rpt-td rpt-num">${r.female}</td>
             </tr>`).join('') : `
-            <tr><td colspan="6" class="rpt-empty">No demand configured for ${year}. Add positions in <strong>Demand Setup</strong>.</td></tr>`}
+            <tr><td colspan="6" class="rpt-empty">No demand configured for ${year}. Add positions in <strong>Requisition Setup</strong>.</td></tr>`}
           <tr class="rpt-total">
             <td class="rpt-td"><strong>TOTAL</strong></td>
             <td class="rpt-td rpt-num"><strong>${totalReq}</strong></td>
