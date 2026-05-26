@@ -666,6 +666,28 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/cruise/debug/record?id=<recordId> ─────────────────────
+      // Fetches a single Candidates record with EVERY field populated, so
+      // we can see exactly which API name holds the value the user expects.
+      if (method === 'GET' && path === '/api/cruise/debug/record') {
+        const id = url.searchParams.get('id');
+        if (!id) return json({ error: 'Pass ?id=<recordId>' }, 400, ch);
+        const token = await getToken(env);
+        const r = await fetch(`${ZOHO_RECRUIT}/Candidates/${id}`, {
+          headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        });
+        const data = await r.json();
+        // Filter to fields with a non-null value for easier reading
+        const rec = data.data?.[0] || {};
+        const filled = {};
+        Object.entries(rec).forEach(([k, v]) => {
+          if (v !== null && v !== '' && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v||{}).length === 0)) {
+            filled[k] = v;
+          }
+        });
+        return json({ id, filledFieldCount: Object.keys(filled).length, filled, raw: rec }, 200, ch);
+      }
+
       // ── GET /api/cruise/debug/brandscan?brand=Cunard%20Line ────────────
       // Walks every page of Candidates, counts how many records per brand
       // pass the eligibility filter, and how many of those have a non-empty
