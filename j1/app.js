@@ -6445,6 +6445,26 @@ document.addEventListener('DOMContentLoaded', function () {
     applyTheme(state.theme === 'light' ? 'dark' : 'light');
   });
 
+  // Refresh data button (topbar)
+  document.getElementById('refreshDataBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.spinning === '1') return;
+    btn.dataset.spinning = '1';
+    btn.style.pointerEvents = 'none';
+    btn.style.animation = 'spin 0.65s linear infinite';
+    showToast('Refreshing data…', 'info');
+    try {
+      await showPage(state.page || 'dashboard');
+      showToast('Data refreshed', 'success');
+    } catch (err) {
+      showToast('Refresh failed', 'error');
+    } finally {
+      btn.style.animation = '';
+      btn.style.pointerEvents = '';
+      btn.dataset.spinning = '0';
+    }
+  });
+
   // Restore sidebar collapse state
   if (localStorage.getItem('cti-sidebar-collapsed') === '1') {
     document.getElementById('sidebar').classList.add('collapsed');

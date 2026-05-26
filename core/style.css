@@ -425,6 +425,10 @@ input, select, textarea { font-family: inherit; }
   min-width: 0;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Locked nav links */
 .nav-link[data-locked] {
   opacity: 0.42;
