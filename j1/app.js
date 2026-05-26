@@ -5024,6 +5024,95 @@ pages.task = async function () {
           Select criteria above and click <strong>Run Check</strong> to scan for duplicates.
         </div>
       </div>
+    </div>
+
+    <!-- ── Alerts & Deadlines ─────────────────────────────── -->
+    <div style="display:flex;align-items:center;gap:10px;margin:32px 0 16px;">
+      <span style="font-size:16px;">⚠️</span>
+      <span style="font-size:14px;font-weight:700;color:var(--text);">Alerts &amp; Deadlines</span>
+      <!-- Threshold picker -->
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:11px;color:var(--text-muted,#888);">Show next</span>
+        ${[30,60,90].map(d=>`
+          <button class="alert-thresh-btn" data-days="${d}"
+            style="padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;
+              border:1.5px solid var(--border,#ddd);background:${d===30?'#B01A18':'transparent'};
+              color:${d===30?'#fff':'var(--text-muted,#888)'};transition:all 0.15s;">
+            ${d}d
+          </button>`).join('')}
+        <button id="alertRefreshBtn"
+          style="margin-left:6px;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:700;
+            cursor:pointer;border:1.5px solid var(--border,#ddd);background:transparent;
+            color:var(--text-muted,#888);font-family:inherit;transition:all 0.15s;">
+          🔄 Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Alert summary cards -->
+    <div id="alertSummaryRow" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:900px;margin-bottom:20px;">
+      <div class="card" style="padding:18px 20px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#B01A18;" id="alertCountVisa">—</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">🛂 DS-2019 Expiring</div>
+      </div>
+      <div class="card" style="padding:18px 20px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#B87A14;" id="alertCountProg">—</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">⏰ Program Ending</div>
+      </div>
+      <div class="card" style="padding:18px 20px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:#1B3A6B;" id="alertCountTicket">—</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted,#888);margin-top:4px;">✈️ No Return Ticket</div>
+      </div>
+    </div>
+
+    <!-- Alert tables -->
+    <div style="max-width:900px;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- DS-2019 Expiry table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
+          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
+          onclick="document.getElementById('alertTableVisa').style.display=
+            document.getElementById('alertTableVisa').style.display==='none'?'block':'none'">
+          <span style="font-size:15px;">🛂</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text);">DS-2019 Expiring</span>
+          <span id="alertBadgeVisa" style="margin-left:auto;font-size:10px;font-weight:800;
+            padding:2px 10px;border-radius:12px;background:rgba(176,26,24,0.1);color:#B01A18;"></span>
+          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+        </div>
+        <div id="alertTableVisa" style="overflow-x:auto;"></div>
+      </div>
+
+      <!-- Program Ending table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
+          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
+          onclick="document.getElementById('alertTableProg').style.display=
+            document.getElementById('alertTableProg').style.display==='none'?'block':'none'">
+          <span style="font-size:15px;">⏰</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text);">Program Ending Soon</span>
+          <span id="alertBadgeProg" style="margin-left:auto;font-size:10px;font-weight:800;
+            padding:2px 10px;border-radius:12px;background:rgba(184,122,20,0.1);color:#B87A14;"></span>
+          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+        </div>
+        <div id="alertTableProg" style="overflow-x:auto;"></div>
+      </div>
+
+      <!-- No Return Ticket table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px;
+          border-bottom:1px solid var(--border,#eee);cursor:pointer;"
+          onclick="document.getElementById('alertTableTicket').style.display=
+            document.getElementById('alertTableTicket').style.display==='none'?'block':'none'">
+          <span style="font-size:15px;">✈️</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text);">No Return Ticket Booked</span>
+          <span id="alertBadgeTicket" style="margin-left:auto;font-size:10px;font-weight:800;
+            padding:2px 10px;border-radius:12px;background:rgba(27,58,107,0.1);color:#1B3A6B;"></span>
+          <span style="color:var(--text-muted,#aaa);font-size:12px;">▾</span>
+        </div>
+        <div id="alertTableTicket" style="overflow-x:auto;"></div>
+      </div>
+
     </div>`;
 };
 
@@ -5263,6 +5352,175 @@ pageEvents.task = function () {
       btnLabel.textContent = 'Run Check';
     }
   });
+
+  // ── Alerts & Deadlines ────────────────────────────────────────────────────
+  let _alertDays    = 30;
+  let _alertRows    = null;   // cached after first fetch
+
+  const TH_STYLE = `padding:8px 12px;text-align:left;font-size:10px;font-weight:700;
+    letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);
+    border-bottom:2px solid var(--border,#e5e7eb);white-space:nowrap;`;
+  const TD_STYLE = `padding:9px 12px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;`;
+
+  function daysFromToday(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr); if (isNaN(d)) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    return Math.round((d - today) / 86400000);
+  }
+
+  function daysBadge(days, warningColor) {
+    if (days === null) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+    const c = days <= 7 ? '#DC2626' : days <= 30 ? '#D97706' : (warningColor || '#2D7A55');
+    return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;
+      background:${c}18;color:${c};border:1px solid ${c}28;">${days}d</span>`;
+  }
+
+  function fmtDate(v) {
+    if (!v) return '—';
+    const d = new Date(v); if (isNaN(d)) return v;
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  function alertTable(rows, cols) {
+    if (!rows.length) return `<div style="padding:20px;text-align:center;
+      font-size:13px;color:var(--text-muted,#aaa);">No records in this window.</div>`;
+    return `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr>${cols.map(c=>`<th style="${TH_STYLE}">${c.label}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r=>`<tr style="transition:background 0.1s;"
+        onmouseover="this.style.background='var(--bg-hover,#f8f8f8)'"
+        onmouseout="this.style.background=''">
+        ${cols.map(c=>`<td style="${TD_STYLE}">${c.render(r)}</td>`).join('')}
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  function srcBadgeAlert(src) {
+    const c = src === 'recruit' ? '#1B3A6B' : '#B87A14';
+    const l = src === 'recruit' ? 'Recruit'  : 'CRM';
+    return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+      background:${c}15;color:${c};border:1px solid ${c}28;">${l}</span>`;
+  }
+
+  function renderAlerts(rows, days) {
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const cutoff  = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+
+    // 1. DS-2019 / Visa expiry within window (future dates only)
+    const visaRows = rows.filter(r => {
+      const d = r.visaExpiredDate || r.ds2019End;
+      if (!d) return false;
+      const dt = new Date(d); if (isNaN(dt)) return false;
+      return dt >= today && dt <= cutoff;
+    }).sort((a,b) => new Date(a.visaExpiredDate||a.ds2019End) - new Date(b.visaExpiredDate||b.ds2019End));
+
+    // 2. Program ending within window
+    const progRows = rows.filter(r => {
+      if (!r.programEnd) return false;
+      const dt = new Date(r.programEnd); if (isNaN(dt)) return false;
+      return dt >= today && dt <= cutoff;
+    }).sort((a,b) => new Date(a.programEnd) - new Date(b.programEnd));
+
+    // 3. Program ending within window AND return ticket not issued
+    const ticketRows = progRows.filter(r =>
+      normalizeFlightStatus(r.returnFlightStatus) !== 'Issued'
+    );
+
+    // Update summary counts
+    document.getElementById('alertCountVisa').textContent   = visaRows.length;
+    document.getElementById('alertCountProg').textContent   = progRows.length;
+    document.getElementById('alertCountTicket').textContent = ticketRows.length;
+    document.getElementById('alertBadgeVisa').textContent   = `${visaRows.length} participant${visaRows.length!==1?'s':''}`;
+    document.getElementById('alertBadgeProg').textContent   = `${progRows.length} participant${progRows.length!==1?'s':''}`;
+    document.getElementById('alertBadgeTicket').textContent = `${ticketRows.length} participant${ticketRows.length!==1?'s':''}`;
+
+    const NAME_COL   = { label:'Name',          render: r => `<span style="font-weight:600;">${escH((`${r.firstName||''} ${r.lastName||''}`).trim()||'—')}</span>` };
+    const SOURCE_COL = { label:'Source',         render: r => srcBadgeAlert(r._source) };
+    const STATUS_COL = { label:'Status',         render: r => taskStatusBadge(r.placementStatus) };
+    const HC_COL     = { label:'Host Company',   render: r => escH(r.hostCompany||'—') };
+    const SPONSOR_COL= { label:'Sponsor',        render: r => escH(r.processingSponsor||'—') };
+
+    // DS-2019 table
+    document.getElementById('alertTableVisa').innerHTML = alertTable(visaRows, [
+      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
+      { label:'DS-2019 Expiry', render: r => fmtDate(r.visaExpiredDate||r.ds2019End) },
+      { label:'Days Left',      render: r => daysBadge(daysFromToday(r.visaExpiredDate||r.ds2019End), '#B87A14') },
+    ]);
+
+    // Program ending table
+    document.getElementById('alertTableProg').innerHTML = alertTable(progRows, [
+      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
+      { label:'Program End',  render: r => fmtDate(r.programEnd) },
+      { label:'Days Left',    render: r => daysBadge(daysFromToday(r.programEnd), '#B87A14') },
+      { label:'Return Ticket', render: r => {
+          const s = normalizeFlightStatus(r.returnFlightStatus);
+          const c = s==='Issued'?'#2D7A55':s==='Booked'?'#1B3A6B':s==='Requested'?'#B87A14':'#6B7280';
+          return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+            background:${c}15;color:${c};border:1px solid ${c}28;">${s}</span>`;
+      }},
+    ]);
+
+    // No return ticket table
+    document.getElementById('alertTableTicket').innerHTML = alertTable(ticketRows, [
+      SOURCE_COL, NAME_COL, STATUS_COL, HC_COL, SPONSOR_COL,
+      { label:'Program End',   render: r => fmtDate(r.programEnd) },
+      { label:'Days Left',     render: r => daysBadge(daysFromToday(r.programEnd), '#B87A14') },
+      { label:'Ticket Status', render: r => {
+          const s = normalizeFlightStatus(r.returnFlightStatus);
+          const c = s==='Requested'?'#B87A14':'#6B7280';
+          return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+            background:${c}15;color:${c};border:1px solid ${c}28;">${s}</span>`;
+      }},
+    ]);
+  }
+
+  async function loadAlerts(forceRefresh) {
+    if (!_alertRows || forceRefresh) {
+      // Show loading in summary cards
+      ['alertCountVisa','alertCountProg','alertCountTicket'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '<span style="font-size:14px;opacity:0.4;">…</span>';
+      });
+      try {
+        const [rRes, cRes] = await Promise.allSettled([
+          safeJson(WORKER_URL + '/api/recruit/j1-participants'),
+          safeJson(WORKER_URL + '/api/crm/j1-participants'),
+        ]);
+        const rRows = rRes.status === 'fulfilled' ? (rRes.value?.data || []) : [];
+        const cRows = cRes.status === 'fulfilled' ? (cRes.value?.data || []) : [];
+        _alertRows  = [...rRows, ...cRows];
+      } catch (e) {
+        ['alertCountVisa','alertCountProg','alertCountTicket'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '!';
+        });
+        return;
+      }
+    }
+    renderAlerts(_alertRows, _alertDays);
+  }
+
+  // Threshold buttons
+  document.querySelectorAll('.alert-thresh-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      _alertDays = parseInt(b.dataset.days);
+      document.querySelectorAll('.alert-thresh-btn').forEach(x => {
+        x.style.background = 'transparent';
+        x.style.color      = 'var(--text-muted,#888)';
+        x.style.borderColor= 'var(--border,#ddd)';
+      });
+      b.style.background  = '#B01A18';
+      b.style.color       = '#fff';
+      b.style.borderColor = '#B01A18';
+      if (_alertRows) renderAlerts(_alertRows, _alertDays);
+    });
+  });
+
+  // Refresh button
+  document.getElementById('alertRefreshBtn')?.addEventListener('click', () => loadAlerts(true));
+
+  // Auto-load on page open
+  loadAlerts(false);
 };
 
 // ============================
