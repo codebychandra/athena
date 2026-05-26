@@ -363,6 +363,11 @@ input, select, textarea { font-family: inherit; }
 .sidebar.collapsed .sidebar-logout-btn {
   display: none;
 }
+.sidebar.collapsed .hub-nav-link {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
 
 /* Locked nav links */
 .nav-link[data-locked] {
