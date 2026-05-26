@@ -4967,6 +4967,27 @@ pages.task = async function () {
       <span class="req-page-sub">Data maintenance &amp; utilities</span>
     </div>
 
+    <div class="task-layout">
+
+      <!-- Task sub-sidebar -->
+      <aside class="task-subsidebar">
+        <div class="task-subsidebar-label">Sections</div>
+        <button class="task-sub-link active" data-section="duplicate">
+          <span style="font-size:15px;">🔍</span>
+          <span>Duplicate Checker</span>
+        </button>
+        <button class="task-sub-link" data-section="alerts">
+          <span style="font-size:15px;">⚠️</span>
+          <span>Alerts &amp; Deadlines</span>
+        </button>
+      </aside>
+
+      <!-- Task content area (only active section visible) -->
+      <div class="task-content">
+
+      <!-- ═══ Section: Duplicate Checker ═══ -->
+      <section class="task-section" data-section="duplicate">
+
     <!-- Section header -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
       <span style="font-size:16px;">🛠️</span>
@@ -5026,8 +5047,13 @@ pages.task = async function () {
       </div>
     </div>
 
+      </section>
+
+      <!-- ═══ Section: Alerts & Deadlines ═══ -->
+      <section class="task-section" data-section="alerts" style="display:none;">
+
     <!-- ── Alerts & Deadlines ─────────────────────────────── -->
-    <div style="display:flex;align-items:center;gap:10px;margin:32px 0 16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px;">
       <span style="font-size:16px;">⚠️</span>
       <span style="font-size:14px;font-weight:700;color:var(--text);">Alerts &amp; Deadlines</span>
       <!-- Threshold picker -->
@@ -5113,10 +5139,28 @@ pages.task = async function () {
         <div id="alertTableTicket" style="overflow-x:auto;"></div>
       </div>
 
-    </div>`;
+    </div>
+
+      </section>
+
+      </div><!-- /.task-content -->
+    </div><!-- /.task-layout -->
+  `;
 };
 
 pageEvents.task = function () {
+  // ── Sub-sidebar section switching ────────────────────────────────────────
+  document.querySelectorAll('.task-sub-link').forEach(link => {
+    link.addEventListener('click', () => {
+      const target = link.dataset.section;
+      document.querySelectorAll('.task-sub-link').forEach(l =>
+        l.classList.toggle('active', l === link));
+      document.querySelectorAll('.task-section').forEach(s => {
+        s.style.display = s.dataset.section === target ? '' : 'none';
+      });
+    });
+  });
+
   const btn       = document.getElementById('dupRunBtn');
   const btnIcon   = document.getElementById('dupRunBtnIcon');
   const btnLabel  = document.getElementById('dupRunBtnLabel');
