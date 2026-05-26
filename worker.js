@@ -663,6 +663,28 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/cruise/debug/fields?module=Candidates ─────────────────
+      // Lists every field on a Recruit module with its api_name + label so
+      // we can find the right name for Position Hired / Seafarer ID, etc.
+      if (method === 'GET' && path === '/api/cruise/debug/fields') {
+        const moduleName = url.searchParams.get('module') || 'Candidates';
+        const filter     = (url.searchParams.get('q') || '').toLowerCase();
+        const token = await getToken(env);
+        const r = await fetch(`${ZOHO_RECRUIT}/settings/fields?module=${moduleName}`, {
+          headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        });
+        const data = await r.json();
+        const all  = (data.fields || []).map(f => ({
+          api_name:    f.api_name,
+          field_label: f.field_label,
+          data_type:   f.data_type,
+        }));
+        const matches = filter
+          ? all.filter(f => (f.api_name + ' ' + f.field_label).toLowerCase().includes(filter))
+          : all;
+        return json({ moduleName, count: matches.length, fields: matches }, 200, ch);
+      }
+
       // ── GET /api/cruise/debug/modules ──────────────────────────────────
       // Lists every Recruit module API name so we can find the right one
       // for the Seafarer / cruise records.
