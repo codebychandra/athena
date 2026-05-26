@@ -288,6 +288,10 @@ pages.reports = async function () {
               Import JSON
               <input id="dmdImportInput" type="file" accept="application/json" style="display:none;">
             </label>
+            <button id="dmdLoadDefaultsBtn"
+              style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
+              Load CTI Defaults
+            </button>
             <span id="dmdSaveStatus" style="margin-left:auto;font-size:11.5px;color:var(--text-muted,#888);"></span>
           </div>
         </div>
@@ -548,6 +552,27 @@ pageEvents.reports = function () {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     flashSaveStatus('Exported to JSON');
+  });
+
+  // ── Load CTI Defaults ──────────────────────────────────────────────────────
+  // Fetches the bundled defaults file (requisition-defaults.json) and
+  // overwrites current local config after confirmation.
+  document.getElementById('dmdLoadDefaultsBtn').addEventListener('click', async () => {
+    const existing = loadDemand();
+    const hasData  = Object.keys(existing).some(b =>
+      Object.keys(existing[b].talentPool || {}).length ||
+      Object.keys(existing[b].monthly    || {}).length);
+    if (hasData && !confirm('This will replace your current requisition config with the CTI defaults. Continue?')) return;
+    try {
+      const res = await fetch(`requisition-defaults.json?_=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const parsed = await res.json();
+      saveDemand(parsed);
+      flashSaveStatus('CTI defaults loaded');
+      renderDemandTable();
+    } catch (err) {
+      flashSaveStatus(`Load failed: ${err.message}`, true);
+    }
   });
 
   // ── Import JSON ────────────────────────────────────────────────────────────

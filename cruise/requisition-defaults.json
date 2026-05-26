@@ -1,0 +1,59 @@
+{
+  "Cunard Line": {
+    "talentPool": {
+      "Assistant Waiter/ess": 1,
+      "Commis De Cuisine": 6,
+      "Dining Steward/ess": 5,
+      "HOAS Galley": 6,
+      "HOAS Housekeeping": 6,
+      "Receptionist": 1,
+      "Wine Waiter/ess": 1
+    },
+    "monthly": {}
+  },
+  "CUK Maritime": {
+    "talentPool": {
+      "Electrical Technician": 1,
+      "Fitter Mechanic": 1,
+      "Sailor OS": 7,
+      "Technical Rating": 7
+    },
+    "monthly": {}
+  },
+  "P&O Cruises": {
+    "talentPool": {},
+    "monthly": {
+      "2026-01": {
+        "Commis Pastry": 2,
+        "Demi Chef de Partie Pastry": 1,
+        "HOAS FB": 3,
+        "Laundry Assistant": 1
+      },
+      "2026-02": {
+        "Commis Pastry": 2,
+        "Demi Chef de Partie Pastry": 1,
+        "HOAS FB": 3,
+        "Laundry Assistant": 1
+      },
+      "2026-03": {
+        "Commis Pastry": 1,
+        "Demi Chef de Partie Pastry": 1,
+        "Laundry Assistant": 1,
+        "Housekeeper DNC": 1,
+        "Stage Crew": 1
+      },
+      "2026-04": {
+        "Commis Pastry": 1,
+        "Demi Chef de Partie Pastry": 1,
+        "Housekeeper DNC": 1
+      },
+      "2026-05": {
+        "HOAS FB": 25,
+        "Commis Pastry": 1,
+        "Pool Supervisor": 1,
+        "Laundry Assistant": 1,
+        "Housekeeper DNC": 1
+      }
+    }
+  }
+}
