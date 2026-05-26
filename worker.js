@@ -663,9 +663,30 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/cruise/debug/modules ──────────────────────────────────
+      // Lists every Recruit module API name so we can find the right one
+      // for the Seafarer / cruise records.
+      if (method === 'GET' && path === '/api/cruise/debug/modules') {
+        const token = await getToken(env);
+        const r = await fetch(`${ZOHO_RECRUIT}/settings/modules`, {
+          headers: { Authorization: `Zoho-oauthtoken ${token}` },
+        });
+        const data = await r.json();
+        const summary = (data.modules || []).map(m => ({
+          api_name:     m.api_name,
+          plural_label: m.plural_label,
+          module_name:  m.module_name,
+          singular:     m.singular_label,
+          generated:    m.generated_type,
+          visible:      m.visibility,
+        }));
+        return json({ summary, raw: data }, 200, ch);
+      }
+
       // ── GET /api/cruise/seafarers ──────────────────────────────────────
       // All seafarer hires across brands. Front-end filters by Cruise_Line value.
       // ?debug=1 returns the first raw Zoho response for diagnosis.
+      // ?module=<API_Name> overrides the module name (used by debug probe).
       if (method === 'GET' && path === '/api/cruise/seafarers') {
         const cached = await getCached(env, 'cruise-seafarers');
         if (cached && !url.searchParams.get('debug')) return json(cached, 200, ch);
@@ -673,13 +694,15 @@ export default {
         const token   = await getToken(env);
         const fields  = Object.values(SF).join(',');
 
+        const moduleName = url.searchParams.get('module') || 'Seafarer';
+
         if (url.searchParams.get('debug')) {
           // Probe the module directly so we can see what Zoho says.
-          const probe = await zGet(`${ZOHO_RECRUIT}/Seafarer`, token, { fields, page: 1, per_page: 5 });
-          return json({ probe, fieldsRequested: fields }, 200, ch);
+          const probe = await zGet(`${ZOHO_RECRUIT}/${moduleName}`, token, { fields, page: 1, per_page: 5 });
+          return json({ probe, fieldsRequested: fields, moduleName }, 200, ch);
         }
 
-        const records = await fetchAll(token, ZOHO_RECRUIT, 'Seafarer', fields);
+        const records = await fetchAll(token, ZOHO_RECRUIT, moduleName, fields);
         const data    = records.map(mapSeafarer);
         const payload = { source: 'recruit-seafarers', count: data.length, data };
         await setCached(env, 'cruise-seafarers', payload);
