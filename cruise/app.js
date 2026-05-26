@@ -264,7 +264,31 @@ pages.reports = async function () {
           <div style="display:flex;align-items:center;gap:8px;margin-top:16px;">
             <input id="dmdNewPos" placeholder="Add position name (e.g. Sailor OS)" style="flex:1;padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             <input id="dmdNewQty" type="number" min="0" placeholder="Qty" style="width:90px;padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
-            <button id="dmdAddBtn" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:6px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Add Position</button>
+            <button id="dmdAddBtn" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:6px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Add Position</button>
+          </div>
+
+          <!-- Footer actions -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border,#eee);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button id="dmdSaveBtn"
+              style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Save Requisition
+            </button>
+            <button id="dmdExportBtn"
+              style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
+              Export JSON
+            </button>
+            <label id="dmdImportLabel"
+              style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
+              Import JSON
+              <input id="dmdImportInput" type="file" accept="application/json" style="display:none;">
+            </label>
+            <span id="dmdSaveStatus" style="margin-left:auto;font-size:11.5px;color:var(--text-muted,#888);"></span>
           </div>
         </div>
       </section>
@@ -485,8 +509,68 @@ pageEvents.reports = function () {
     else setMonthlyDemand(dmdBrand.value, dmdMonth.value, p, q || 0);
     document.getElementById('dmdNewPos').value = '';
     document.getElementById('dmdNewQty').value = '';
+    flashSaveStatus('Position added');
     renderDemandTable();
   });
+
+  // ── Save Requisition ───────────────────────────────────────────────────────
+  // Flushes any pending qty edits (in case a number input wasn't blurred),
+  // then re-renders and shows confirmation.
+  function flashSaveStatus(msg, isError) {
+    const el = document.getElementById('dmdSaveStatus');
+    if (!el) return;
+    el.textContent = (isError ? '✗ ' : '✓ ') + msg;
+    el.style.color = isError ? '#B01A18' : '#2D7A55';
+    el.style.fontWeight = '600';
+    clearTimeout(flashSaveStatus._t);
+    flashSaveStatus._t = setTimeout(() => {
+      el.textContent = ''; el.style.fontWeight = '';
+    }, 2400);
+  }
+  document.getElementById('dmdSaveBtn').addEventListener('click', () => {
+    // Commit any unblurred number inputs
+    document.querySelectorAll('.dmd-qty').forEach(i => {
+      if (dmdType === 'talentPool') setTalentPool(dmdBrand.value, i.dataset.pos, i.value);
+      else setMonthlyDemand(dmdBrand.value, dmdMonth.value, i.dataset.pos, i.value);
+    });
+    renderDemandTable();
+    flashSaveStatus(`Requisition saved — ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`);
+  });
+
+  // ── Export JSON (full requisition config) ──────────────────────────────────
+  document.getElementById('dmdExportBtn').addEventListener('click', () => {
+    const data = loadDemand();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `cruise-requisition-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    flashSaveStatus('Exported to JSON');
+  });
+
+  // ── Import JSON ────────────────────────────────────────────────────────────
+  document.getElementById('dmdImportInput').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid format');
+      if (!confirm(`Replace current requisition config with the file? This cannot be undone.`)) {
+        e.target.value = ''; return;
+      }
+      saveDemand(parsed);
+      flashSaveStatus(`Imported ${Object.keys(parsed).length} brand${Object.keys(parsed).length!==1?'s':''}`);
+      renderDemandTable();
+    } catch (err) {
+      flashSaveStatus(`Import failed: ${err.message}`, true);
+    } finally {
+      e.target.value = '';
+    }
+  });
+
   applyTypeUI();
   renderDemandTable();
 
