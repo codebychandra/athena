@@ -353,6 +353,9 @@ input, select, textarea { font-family: inherit; }
 .sidebar.collapsed .sidebar-user-details {
   display: none;
 }
+.sidebar.collapsed .sidebar-user-info {
+  flex: 0 0 auto;   /* stop stretching — let footer centre the avatar */
+}
 .sidebar.collapsed .sidebar-user-footer {
   justify-content: center;
   padding: 10px 0;
