@@ -709,36 +709,43 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
       ? (f.cruiseLine === 'CUK Maritime')
       : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine));
 
-  // Single bucket indexed [position][monthKey] = {withId, pending, male, female}
-  const byPosMonth = {};
-  function bkt(pos, month) {
-    byPosMonth[pos] = byPosMonth[pos] || {};
-    byPosMonth[pos][month] = byPosMonth[pos][month] || { withId: 0, pending: 0, male: 0, female: 0 };
-    return byPosMonth[pos][month];
+  const genderOf = g => {
+    const x = (g || '').toLowerCase();
+    return x.startsWith('m') ? 'M' : x.startsWith('f') ? 'F' : '';
+  };
+
+  // Pool of eligible records per position. Hire date is captured only so the
+  // monthly-demand layout can order the waterfall allocation — it does NOT
+  // filter anyone out. Talent Pool ignores date entirely.
+  const byPosition = {};   // pos -> [ { hasId, gender, hiredDate } ]
+  function pushRec(pos, rec) {
+    if (!pos || pos === '—') return;
+    (byPosition[pos] = byPosition[pos] || []).push(rec);
   }
 
-  seafarers.forEach(s => {
-    const mk = monthKey(s.hiredDate);
-    if (!mk || !s.positionHired || s.positionHired === '—') return;
-    const b = bkt(s.positionHired, mk);
-    const hasId = s.seafarerIdNumber && String(s.seafarerIdNumber).trim();
-    if (hasId) b.withId++; else b.pending++;
-    if ((s.gender || '').toLowerCase().startsWith('m')) b.male++;
-    else if ((s.gender || '').toLowerCase().startsWith('f')) b.female++;
-  });
+  seafarers.forEach(s => pushRec(s.positionHired, {
+    hasId:     !!(s.seafarerIdNumber && String(s.seafarerIdNumber).trim()),
+    gender:    genderOf(s.gender),
+    hiredDate: s.hiredDate ? new Date(s.hiredDate) : null,
+    source:    'recruit',
+  }));
+  // Final Interview pre-hires never have a Seafarer ID yet → always pending
+  finalInt.forEach(f => pushRec(f.positionHired, {
+    hasId:     false,
+    gender:    genderOf(f.gender),
+    hiredDate: f.hiredDate ? new Date(f.hiredDate) : null,
+    source:    'sheet',
+  }));
 
-  // Final Interview pre-hires count as pending (no Seafarer ID yet)
-  finalInt.forEach(f => {
-    const mk = monthKey(f.hiredDate);
-    if (!mk || !f.positionHired || f.positionHired === '—') return;
-    const b = bkt(f.positionHired, mk);
-    b.pending++;
-    if ((f.gender || '').toLowerCase().startsWith('m')) b.male++;
-    else if ((f.gender || '').toLowerCase().startsWith('f')) b.female++;
-  });
+  // Sort each position's pool by hire date ascending (records with no date last)
+  Object.values(byPosition).forEach(arr => arr.sort((a, b) => {
+    if (!a.hiredDate && !b.hiredDate) return 0;
+    if (!a.hiredDate) return 1;
+    if (!b.hiredDate) return -1;
+    return a.hiredDate - b.hiredDate;
+  }));
 
-  // byPosMonthTP / byPosMonthAll kept as aliases for any older consumer code
-  return { byPosMonth, byPosMonthTP: byPosMonth, byPosMonthAll: byPosMonth, seafarers, finalInt };
+  return { byPosition, seafarers, finalInt };
 }
 
 function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
@@ -787,38 +794,33 @@ function buildDataStatusBadge(brand, allSeafarers, allFinalInt) {
 }
 
 // ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
+// NO hire-date filter — the talent pool is a running count of everyone
+// currently eligible and in the pool, regardless of when they were hired.
 function buildTalentPoolReport(brand, reportDate, agg) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const talentPool= node.talentPool || {};
-  // Use Talent Pool positions as the canonical list, but include any
-  // positions that have hires this year even if no quota was set.
+  // Talent Pool positions are the canonical list, plus any position that has
+  // pool members even if no quota was set.
   const positions = new Set(Object.keys(talentPool));
-  Object.keys(agg.byPosMonth).forEach(p => {
-    if (Object.keys(agg.byPosMonth[p] || {}).some(mk => mk.startsWith(String(year)))) {
-      positions.add(p);
-    }
-  });
+  Object.keys(agg.byPosition).forEach(p => positions.add(p));
   const posList = Array.from(positions).sort();
 
-  // Talent Pool Fulfilment counts ONLY records with Seafarer ID Number filled
-  // (Zoho filter: Seafarer ID Number = Not Empty). Pending-ID records are
-  // surfaced separately in the Recruiting Notes.
-  let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0, totalPending = 0;
+  // Fulfilment = records WITH Seafarer ID Number (any hire date).
+  // Male/Female headcount = gender split of the fulfilment (with-ID) records,
+  // so MALE + FEMALE = FULFILMENT (matches the original CUK reports).
+  let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0;
   const rows = posList.map(pos => {
-    const req = Number(talentPool[pos] || 0);
-    let fulfil = 0, pending = 0, male = 0, female = 0;
-    Object.entries(agg.byPosMonth[pos] || {}).forEach(([mk, b]) => {
-      if (!mk.startsWith(String(year))) return;
-      fulfil  += b.withId;       // ← only those with Seafarer ID
-      pending += b.pending;
-      male    += b.male;
-      female  += b.female;
-    });
+    const req    = Number(talentPool[pos] || 0);
+    const recs   = agg.byPosition[pos] || [];
+    const withId = recs.filter(r => r.hasId);
+    const fulfil = withId.length;
+    const male   = withId.filter(r => r.gender === 'M').length;
+    const female = withId.filter(r => r.gender === 'F').length;
     const remaining = Math.max(0, req - fulfil);
     totalReq += req; totalRem += remaining; totalFul += fulfil;
-    totalM += male; totalF += female; totalPending += pending;
-    return { pos, req, remaining, fulfil, pending, male, female };
+    totalM += male; totalF += female;
+    return { pos, req, remaining, fulfil, male, female };
   });
 
   const notes = generateNotes(brand, agg, 'talent-pool');
@@ -878,18 +880,21 @@ function buildTalentPoolReport(brand, reportDate, agg) {
 }
 
 // ── Layout B: Monthly Demand vs Hiring (P&O Cruises) ─────────────────────────
+// Hires for a position are POOLED (any hire date) and waterfall-allocated
+// across the demand months in chronological order: fill January's demand
+// first, overflow into February, and so on.
+//   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
 function buildMonthlyDemandReport(brand, reportDate, agg) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const monthly   = node.monthly    || {};
   const talentPool= node.talentPool || {};
-  const months = new Set();
-  Object.keys(monthly).forEach(mk => { if (mk.startsWith(String(year))) months.add(mk); });
-  Object.values(agg.byPosMonthAll).forEach(byMo => Object.keys(byMo).forEach(mk => {
-    if (mk.startsWith(String(year))) months.add(mk);
-  }));
-  const monthList = Array.from(months).sort();
-  // Range label e.g. "JANUARY - MAY 2026"
+
+  // Demand months for the report year, chronological
+  const monthList = Object.keys(monthly)
+    .filter(mk => mk.startsWith(String(year)))
+    .sort();
+
   let rangeLabel = String(year);
   if (monthList.length) {
     const first = monthLabel(monthList[0]).split(' ')[0];
@@ -897,22 +902,20 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     rangeLabel  = first === last ? `${first} ${year}` : `${first} - ${last} ${year}`;
   }
 
-  // ── Talent Pool block (running, applies every month) ──
+  // ── Talent Pool block (running, no date filter) ──
   const tpPositions = Object.keys(talentPool);
   let talentPoolBlock = '';
   if (tpPositions.length) {
     const tpRows = tpPositions.sort().map(pos => {
-      const req = Number(talentPool[pos] || 0);
-      let fulfil = 0, male = 0, female = 0, pending = 0;
-      Object.entries(agg.byPosMonth[pos] || {}).forEach(([mk, b]) => {
-        if (!mk.startsWith(String(year))) return;
-        fulfil += b.withId + b.pending;
-        male   += b.male;
-        female += b.female;
-        pending += b.pending;
-      });
+      const req    = Number(talentPool[pos] || 0);
+      const recs   = agg.byPosition[pos] || [];
+      const withId = recs.filter(r => r.hasId);
+      const fulfil = withId.length;
+      const male   = withId.filter(r => r.gender === 'M').length;
+      const female = withId.filter(r => r.gender === 'F').length;
+      const pending= recs.filter(r => !r.hasId).length;
       const remaining = Math.max(0, req - fulfil);
-      return { pos, req, remaining, hired: fulfil - pending, male, female, pending };
+      return { pos, req, remaining, hired: fulfil, male, female, pending };
     });
     talentPoolBlock = `
       <tr class="rpt-section"><td colspan="7"><strong>TALENT POOL (RUNNING)</strong></td></tr>
@@ -929,39 +932,57 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     `;
   }
 
-  // Build monthly block: each month gets a sub-header, then positions
-  // Uses the COMBINED bucket (Recruit Seafarers + Final Interview pre-hires).
+  // ── Waterfall allocation of pooled hires across demand months ──
+  // For each demand position, walk the months in order, taking up to that
+  // month's demand from the (date-sorted) pool of hires.
+  const demandPositions = new Set();
+  monthList.forEach(mk => Object.keys(monthly[mk] || {}).forEach(p => demandPositions.add(p)));
+  tpPositions.forEach(p => demandPositions.delete(p));   // avoid double-count with TP block
+
+  // alloc[pos][mk] = { dem, hired, pending, male, female, remaining }
+  const alloc = {};
+  demandPositions.forEach(pos => {
+    const recs = (agg.byPosition[pos] || []).slice();    // already date-sorted asc
+    let idx = 0;
+    alloc[pos] = {};
+    monthList.forEach(mk => {
+      const dem   = Number(monthly[mk]?.[pos] || 0);
+      const take  = Math.max(0, Math.min(dem, recs.length - idx));
+      const slice = recs.slice(idx, idx + take);
+      idx += take;
+      alloc[pos][mk] = {
+        dem,
+        hired:     slice.filter(r => r.hasId).length,
+        pending:   slice.filter(r => !r.hasId).length,
+        male:      slice.filter(r => r.hasId && r.gender === 'M').length,
+        female:    slice.filter(r => r.hasId && r.gender === 'F').length,
+        remaining: Math.max(0, dem - slice.length),
+      };
+    });
+  });
+
+  // Render each month's block
   let monthlyBlocks = '';
   monthList.forEach(mk => {
-    const monthDemand = monthly[mk] || {};
-    const positions   = new Set(Object.keys(monthDemand));
-    Object.keys(agg.byPosMonthAll).forEach(p => {
-      if (agg.byPosMonthAll[p][mk]) positions.add(p);
-    });
-    // Exclude positions covered by Talent Pool — to avoid double-counting
-    tpPositions.forEach(p => positions.delete(p));
-    const posList = Array.from(positions).sort();
-    const rows = posList.map(p => {
-      const dem      = Number(monthDemand[p] || 0);
-      const b        = (agg.byPosMonthAll[p] && agg.byPosMonthAll[p][mk]) || { withId:0, pending:0, male:0, female:0 };
-      const hired    = b.withId;                       // strictly with ID
-      const pending  = b.pending;
-      const remaining= Math.max(0, dem - (hired + pending));
-      return { p, dem, remaining, hired, male:b.male, female:b.female, pending };
-    });
-    if (!rows.length) return;
+    const positions = Object.keys(monthly[mk] || {})
+      .filter(p => demandPositions.has(p))
+      .sort();
+    if (!positions.length) return;
     monthlyBlocks += `
       <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
-      ${rows.map(r => `
+      ${positions.map(p => {
+        const a = alloc[p][mk];
+        return `
         <tr>
-          <td class="rpt-td">${escH(r.p)}</td>
-          <td class="rpt-td rpt-num">${r.dem}</td>
-          <td class="rpt-td rpt-num">${r.remaining}</td>
-          <td class="rpt-td rpt-num">${r.hired}</td>
-          <td class="rpt-td rpt-num">${r.male}</td>
-          <td class="rpt-td rpt-num">${r.female}</td>
-          <td class="rpt-td rpt-num">${r.pending}</td>
-        </tr>`).join('')}
+          <td class="rpt-td">${escH(p)}</td>
+          <td class="rpt-td rpt-num">${a.dem}</td>
+          <td class="rpt-td rpt-num">${a.remaining}</td>
+          <td class="rpt-td rpt-num">${a.hired}</td>
+          <td class="rpt-td rpt-num">${a.male}</td>
+          <td class="rpt-td rpt-num">${a.female}</td>
+          <td class="rpt-td rpt-num">${a.pending}</td>
+        </tr>`;
+      }).join('')}
     `;
   });
 
@@ -1006,28 +1027,19 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
   `;
 }
 
-// Auto-generate Recruiting Notes from data.
-// Talent-pool notes use Seafarers only; monthly-demand notes use
-// the combined bucket (Seafarers + Final Interview pre-hires).
+// Auto-generate Recruiting Notes from the pooled records (no date filter).
 function generateNotes(brand, agg, layout) {
   const notes = [];
-  const currentMonth = monthKey(new Date());
-  const source = layout === 'monthly-demand' ? agg.byPosMonthAll : agg.byPosMonthTP;
-  const positions = Object.keys(source);
-
-  positions.forEach(p => {
-    const cur = source[p][currentMonth];
-    if (!cur) return;
-    const pending = cur.pending;
-    if (cur.withId > 0 && pending === 0) {
-      notes.push(`${p}: Demand has been fulfilled. ${cur.withId} candidate${cur.withId>1?'s':''} hired with Seafarer ID.`);
-    } else if (cur.withId > 0 && pending > 0) {
-      notes.push(`${p}: ${cur.withId} hired with ID, ${pending} pending Mistral ID registration.`);
+  Object.keys(agg.byPosition).sort().forEach(p => {
+    const recs    = agg.byPosition[p];
+    const withId  = recs.filter(r => r.hasId).length;
+    const pending = recs.filter(r => !r.hasId).length;
+    if (withId > 0 && pending > 0) {
+      notes.push(`${p}: ${withId} hired with Seafarer ID, ${pending} pending Mistral ID registration.`);
     } else if (pending > 0) {
-      notes.push(`CTI has hired ${pending} ${p} to fulfil talent pool, with Mistral ID registration currently in process.`);
+      notes.push(`CTI has hired ${pending} ${p}${pending>1?'s':''} to fulfil talent pool, with Mistral ID registration currently in process.`);
     }
   });
-
   return notes;
 }
 
