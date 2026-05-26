@@ -188,135 +188,70 @@
     /* ── Portal cards grid ──────────────────────────────── */
     .hub-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 340px));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
+      gap: 20px;
       justify-content: center;
       width: 100%;
-      max-width: 760px;
+      max-width: 700px;
     }
 
     .portal-card {
       background: var(--card);
-      border-radius: 20px;
+      border-radius: 14px;
       border: 1px solid var(--border);
-      padding: 32px 28px 28px;
+      padding: 24px 26px;
       cursor: pointer;
       text-decoration: none;
       transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      position: relative;
-      overflow: hidden;
-    }
-    .portal-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      border-radius: 20px 20px 0 0;
-      background: var(--portal-color, var(--red));
-    }
-    .portal-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 36px rgba(0,0,0,0.12);
-      border-color: var(--portal-color, var(--red));
-    }
-
-    .portal-card-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: var(--portal-color-bg, rgba(176,26,24,0.08));
-      border: 1px solid var(--portal-color-border, rgba(176,26,24,0.15));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-    }
-    .portal-card-label {
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--portal-color, var(--red));
-      margin-bottom: 4px;
-    }
-    .portal-card-name {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: -0.3px;
-      line-height: 1.2;
-    }
-    .portal-card-desc {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-    .portal-card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-top: auto;
-      padding-top: 14px;
-      border-top: 1px solid var(--border);
+      gap: 18px;
+      position: relative;
     }
-    .portal-card-menu {
+    .portal-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      border-color: var(--portal-color, var(--red));
+    }
+
+    .portal-card-text {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 4px;
+      min-width: 0;
     }
-    .portal-menu-pill {
-      font-size: 9px;
+    .portal-card-name {
+      font-size: 16px;
       font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 8px;
-      background: var(--bg);
-      color: var(--muted);
-      border: 1px solid var(--border);
-      letter-spacing: 0.03em;
-    }
-    .portal-enter-btn {
+      color: var(--text);
+      letter-spacing: -0.2px;
+      line-height: 1.2;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 10px;
+    }
+    .portal-card-tagline {
       font-size: 12px;
-      font-weight: 700;
-      color: var(--portal-color, var(--red));
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      padding: 0;
-      transition: gap 0.15s;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .portal-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
       flex-shrink: 0;
+      display: inline-block;
     }
-    .portal-card:hover .portal-enter-btn { gap: 9px; }
+    .portal-status-dot.live { background: #2D7A55; box-shadow: 0 0 0 3px rgba(45,122,85,0.15); }
+    .portal-status-dot.soon { background: #B87A14; box-shadow: 0 0 0 3px rgba(184,122,20,0.15); }
 
-    /* Status badge on card */
-    .portal-status-badge {
-      position: absolute;
-      top: 16px;
-      right: 18px;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      padding: 2px 9px;
-      border-radius: 12px;
-      text-transform: uppercase;
+    .portal-card-arrow {
+      color: var(--portal-color, var(--red));
+      flex-shrink: 0;
+      transition: transform 0.18s;
     }
-    .portal-status-live {
-      background: rgba(45,122,85,0.1);
-      color: #2D7A55;
-      border: 1px solid rgba(45,122,85,0.25);
-    }
-    .portal-status-soon {
-      background: rgba(184,122,20,0.1);
-      color: #B87A14;
-      border: 1px solid rgba(184,122,20,0.25);
-    }
+    .portal-card:hover .portal-card-arrow { transform: translateX(3px); }
 
     /* ── Footer ─────────────────────────────────────────── */
     .hub-footer {
@@ -389,72 +324,35 @@
     <div class="hub-grid">
 
       <!-- J1 Program Portal -->
-      <a class="portal-card" href="j1/index.html"
-        style="--portal-color:#1B3A6B;
-               --portal-color-bg:rgba(27,58,107,0.07);
-               --portal-color-border:rgba(27,58,107,0.15);">
-        <span class="portal-status-badge portal-status-live">● Live</span>
-        <div class="portal-card-icon">🎓</div>
-        <div>
-          <div class="portal-card-label">CTI Group</div>
-          <div class="portal-card-name">J1 Program Portal</div>
-        </div>
-        <div class="portal-card-desc">
-          Manage J1 cultural exchange participants — requisitions, visa processing,
-          travel logistics, housing, and return-home coordination.
-        </div>
-        <div class="portal-card-footer">
-          <div class="portal-card-menu">
-            <span class="portal-menu-pill">Requisition</span>
-            <span class="portal-menu-pill">Participant</span>
-            <span class="portal-menu-pill">Visa</span>
-            <span class="portal-menu-pill">Travel</span>
-            <span class="portal-menu-pill">Housing</span>
-            <span class="portal-menu-pill">+more</span>
+      <a class="portal-card" href="j1/index.html" style="--portal-color:#1B3A6B;">
+        <div class="portal-card-text">
+          <div class="portal-card-name">
+            <span class="portal-status-dot live" title="Live"></span>
+            J1 Program
           </div>
-          <button class="portal-enter-btn" style="color:#1B3A6B;">
-            Enter
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 19 12 12 19"/>
-            </svg>
-          </button>
+          <div class="portal-card-tagline">Cultural exchange management</div>
         </div>
+        <svg class="portal-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
       </a>
 
       <!-- Cruise Line Portal -->
-      <a class="portal-card" href="cruise/index.html"
-        style="--portal-color:#B01A18;
-               --portal-color-bg:rgba(176,26,24,0.07);
-               --portal-color-border:rgba(176,26,24,0.15);">
-        <span class="portal-status-badge portal-status-soon">In Progress</span>
-        <div class="portal-card-icon">🚢</div>
-        <div>
-          <div class="portal-card-label">CTI Group</div>
-          <div class="portal-card-name">Cruise Line Portal</div>
-        </div>
-        <div class="portal-card-desc">
-          End-to-end cruise placement management — from candidate sourcing and
-          final interviews through seafarer deployment and visa processing.
-        </div>
-        <div class="portal-card-footer">
-          <div class="portal-card-menu">
-            <span class="portal-menu-pill">Requisition</span>
-            <span class="portal-menu-pill">Candidate</span>
-            <span class="portal-menu-pill">Seafarer</span>
-            <span class="portal-menu-pill">Visa</span>
-            <span class="portal-menu-pill">Deployment</span>
+      <a class="portal-card" href="cruise/index.html" style="--portal-color:#B01A18;">
+        <div class="portal-card-text">
+          <div class="portal-card-name">
+            <span class="portal-status-dot soon" title="In progress"></span>
+            Cruise Line
           </div>
-          <button class="portal-enter-btn" style="color:#B01A18;">
-            Enter
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 19 12 12 19"/>
-            </svg>
-          </button>
+          <div class="portal-card-tagline">Seafarer placement &amp; deployment</div>
         </div>
+        <svg class="portal-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
       </a>
 
     </div>
