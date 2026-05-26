@@ -94,7 +94,12 @@ async function zPatch(url, token, body) {
 async function fetchAll(token, base, module, fields) {
   let all = [], page = 1, more = true;
   while (more) {
-    const data = await zGet(`${base}/${module}`, token, { fields, page, per_page: 200 });
+    const params = { page, per_page: 200 };
+    // Empty/null fields => let Zoho return every field on the layout.
+    // (Some modules silently drop fields from the response when a long fields
+    // list is requested.)
+    if (fields) params.fields = fields;
+    const data = await zGet(`${base}/${module}`, token, params);
     const records = data.data || [];
     all = all.concat(records);
     more = data.info?.more_records === true;
@@ -822,17 +827,20 @@ export default {
         if (cached && !url.searchParams.get('debug')) return json(cached, 200, ch);
 
         const token   = await getToken(env);
-        const fields  = Object.values(SF).join(',');
-
         const moduleName = url.searchParams.get('module') || 'Candidates';
 
         if (url.searchParams.get('debug')) {
           // Probe the module directly so we can see what Zoho says.
-          const probe = await zGet(`${ZOHO_RECRUIT}/${moduleName}`, token, { fields, page: 1, per_page: 5 });
-          return json({ probe, fieldsRequested: fields, moduleName }, 200, ch);
+          // No fields parameter — Zoho's behaviour with a long `fields` list
+          // on the Candidates module was silently dropping Position_Applied,
+          // Crew_ID_Number and Mobile. Returning all fields fixes it.
+          const probe = await zGet(`${ZOHO_RECRUIT}/${moduleName}`, token, { page: 1, per_page: 5 });
+          return json({ probe, moduleName }, 200, ch);
         }
 
-        const records = await fetchAll(token, ZOHO_RECRUIT, moduleName, fields);
+        // Pull every field on the layout — mapSeafarer picks just the ones
+        // we need. Bypassing the `fields` parameter avoids the silent drop.
+        const records = await fetchAll(token, ZOHO_RECRUIT, moduleName, null);
         const data    = records.map(mapSeafarer);
         const payload = { source: 'recruit-seafarers', count: data.length, data };
         await setCached(env, 'cruise-seafarers', payload);
