@@ -117,17 +117,27 @@ function applyDateBadge() {
 }
 
 function applySidebar() {
+  const sidebar = document.getElementById('sidebar');
+
+  // Restore collapsed state from localStorage
+  if (localStorage.getItem('cti-sidebar-collapsed') === '1') {
+    sidebar?.classList.add('collapsed');
+  }
+
   // Hamburger toggle (mobile)
   document.getElementById('hamburger')?.addEventListener('click', () => {
-    document.getElementById('sidebar')?.classList.toggle('open');
+    sidebar?.classList.toggle('open');
     document.getElementById('sidebarOverlay')?.classList.toggle('visible');
   });
   document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
-    document.getElementById('sidebar')?.classList.remove('open');
+    sidebar?.classList.remove('open');
     document.getElementById('sidebarOverlay')?.classList.remove('visible');
   });
+
   // Collapse toggle (desktop)
   document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => {
-    document.querySelector('.app-shell')?.classList.toggle('sidebar-collapsed');
+    sidebar?.classList.toggle('collapsed');
+    const isCollapsed = sidebar?.classList.contains('collapsed');
+    localStorage.setItem('cti-sidebar-collapsed', isCollapsed ? '1' : '0');
   });
 }
