@@ -666,6 +666,40 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/cruise/debug/idsearch ─────────────────────────────────
+      // Searches the Candidates module for records that have a non-empty
+      // value in any of the ID-like fields, to find which one the team is
+      // actually populating.
+      if (method === 'GET' && path === '/api/cruise/debug/idsearch') {
+        const token = await getToken(env);
+        const probeFields = ['Candidate_ID','Crew_ID_Number','Temporary_ID','Crew_ID_2'];
+        const fields = ['Full_Name','Cruise_Line','Hired_Date','Position_Applied','Position_Hired_2',
+                        ...probeFields].join(',');
+        // Pull 5 pages = up to 1000 candidates
+        let all = [];
+        for (let page = 1; page <= 5; page++) {
+          const data = await zGet(`${ZOHO_RECRUIT}/Candidates`, token,
+            { fields, page, per_page: 200 });
+          all = all.concat(data.data || []);
+          if (!data.info?.more_records) break;
+        }
+        const counts = {}; probeFields.forEach(f => counts[f] = 0);
+        const samples = {}; probeFields.forEach(f => samples[f] = []);
+        all.forEach(r => {
+          probeFields.forEach(f => {
+            if (r[f] != null && r[f] !== '') {
+              counts[f]++;
+              if (samples[f].length < 2) samples[f].push({
+                full_name: r.Full_Name, cruise_line: r.Cruise_Line,
+                hired_date: r.Hired_Date, position_applied: r.Position_Applied,
+                position_hired_2: r.Position_Hired_2, [f]: r[f],
+              });
+            }
+          });
+        });
+        return json({ scanned: all.length, counts, samples }, 200, ch);
+      }
+
       // ── GET /api/cruise/debug/fields?module=Candidates ─────────────────
       // Lists every field on a Recruit module with its api_name + label so
       // we can find the right name for Position Hired / Seafarer ID, etc.
