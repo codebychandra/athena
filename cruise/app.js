@@ -59,22 +59,53 @@ function fmtReportDate(d) {
 }
 
 // ── Demand config (localStorage) ─────────────────────────────────────────────
+// Shape:
+//   {
+//     'Cunard Line': {
+//       talentPool: { 'Wine Waiter/ess': 1, ... },        // running, same every month
+//       monthly:    { '2026-05': { 'HOAS FB': 25, ... }}  // month-specific
+//     }
+//   }
 function loadDemand() {
-  try { return JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
-  catch (_) { return {}; }
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
+  catch (_) { raw = {}; }
+  // One-time migration: old shape stored months directly under brand
+  Object.keys(raw).forEach(brand => {
+    const node = raw[brand];
+    if (node && typeof node === 'object' && !node.monthly && !node.talentPool) {
+      raw[brand] = { talentPool: {}, monthly: node };
+    } else {
+      node.talentPool = node.talentPool || {};
+      node.monthly    = node.monthly    || {};
+    }
+  });
+  return raw;
 }
 function saveDemand(d) {
   try { localStorage.setItem('cti-cruise-demand', JSON.stringify(d)); } catch (_) {}
 }
-function demandFor(brand, monthKey, position) {
-  const d = loadDemand();
-  return Number(d?.[brand]?.[monthKey]?.[position] || 0);
+function brandNode(d, brand) {
+  d[brand] = d[brand] || { talentPool: {}, monthly: {} };
+  d[brand].talentPool = d[brand].talentPool || {};
+  d[brand].monthly    = d[brand].monthly    || {};
+  return d[brand];
 }
-function setDemand(brand, monthKey, position, value) {
-  const d = loadDemand();
-  d[brand] = d[brand] || {};
-  d[brand][monthKey] = d[brand][monthKey] || {};
-  d[brand][monthKey][position] = Number(value) || 0;
+function setTalentPool(brand, position, value) {
+  const d = loadDemand(); const n = brandNode(d, brand);
+  n.talentPool[position] = Number(value) || 0;
+  saveDemand(d);
+}
+function setMonthlyDemand(brand, monthKey, position, value) {
+  const d = loadDemand(); const n = brandNode(d, brand);
+  n.monthly[monthKey] = n.monthly[monthKey] || {};
+  n.monthly[monthKey][position] = Number(value) || 0;
+  saveDemand(d);
+}
+function deletePosition(brand, type, monthKey, position) {
+  const d = loadDemand(); const n = brandNode(d, brand);
+  if (type === 'talentPool') delete n.talentPool[position];
+  else if (n.monthly[monthKey]) delete n.monthly[monthKey][position];
   saveDemand(d);
 }
 
@@ -179,16 +210,40 @@ pages.reports = async function () {
       <!-- ═══ Demand Setup ═══ -->
       <section class="task-section" data-section="demand" style="display:none;">
         <div class="card" style="padding:24px 28px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px;border-bottom:1px solid var(--border,#eee);padding-bottom:16px;">
+
+          <!-- Header -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;border-bottom:1px solid var(--border,#eee);padding-bottom:16px;">
             <div>
-              <div style="font-size:16px;font-weight:700;color:var(--text);">Monthly Demand Targets</div>
-              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">Set the headcount target per position for each brand and month.</div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">Requisition Setup</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">
+                <strong>Talent Pool</strong> stays constant every month. <strong>Demand</strong> is month-specific (e.g. one-time ship needs).
+              </div>
             </div>
-            <div style="display:flex;gap:10px;align-items:center;">
-              <select id="dmdBrand" style="padding:7px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);">
-                ${CRUISE_BRANDS.map(b => `<option value="${escH(b)}">${escH(b)}</option>`).join('')}
-              </select>
+            <select id="dmdBrand" style="padding:7px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);">
+              ${CRUISE_BRANDS.map(b => `<option value="${escH(b)}">${escH(b)}</option>`).join('')}
+            </select>
+          </div>
+
+          <!-- Type toggle + month picker -->
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:0;background:var(--bg-page,#f4f4f4);border:1px solid var(--border,#ddd);border-radius:8px;padding:3px;">
+              <button id="dmdTypeTalentPool" data-type="talentPool"
+                class="dmd-type-btn"
+                style="padding:7px 18px;font-size:12.5px;font-weight:600;border-radius:6px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;transition:all 0.15s;">
+                Talent Pool
+              </button>
+              <button id="dmdTypeDemand" data-type="demand"
+                class="dmd-type-btn"
+                style="padding:7px 18px;font-size:12.5px;font-weight:600;border-radius:6px;border:none;background:transparent;color:var(--text-muted,#888);cursor:pointer;font-family:inherit;transition:all 0.15s;">
+                Monthly Demand
+              </button>
+            </div>
+            <div id="dmdMonthWrap" style="display:none;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:var(--text-muted,#888);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Month</span>
               <input type="month" id="dmdMonth" style="padding:7px 12px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);">
+            </div>
+            <div id="dmdTypeHint" style="margin-left:auto;font-size:11px;color:var(--text-muted,#aaa);font-style:italic;">
+              Talent Pool quantities apply every month for this brand.
             </div>
           </div>
 
@@ -265,30 +320,57 @@ pageEvents.reports = function () {
   const dmdBrand = document.getElementById('dmdBrand');
   const dmdMonth = document.getElementById('dmdMonth');
   dmdMonth.value = todayKey();
+  let dmdType = 'talentPool';  // 'talentPool' or 'demand'
+
+  function applyTypeUI() {
+    const tpBtn  = document.getElementById('dmdTypeTalentPool');
+    const dmBtn  = document.getElementById('dmdTypeDemand');
+    const mWrap  = document.getElementById('dmdMonthWrap');
+    const hint   = document.getElementById('dmdTypeHint');
+    [tpBtn, dmBtn].forEach(b => {
+      const active = b.dataset.type === dmdType;
+      b.style.background = active ? '#B01A18' : 'transparent';
+      b.style.color      = active ? '#fff'    : 'var(--text-muted,#888)';
+    });
+    mWrap.style.display = dmdType === 'demand' ? 'flex' : 'none';
+    hint.textContent = dmdType === 'talentPool'
+      ? 'Talent Pool quantities apply every month for this brand.'
+      : 'Demand quantities apply only to the selected month.';
+  }
+
   function renderDemandTable() {
     const brand = dmdBrand.value;
     const mk    = dmdMonth.value;
     const d     = loadDemand();
-    const positions = Object.keys(d?.[brand]?.[mk] || {}).sort();
+    brandNode(d, brand);
+    const source = dmdType === 'talentPool'
+      ? (d[brand].talentPool || {})
+      : (d[brand].monthly?.[mk] || {});
+    const positions = Object.keys(source).sort();
     const tbl = document.getElementById('dmdTable');
+    const colLabel = dmdType === 'talentPool' ? 'Talent Pool Qty' : 'Demand';
+    const ctx = dmdType === 'talentPool'
+      ? `${escH(brand)} — running talent pool (applies every month)`
+      : `${escH(brand)} — ${escH(monthLabel(mk))}`;
     if (!positions.length) {
       tbl.innerHTML = `<div style="padding:28px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;border:1px dashed var(--border,#ddd);border-radius:8px;">
-        No positions set for ${escH(brand)} — ${escH(monthLabel(mk))}. Add one below.</div>`;
+        No positions set for ${ctx}. Add one below.</div>`;
       return;
     }
     tbl.innerHTML = `
+      <div style="font-size:11px;color:var(--text-muted,#888);margin-bottom:8px;letter-spacing:0.02em;">${ctx}</div>
       <div style="border:1px solid var(--border,#eee);border-radius:8px;overflow:hidden;">
       <table style="width:100%;border-collapse:collapse;">
         <thead><tr style="background:var(--bg-page,#fafafa);">
           <th style="padding:10px 14px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">Position</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);width:110px;">Demand</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);width:140px;">${colLabel}</th>
           <th style="border-bottom:1px solid var(--border,#eee);width:60px;"></th>
         </tr></thead>
         <tbody>
           ${positions.map(p => `<tr>
             <td style="padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
             <td style="padding:6px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;">
-              <input data-pos="${escH(p)}" type="number" min="0" value="${d[brand][mk][p]}" class="dmd-qty"
+              <input data-pos="${escH(p)}" type="number" min="0" value="${source[p]}" class="dmd-qty"
                 style="width:80px;padding:5px 8px;border:1px solid var(--border,#ddd);border-radius:5px;font-size:13px;text-align:right;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </td>
             <td style="padding:6px 14px;text-align:center;border-bottom:1px solid var(--border,#f3f3f3);">
@@ -298,27 +380,39 @@ pageEvents.reports = function () {
         </tbody>
       </table></div>`;
     document.querySelectorAll('.dmd-qty').forEach(i => {
-      i.addEventListener('change', () => setDemand(brand, mk, i.dataset.pos, i.value));
+      i.addEventListener('change', () => {
+        if (dmdType === 'talentPool') setTalentPool(brand, i.dataset.pos, i.value);
+        else setMonthlyDemand(brand, mk, i.dataset.pos, i.value);
+      });
     });
     document.querySelectorAll('.dmd-del').forEach(b => {
       b.addEventListener('click', () => {
-        const all = loadDemand();
-        if (all[brand]?.[mk]) { delete all[brand][mk][b.dataset.pos]; saveDemand(all); }
+        deletePosition(brand, dmdType, mk, b.dataset.pos);
         renderDemandTable();
       });
     });
   }
+
+  document.querySelectorAll('.dmd-type-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      dmdType = b.dataset.type;
+      applyTypeUI();
+      renderDemandTable();
+    });
+  });
   dmdBrand.addEventListener('change', renderDemandTable);
   dmdMonth.addEventListener('change', renderDemandTable);
   document.getElementById('dmdAddBtn').addEventListener('click', () => {
     const p = document.getElementById('dmdNewPos').value.trim();
     const q = document.getElementById('dmdNewQty').value;
     if (!p) return;
-    setDemand(dmdBrand.value, dmdMonth.value, p, q || 0);
+    if (dmdType === 'talentPool') setTalentPool(dmdBrand.value, p, q || 0);
+    else setMonthlyDemand(dmdBrand.value, dmdMonth.value, p, q || 0);
     document.getElementById('dmdNewPos').value = '';
     document.getElementById('dmdNewQty').value = '';
     renderDemandTable();
   });
+  applyTypeUI();
   renderDemandTable();
 
   // ── History wiring ─────────────────────────────────────────────────────────
@@ -403,23 +497,25 @@ function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
 
 // ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
 function buildTalentPoolReport(brand, reportDate, agg) {
-  const year   = reportDate.getFullYear();
-  const demand = loadDemand()[brand] || {};
-  // Aggregate demand and hires across the full year (rolling)
-  const positions = new Set();
-  Object.keys(demand).forEach(mk => {
-    if (mk.startsWith(String(year))) Object.keys(demand[mk]).forEach(p => positions.add(p));
+  const year      = reportDate.getFullYear();
+  const node      = brandNode(loadDemand(), brand);
+  const talentPool= node.talentPool || {};
+  // Use Talent Pool positions as the canonical list, but include any
+  // positions that have hires this year even if no quota was set.
+  const positions = new Set(Object.keys(talentPool));
+  Object.keys(agg.byPosMonth).forEach(p => {
+    if (Object.keys(agg.byPosMonth[p] || {}).some(mk => mk.startsWith(String(year)))) {
+      positions.add(p);
+    }
   });
-  Object.keys(agg.byPosMonth).forEach(p => positions.add(p));
   const posList = Array.from(positions).sort();
 
   let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0;
   const rows = posList.map(pos => {
-    let req = 0, fulfil = 0, male = 0, female = 0;
-    Object.keys(demand).forEach(mk => {
-      if (mk.startsWith(String(year))) req += Number(demand[mk][pos] || 0);
-    });
-    Object.values(agg.byPosMonth[pos] || {}).forEach(b => {
+    const req = Number(talentPool[pos] || 0);
+    let fulfil = 0, male = 0, female = 0;
+    Object.entries(agg.byPosMonth[pos] || {}).forEach(([mk, b]) => {
+      if (!mk.startsWith(String(year))) return;
       fulfil += b.withId + b.pending;
       male   += b.male;
       female += b.female;
@@ -488,10 +584,12 @@ function buildTalentPoolReport(brand, reportDate, agg) {
 
 // ── Layout B: Monthly Demand vs Hiring (P&O Cruises) ─────────────────────────
 function buildMonthlyDemandReport(brand, reportDate, agg) {
-  const year   = reportDate.getFullYear();
-  const demand = loadDemand()[brand] || {};
+  const year      = reportDate.getFullYear();
+  const node      = brandNode(loadDemand(), brand);
+  const monthly   = node.monthly    || {};
+  const talentPool= node.talentPool || {};
   const months = new Set();
-  Object.keys(demand).forEach(mk => { if (mk.startsWith(String(year))) months.add(mk); });
+  Object.keys(monthly).forEach(mk => { if (mk.startsWith(String(year))) months.add(mk); });
   Object.values(agg.byPosMonth).forEach(byMo => Object.keys(byMo).forEach(mk => {
     if (mk.startsWith(String(year))) months.add(mk);
   }));
@@ -504,29 +602,61 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     rangeLabel  = first === last ? `${first} ${year}` : `${first} - ${last} ${year}`;
   }
 
+  // ── Talent Pool block (running, applies every month) ──
+  const tpPositions = Object.keys(talentPool);
+  let talentPoolBlock = '';
+  if (tpPositions.length) {
+    const tpRows = tpPositions.sort().map(pos => {
+      const req = Number(talentPool[pos] || 0);
+      let fulfil = 0, male = 0, female = 0, pending = 0;
+      Object.entries(agg.byPosMonth[pos] || {}).forEach(([mk, b]) => {
+        if (!mk.startsWith(String(year))) return;
+        fulfil += b.withId + b.pending;
+        male   += b.male;
+        female += b.female;
+        pending += b.pending;
+      });
+      const remaining = Math.max(0, req - fulfil);
+      return { pos, req, remaining, hired: fulfil - pending, male, female, pending };
+    });
+    talentPoolBlock = `
+      <tr class="rpt-section"><td colspan="7"><strong>TALENT POOL (RUNNING)</strong></td></tr>
+      ${tpRows.map(r => `
+        <tr>
+          <td class="rpt-td">${escH(r.pos)}</td>
+          <td class="rpt-td rpt-num">${r.req}</td>
+          <td class="rpt-td rpt-num">${r.remaining}</td>
+          <td class="rpt-td rpt-num">${r.hired}</td>
+          <td class="rpt-td rpt-num">${r.male}</td>
+          <td class="rpt-td rpt-num">${r.female}</td>
+          <td class="rpt-td rpt-num">${r.pending}</td>
+        </tr>`).join('')}
+    `;
+  }
+
   // Build monthly block: each month gets a sub-header, then positions
   let monthlyBlocks = '';
   monthList.forEach(mk => {
-    const monthDemand = demand[mk] || {};
+    const monthDemand = monthly[mk] || {};
     const positions   = new Set(Object.keys(monthDemand));
     Object.keys(agg.byPosMonth).forEach(p => {
       if (agg.byPosMonth[p][mk]) positions.add(p);
     });
+    // Exclude positions covered by Talent Pool — to avoid double-counting
+    tpPositions.forEach(p => positions.delete(p));
     const posList = Array.from(positions).sort();
-    let mDemand = 0, mRem = 0, mHired = 0, mM = 0, mF = 0, mPending = 0;
     const rows = posList.map(p => {
       const dem      = Number(monthDemand[p] || 0);
       const b        = (agg.byPosMonth[p] && agg.byPosMonth[p][mk]) || { withId:0, pending:0, male:0, female:0 };
       const hired    = b.withId;                       // strictly with ID
       const pending  = b.pending;
       const remaining= Math.max(0, dem - (hired + pending));
-      mDemand += dem; mRem += remaining; mHired += hired;
-      mM += b.male; mF += b.female; mPending += pending;
       return { p, dem, remaining, hired, male:b.male, female:b.female, pending };
     });
+    if (!rows.length) return;
     monthlyBlocks += `
       <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
-      ${rows.length ? rows.map(r => `
+      ${rows.map(r => `
         <tr>
           <td class="rpt-td">${escH(r.p)}</td>
           <td class="rpt-td rpt-num">${r.dem}</td>
@@ -535,8 +665,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
           <td class="rpt-td rpt-num">${r.male}</td>
           <td class="rpt-td rpt-num">${r.female}</td>
           <td class="rpt-td rpt-num">${r.pending}</td>
-        </tr>`).join('') : `
-        <tr><td colspan="7" class="rpt-empty">No positions configured for ${escH(monthLabel(mk))}.</td></tr>`}
+        </tr>`).join('')}
     `;
   });
 
@@ -558,7 +687,11 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
           </tr>
         </thead>
         <tbody>
-          ${monthList.length ? monthlyBlocks : `<tr><td colspan="7" class="rpt-empty">No demand or hires configured for ${year}.</td></tr>`}
+          ${talentPoolBlock}
+          ${monthlyBlocks}
+          ${(!talentPoolBlock && !monthlyBlocks)
+            ? `<tr><td colspan="7" class="rpt-empty">No demand or hires configured for ${year}.</td></tr>`
+            : ''}
         </tbody>
       </table>
 
