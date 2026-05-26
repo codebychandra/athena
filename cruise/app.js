@@ -66,6 +66,41 @@ function fmtReportDate(d) {
 //       monthly:    { '2026-05': { 'HOAS FB': 25, ... }}  // month-specific
 //     }
 //   }
+// One-time migration: rename legacy abbreviated position keys to full names.
+// Runs every loadDemand() — idempotent: if the new name already exists it
+// leaves the data alone.
+const LEGACY_POSITION_RENAMES = {
+  'HOAS Galley':       'Hotel Assistant Galley',
+  'HOAS Housekeeping': 'Hotel Assistant Housekeeping',
+  'HOAS FB':           'Hotel Assistant Food and Beverage',
+  'HOAS HK':           'Hotel Assistant Housekeeping',
+  'Housekeeper DNC':   'Housekeeper (Deck/Night/Crew)',
+};
+function migratePositionNames(raw) {
+  let changed = false;
+  const rename = (bucket) => {
+    if (!bucket) return;
+    Object.keys(LEGACY_POSITION_RENAMES).forEach(oldName => {
+      const newName = LEGACY_POSITION_RENAMES[oldName];
+      if (oldName in bucket && !(newName in bucket)) {
+        bucket[newName] = bucket[oldName];
+        delete bucket[oldName];
+        changed = true;
+      } else if (oldName in bucket) {
+        delete bucket[oldName];   // new name already exists — just drop the legacy key
+        changed = true;
+      }
+    });
+  };
+  Object.values(raw).forEach(brand => {
+    if (brand && typeof brand === 'object') {
+      rename(brand.talentPool);
+      if (brand.monthly) Object.values(brand.monthly).forEach(rename);
+    }
+  });
+  return changed;
+}
+
 function loadDemand() {
   let raw;
   try { raw = JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
@@ -80,6 +115,10 @@ function loadDemand() {
       node.monthly    = node.monthly    || {};
     }
   });
+  // One-time migration: rename legacy abbreviated position keys
+  if (migratePositionNames(raw)) {
+    try { localStorage.setItem('cti-cruise-demand', JSON.stringify(raw)); } catch (_) {}
+  }
   return raw;
 }
 function saveDemand(d) {
@@ -337,7 +376,8 @@ pageEvents.reports = function () {
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
       const { seafarers, finalInt } = await fetchCruiseData(false);
-      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt);
+      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt) +
+        buildDataStatusBadge(brand, seafarers, finalInt);
     } catch (e) {
       preview.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
     }
@@ -707,6 +747,43 @@ function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
   return layout === 'monthly-demand'
     ? buildMonthlyDemandReport(brand, reportDate, agg)
     : buildTalentPoolReport(brand, reportDate, agg);
+}
+
+// Small diagnostic strip below the report — shows whether the API actually
+// returned any rows so the user can tell "0 hires because no data" from
+// "0 hires because filter didn't match anything".
+function buildDataStatusBadge(brand, allSeafarers, allFinalInt) {
+  const totalSeaf = allSeafarers.length;
+  const totalFi   = allFinalInt.length;
+  const brandSeaf = allSeafarers.filter(s => (s.cruiseLine || '').trim() === brand).length;
+  const brandFi   = allFinalInt.filter(f => (brand === 'CUK Maritime')
+      ? f.cruiseLine === 'CUK Maritime'
+      : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine)).length;
+  const eligible  = allSeafarers.filter(s =>
+    (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
+  ).length;
+
+  const warn = (totalSeaf === 0);
+  const dot = warn ? '#B01A18' : '#2D7A55';
+  return `
+    <div style="padding:14px 24px;border-top:1px dashed var(--border,#eee);
+      display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:11.5px;
+      color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+      border-radius:0 0 12px 12px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dot};"></span>
+        <strong style="color:var(--text);">Data status</strong>
+      </span>
+      <span>Recruit Seafarers (all brands): <strong style="color:var(--text);">${totalSeaf}</strong></span>
+      <span>${escH(brand)} matches: <strong style="color:var(--text);">${brandSeaf}</strong></span>
+      <span>Pool-eligible: <strong style="color:var(--text);">${eligible}</strong></span>
+      <span style="opacity:0.6;">|</span>
+      <span>Final Interview sheet rows: <strong style="color:var(--text);">${totalFi}</strong></span>
+      <span>${escH(brand)} matches: <strong style="color:var(--text);">${brandFi}</strong></span>
+      ${warn ? `<span style="margin-left:auto;color:#B01A18;font-weight:600;">
+        No Seafarers returned — deploy worker or check ZOHO_SHEET_RESOURCE_ID.
+      </span>` : ''}
+    </div>`;
 }
 
 // ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
