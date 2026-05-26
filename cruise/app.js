@@ -633,8 +633,29 @@ function logHistory(brand, reportDate) {
 // ═════════════════════════════════════════════════════════════════════════════
 // Report builder
 // ═════════════════════════════════════════════════════════════════════════════
+// Talent pool / pipeline eligibility filter for Seafarers.
+// Matches the Zoho Recruit filter the user defined:
+//   Employment Status = New Hire
+//   Sign On Date is empty
+//   Onboarding Status in [Completing Documents, Ready to Go, Rescheduled]
+const ELIGIBLE_ONBOARDING = new Set([
+  'completing documents',
+  'ready to go',
+  'rescheduled',
+]);
+function isTalentPoolEligible(s) {
+  const emp = (s.employmentStatus || '').trim().toLowerCase();
+  if (emp !== 'new hire') return false;
+  if (s.signOnDate) return false;                          // must be empty
+  const ob = (s.onboardingStatus || '').trim().toLowerCase();
+  if (!ELIGIBLE_ONBOARDING.has(ob)) return false;
+  return true;
+}
+
 function aggregateBrandData(brand, allSeafarers, allFinalInt) {
-  const seafarers = allSeafarers.filter(s => (s.cruiseLine || '').trim() === brand);
+  const seafarers = allSeafarers.filter(s =>
+    (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
+  );
   const finalInt  = allFinalInt.filter(f =>
     brand === 'CUK Maritime'
       ? (f.cruiseLine === 'CUK Maritime')
