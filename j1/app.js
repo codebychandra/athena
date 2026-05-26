@@ -545,6 +545,7 @@ const pageEvents = {};
 async function showPage(name) {
   if (!PAGE_TITLES[name]) name = 'dashboard';
   state.page = name;
+  try { localStorage.setItem('cti-j1-page', name); } catch (_) {}
 
   document.title = `${PAGE_TITLES[name]} — CTI Group`;
   document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === name));
@@ -6643,7 +6644,13 @@ document.addEventListener('DOMContentLoaded', function () {
     history.replaceState({}, '', '/');
   }
 
-  showPage('requisition');
+  // Restore last visited page (falls back to requisition)
+  let _startPage = 'requisition';
+  try {
+    const saved = localStorage.getItem('cti-j1-page');
+    if (saved && PAGE_TITLES[saved]) _startPage = saved;
+  } catch (_) {}
+  showPage(_startPage);
 
   // ── Auto-refresh every 10 minutes ────────────────────────────────────────
   const AUTO_REFRESH_MS = 10 * 60 * 1000;  // 10 minutes
