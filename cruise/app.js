@@ -179,6 +179,30 @@ async function fetchCruiseData(forceRefresh) {
   return { seafarers: _seafarersCache, finalInt: _finalIntCache };
 }
 
+// ── Editable recruiting notes (per brand, this session) ──────────────────────
+const _reportNotes = {};   // brand -> raw textarea string
+function notesLines(str) {
+  return (str || '').split('\n').map(s => s.trim()).filter(Boolean);
+}
+// Auto-generate the recruiting notes array for a brand (used as the default
+// textarea content and when a brand hasn't been edited).
+function computeAutoNotes(brand, seafarers, finalInt, reportDate) {
+  const agg    = aggregateBrandData(brand, seafarers, finalInt);
+  const layout = BRAND_LAYOUT[brand] || 'talent-pool';
+  const node   = brandNode(loadDemand(), brand);
+  const year   = (reportDate || new Date()).getFullYear();
+  let allowed;
+  if (layout === 'monthly-demand') {
+    allowed = new Set(Object.keys(node.talentPool || {}));
+    Object.keys(node.monthly || {}).forEach(mk => {
+      if (mk.startsWith(String(year))) Object.keys(node.monthly[mk]).forEach(p => allowed.add(p));
+    });
+  } else {
+    allowed = new Set(Object.keys(node.talentPool || {}));
+  }
+  return generateNotes(brand, agg, layout, allowed);
+}
+
 // ── Theme ─────────────────────────────────────────────────────────────────────
 (function applyTheme() {
   document.documentElement.setAttribute('data-theme', state.theme);
@@ -254,7 +278,21 @@ pages.reports = async function () {
           </div>
         </div>
 
-        <!-- The actual report preview, styled to match the CUK PDF -->
+        <!-- Editable Recruiting Notes (auto-filled, edit before download) -->
+        <div class="card" style="padding:18px 22px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);">
+              Recruiting Notes — <span id="rptNotesBrand"></span>
+            </div>
+            <button id="rptNotesReset" style="font-size:11px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text-muted,#888);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;">Auto-fill</button>
+          </div>
+          <textarea id="rptNotes" rows="4" placeholder="Type the recruiting notes for this brand. One line per bullet."
+            style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:8px;
+              font-size:13px;font-family:inherit;line-height:1.6;background:var(--card-bg,#fff);color:var(--text);resize:vertical;"></textarea>
+          <div style="font-size:11px;color:var(--text-muted,#aaa);margin-top:6px;">Each line becomes one bullet in the PDF. Notes are saved per brand for this session.</div>
+        </div>
+
+        <!-- The actual report preview -->
         <div id="rptPreview" class="card" style="padding:0;"></div>
       </section>
 
@@ -368,6 +406,31 @@ pageEvents.reports = function () {
   const today   = new Date();
   dateEl.value  = today.toISOString().slice(0, 10);
 
+  // ── Recruiting Notes (editable, per brand) ─────────────────────────────────
+  const notesEl      = document.getElementById('rptNotes');
+  const notesBrandEl = document.getElementById('rptNotesBrand');
+
+  function syncNotesTextarea(brand, seafarers, finalInt, date) {
+    if (notesBrandEl) notesBrandEl.textContent = brand;
+    if (_reportNotes[brand] == null) {
+      // First time for this brand → pre-fill with auto-generated notes
+      _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
+    }
+    notesEl.value = _reportNotes[brand];
+  }
+  notesEl?.addEventListener('input', () => {
+    const brand = document.getElementById('rptBrand').value;
+    _reportNotes[brand] = notesEl.value;
+  });
+  document.getElementById('rptNotesReset')?.addEventListener('click', async () => {
+    const brand = document.getElementById('rptBrand').value;
+    const date  = new Date(document.getElementById('rptDate').value);
+    const { seafarers, finalInt } = await fetchCruiseData(false);
+    _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
+    notesEl.value = _reportNotes[brand];
+    regenerate();
+  });
+
   // ── Generate Report wiring ─────────────────────────────────────────────────
   async function regenerate() {
     const brand = document.getElementById('rptBrand').value;
@@ -376,7 +439,9 @@ pageEvents.reports = function () {
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
       const { seafarers, finalInt } = await fetchCruiseData(false);
-      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt) +
+      syncNotesTextarea(brand, seafarers, finalInt, date);
+      const notes = notesLines(_reportNotes[brand]);
+      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt, notes) +
         buildDataStatusBadge(brand, seafarers, finalInt);
     } catch (e) {
       preview.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
@@ -389,9 +454,11 @@ pageEvents.reports = function () {
     regenerate();
   });
   document.getElementById('rptDownloadBtn').addEventListener('click', () => {
+    const brand = document.getElementById('rptBrand').value;
     downloadReportPDF(
-      document.getElementById('rptBrand').value,
-      new Date(document.getElementById('rptDate').value)
+      brand,
+      new Date(document.getElementById('rptDate').value),
+      notesLines(_reportNotes[brand])
     );
   });
   document.getElementById('rptDownloadAllBtn').addEventListener('click', async (e) => {
@@ -404,7 +471,11 @@ pageEvents.reports = function () {
       for (let i = 0; i < CRUISE_BRANDS.length; i++) {
         const brand = CRUISE_BRANDS[i];
         btn.textContent = `Downloading ${i+1}/${CRUISE_BRANDS.length}…`;
-        await downloadBrandPDF(brand, reportDate, seafarers, finalInt);
+        // Use edited notes if present, else auto-generate for that brand
+        const notes = _reportNotes[brand] != null
+          ? notesLines(_reportNotes[brand])
+          : computeAutoNotes(brand, seafarers, finalInt, reportDate);
+        await downloadBrandPDF(brand, reportDate, seafarers, finalInt, notes);
       }
       btn.textContent = 'All 3 downloaded ✓';
       setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1800);
@@ -779,12 +850,36 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
   return { byPosition, seafarers, finalInt };
 }
 
-function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt) {
+function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt, notesOverride) {
   const agg    = aggregateBrandData(brand, allSeafarers, allFinalInt);
   const layout = BRAND_LAYOUT[brand] || 'talent-pool';
   return layout === 'monthly-demand'
-    ? buildMonthlyDemandReport(brand, reportDate, agg)
-    : buildTalentPoolReport(brand, reportDate, agg);
+    ? buildMonthlyDemandReport(brand, reportDate, agg, notesOverride)
+    : buildTalentPoolReport(brand, reportDate, agg, notesOverride);
+}
+
+// CTI-branded report header (logo + company name + report title)
+function reportHeader(brand, reportDate, subtitle) {
+  return `
+    <div class="rpt-brandhead">
+      <div class="rpt-brandhead-left">
+        <img src="../logo.jpg" class="rpt-logo" alt="CTI Group"
+             onerror="this.style.display='none'">
+        <div class="rpt-brandhead-text">
+          <div class="rpt-company">CTI GROUP WORLDWIDE SERVICES, INC.</div>
+          <div class="rpt-division">Cruise Recruitment Division</div>
+        </div>
+      </div>
+      <div class="rpt-brandhead-right">
+        <div class="rpt-doc-type">WEEKLY RECRUITMENT REPORT</div>
+        <div class="rpt-doc-date">${fmtReportDate(reportDate)}</div>
+      </div>
+    </div>
+    <div class="rpt-brandbar"></div>
+    <div class="rpt-report-title">
+      <span class="rpt-brand-name">${escH(brand)}</span>
+      <span class="rpt-report-sub">${escH(subtitle)}</span>
+    </div>`;
 }
 
 // Small diagnostic strip below the report — shows whether the API actually
@@ -829,7 +924,7 @@ function buildDataStatusBadge(brand, allSeafarers, allFinalInt) {
 // ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
 // NO hire-date filter — the talent pool is a running count of everyone
 // currently eligible and in the pool, regardless of when they were hired.
-function buildTalentPoolReport(brand, reportDate, agg) {
+function buildTalentPoolReport(brand, reportDate, agg, notesOverride) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const talentPool= node.talentPool || {};
@@ -854,11 +949,11 @@ function buildTalentPoolReport(brand, reportDate, agg) {
     return { pos, req, remaining, fulfil, male, female };
   });
 
-  const notes = generateNotes(brand, agg, 'talent-pool', new Set(posList));
+  const notes = notesOverride || generateNotes(brand, agg, 'talent-pool', new Set(posList));
 
   return `
     <div id="rptDoc" class="rpt-doc">
-      <div class="rpt-title">MONTHLY TALENT POOL ${year}</div>
+      ${reportHeader(brand, reportDate, `Monthly Talent Pool — ${year}`)}
       <table class="rpt-table">
         <thead>
           <tr>
@@ -915,7 +1010,7 @@ function buildTalentPoolReport(brand, reportDate, agg) {
 // across the demand months in chronological order: fill January's demand
 // first, overflow into February, and so on.
 //   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
-function buildMonthlyDemandReport(brand, reportDate, agg) {
+function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const monthly   = node.monthly    || {};
@@ -1078,12 +1173,12 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
       </tr>`;
   }
 
-  const notes = generateNotes(brand, agg, 'monthly-demand',
+  const notes = notesOverride || generateNotes(brand, agg, 'monthly-demand',
     new Set([...demandPositions, ...tpPositions]));
 
   return `
     <div id="rptDoc" class="rpt-doc">
-      <div class="rpt-title">${escH(rangeLabel)}</div>
+      ${reportHeader(brand, reportDate, `Demand vs Hiring — ${escH(rangeLabel)}`)}
       <table class="rpt-table">
         <thead>
           <tr>
@@ -1142,7 +1237,20 @@ function generateNotes(brand, agg, layout, allowed) {
 // Inline styles for the report (shared by both layouts)
 const REPORT_STYLES = `
 <style>
-.rpt-doc { background:#fff; color:#1A1A1A; padding:32px 36px 24px; font-family:'Inter',system-ui,sans-serif; }
+.rpt-doc { background:#fff; color:#1A1A1A; padding:30px 36px 24px; font-family:'Inter',system-ui,sans-serif; }
+/* ── Branded header ── */
+.rpt-brandhead { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.rpt-brandhead-left { display:flex; align-items:center; gap:14px; }
+.rpt-logo { height:46px; width:auto; object-fit:contain; }
+.rpt-company { font-size:14px; font-weight:800; letter-spacing:0.02em; color:#1A1A1A; line-height:1.2; }
+.rpt-division { font-size:10px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#B01A18; margin-top:2px; }
+.rpt-brandhead-right { text-align:right; }
+.rpt-doc-type { font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#1A1A1A; }
+.rpt-doc-date { font-size:11px; color:#666; margin-top:2px; }
+.rpt-brandbar { height:3px; background:#B01A18; margin:10px 0 0; border-radius:2px; }
+.rpt-report-title { display:flex; align-items:baseline; gap:10px; margin:14px 0 16px; }
+.rpt-brand-name { font-size:17px; font-weight:800; color:#1A1A1A; letter-spacing:-0.01em; }
+.rpt-report-sub { font-size:12px; font-weight:600; color:#777; }
 .rpt-title { text-align:center; font-size:14px; font-weight:700; letter-spacing:0.08em; margin-bottom:14px; }
 .rpt-table { width:100%; border-collapse:collapse; font-size:11px; }
 .rpt-th { background:#1F1F1F; color:#fff; padding:9px 8px; text-align:left; font-weight:700; font-size:9px; letter-spacing:0.04em; border:1px solid #1F1F1F; vertical-align:middle; }
@@ -1185,6 +1293,12 @@ async function pdfFromHTML(htmlString, filename) {
   hidden.innerHTML = htmlString;
   document.body.appendChild(hidden);
   try {
+    // Wait for the logo (and any images) to finish loading so html2canvas
+    // doesn't capture them blank.
+    await Promise.all([...hidden.querySelectorAll('img')].map(img =>
+      img.complete ? Promise.resolve()
+        : new Promise(res => { img.onload = img.onerror = res; })
+    ));
     const target = hidden.querySelector('#rptDoc') || hidden;
     await window.html2pdf().set({
       margin:       [10, 10, 10, 10],
@@ -1199,19 +1313,19 @@ async function pdfFromHTML(htmlString, filename) {
 }
 
 // Download the brand currently in the preview
-async function downloadReportPDF(brand, reportDate) {
+async function downloadReportPDF(brand, reportDate, notes) {
   await ensureHtml2Pdf();
   const { seafarers, finalInt } = await fetchCruiseData(false);
-  const html = buildReportHTML(brand, reportDate, seafarers, finalInt);
+  const html = buildReportHTML(brand, reportDate, seafarers, finalInt, notes);
   await pdfFromHTML(html, reportFilename(brand, reportDate));
   logHistory(brand, fmtReportDate(reportDate));
   renderHistory();
 }
 
 // Download a specific brand with already-fetched data (used by "Download All")
-async function downloadBrandPDF(brand, reportDate, seafarers, finalInt) {
+async function downloadBrandPDF(brand, reportDate, seafarers, finalInt, notes) {
   await ensureHtml2Pdf();
-  const html = buildReportHTML(brand, reportDate, seafarers, finalInt);
+  const html = buildReportHTML(brand, reportDate, seafarers, finalInt, notes);
   await pdfFromHTML(html, reportFilename(brand, reportDate));
   logHistory(brand, fmtReportDate(reportDate));
   renderHistory();
