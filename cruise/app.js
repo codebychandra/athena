@@ -212,14 +212,24 @@ function cleanVal(v) {
   const s = String(v).trim();
   return (s === '—') ? '' : s;
 }
-// Hired seafarers in CUK brands with no Seafarer ID yet (excludes resigned)
-function mistralRequestRows(seafarers) {
+// Hired seafarers in CUK brands with no Seafarer ID yet.
+// opts: { from:'YYYY-MM-DD', to:'YYYY-MM-DD', excludeResigned:bool }
+function mistralRequestRows(seafarers, opts = {}) {
+  const from = opts.from ? new Date(opts.from) : null;
+  const to   = opts.to   ? new Date(opts.to)   : null;
+  if (to) to.setHours(23, 59, 59, 999);
+  const excludeResigned = opts.excludeResigned !== false;   // default true
   return seafarers.filter(s => {
     if (!CUK_BRANDS.includes((s.cruiseLine || '').trim())) return false;
     if (s.seafarerIdNumber && String(s.seafarerIdNumber).trim()) return false;  // already has ID
-    const ob = (s.onboardingStatus || '').trim().toLowerCase();
-    if (ob === 'resign' || ob === 'resigned') return false;
     if (!s.hiredDate) return false;   // must be hired
+    if (excludeResigned) {
+      const ob = (s.onboardingStatus || '').trim().toLowerCase();
+      if (ob === 'resign' || ob === 'resigned') return false;
+    }
+    const d = new Date(s.hiredDate);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
     return true;
   }).sort((a, b) => new Date(a.hiredDate) - new Date(b.hiredDate));
 }
@@ -342,6 +352,23 @@ pages.reports = async function () {
               <button id="mistralRefresh" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
               <button id="mistralDownload" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download Excel (CSV)</button>
             </div>
+          </div>
+
+          <!-- Filters -->
+          <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#eee);">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Hired From</div>
+              <input type="date" id="mistralFrom" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Hired To</div>
+              <input type="date" id="mistralTo" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">
+              <input type="checkbox" id="mistralExclResign" checked style="width:15px;height:15px;accent-color:#B01A18;cursor:pointer;">
+              Exclude resigned
+            </label>
+            <button id="mistralApply" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Apply Filters</button>
           </div>
         </div>
         <div id="mistralPreview" class="card" style="padding:0;overflow:auto;"></div>
@@ -526,13 +553,20 @@ pageEvents.reports = function () {
   regenerate();
 
   // ── Mistral Request wiring ─────────────────────────────────────────────────
+  function mistralOpts() {
+    return {
+      from: document.getElementById('mistralFrom')?.value || null,
+      to:   document.getElementById('mistralTo')?.value   || null,
+      excludeResigned: document.getElementById('mistralExclResign')?.checked !== false,
+    };
+  }
   async function renderMistral() {
     const wrap = document.getElementById('mistralPreview');
     if (!wrap) return;
     wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading…</div>`;
     try {
       const { seafarers } = await fetchCruiseData(false);
-      const rows = mistralRequestRows(seafarers);
+      const rows = mistralRequestRows(seafarers, mistralOpts());
       if (!rows.length) {
         wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">No pending Mistral requests — every hired CUK seafarer already has a Seafarer ID.</div>`;
         return;
@@ -575,9 +609,10 @@ pageEvents.reports = function () {
     await fetchCruiseData(true);
     renderMistral();
   });
+  document.getElementById('mistralApply')?.addEventListener('click', renderMistral);
   document.getElementById('mistralDownload')?.addEventListener('click', async () => {
     const { seafarers } = await fetchCruiseData(false);
-    downloadMistralCSV(mistralRequestRows(seafarers));
+    downloadMistralCSV(mistralRequestRows(seafarers, mistralOpts()));
   });
   // Render the Mistral table the first time its tab is opened
   let _mistralLoaded = false;
