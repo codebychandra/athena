@@ -698,15 +698,20 @@ function isTalentPoolEligible(s) {
 }
 
 // Demand (P&O) eligibility — different rule from the talent pool:
-//   Onboarding Status is NOT Resign  AND  Hire Date on/after 1 Jan 2025
+//   Onboarding Status is NOT Resign  AND  Hire Date on/after the cutoff.
+// Default cutoff is 1 Jan 2025; specific positions can override it.
 const DEMAND_HIRE_CUTOFF = new Date('2025-01-01');
+const DEMAND_POSITION_CUTOFFS = {
+  'Hotel Assistant Food and Beverage': new Date('2026-05-01'),
+};
 function isDemandEligible(s) {
   const ob = (s.onboardingStatus || '').trim().toLowerCase();
   if (ob === 'resign' || ob === 'resigned') return false;
   if (!s.hiredDate) return false;
   const d = new Date(s.hiredDate);
   if (isNaN(d)) return false;
-  return d >= DEMAND_HIRE_CUTOFF;
+  const cutoff = DEMAND_POSITION_CUTOFFS[s.positionHired] || DEMAND_HIRE_CUTOFF;
+  return d >= cutoff;
 }
 
 function aggregateBrandData(brand, allSeafarers, allFinalInt) {
