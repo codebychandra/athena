@@ -729,13 +729,9 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
     hiredDate: s.hiredDate ? new Date(s.hiredDate) : null,
     source:    'recruit',
   }));
-  // Final Interview pre-hires never have a Seafarer ID yet → always pending
-  finalInt.forEach(f => pushRec(f.positionHired, {
-    hasId:     false,
-    gender:    genderOf(f.gender),
-    hiredDate: f.hiredDate ? new Date(f.hiredDate) : null,
-    source:    'sheet',
-  }));
+  // NOTE: Final Interview sheet pre-hires are intentionally NOT counted for now.
+  // Both Talent Pool and Demand use Recruit Seafarers only. Re-enable later by
+  // pushing finalInt records here as pending (hasId:false).
 
   // Sort each position's pool by hire date ascending (records with no date last)
   Object.values(byPosition).forEach(arr => arr.sort((a, b) => {
