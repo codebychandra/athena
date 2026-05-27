@@ -1228,7 +1228,7 @@ const REPORT_STYLES = `
 /* ── Branded header ── */
 .rpt-brandhead { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 .rpt-brandhead-left { display:flex; align-items:center; gap:14px; }
-.rpt-logo { height:74px; width:auto; object-fit:contain; }
+.rpt-logo { height:120px; width:auto; object-fit:contain; }
 .rpt-company { font-size:14px; font-weight:800; letter-spacing:0.02em; color:#1A1A1A; line-height:1.2; }
 .rpt-division { font-size:10px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#B01A18; margin-top:2px; }
 .rpt-brandhead-right { text-align:right; }
@@ -1281,11 +1281,11 @@ function reportFilename(brand, reportDate) {
 }
 
 async function pdfFromHTML(htmlString, filename) {
-  // Render into an off-screen container sized to A4 portrait content width
-  // (210mm − 2×10mm margins ≈ 190mm → ~718px at 96dpi) so the report maps
+  // Render into an off-screen container sized to A4 landscape content width
+  // (297mm − 2×10mm margins ≈ 277mm → ~1047px at 96dpi) so the report maps
   // cleanly onto the page without over-scaling.
   const hidden = document.createElement('div');
-  hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:718px;background:#fff;';
+  hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
   hidden.innerHTML = htmlString;
   document.body.appendChild(hidden);
   try {
@@ -1301,7 +1301,7 @@ async function pdfFromHTML(htmlString, filename) {
       filename,
       image:        { type:'jpeg', quality:0.98 },
       html2canvas:  { scale:2, useCORS:true, backgroundColor:'#ffffff' },
-      jsPDF:        { unit:'mm', format:'a4', orientation:'portrait' },
+      jsPDF:        { unit:'mm', format:'a4', orientation:'landscape' },
     }).from(target).save();
   } finally {
     document.body.removeChild(hidden);
