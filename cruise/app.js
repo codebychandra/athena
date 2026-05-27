@@ -991,7 +991,8 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
       });
       monthList.forEach(mk => {
         const dem = Number(monthly[mk]?.[pos] || 0);
-        const inMonth = monthRecs[mk] || [];
+        // Cap the counted hires at the month's demand — surplus is ignored.
+        const inMonth = (monthRecs[mk] || []).slice(0, dem);
         alloc[pos][mk] = {
           dem,
           hired:     inMonth.filter(r => r.hasId).length,
