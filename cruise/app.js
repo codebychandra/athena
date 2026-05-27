@@ -711,6 +711,15 @@ const DEMAND_POSITION_CUTOFFS = {
 const DEMAND_BY_HIRE_MONTH = new Set([
   'Hotel Assistant Food and Beverage',
 ]);
+
+// Manual reallocations applied AFTER hire-month bucketing — move N hires from
+// one month's surplus into another month to cover its shortfall.
+// position -> [ { from:'YYYY-MM', to:'YYYY-MM', count:N } ]
+const DEMAND_REALLOCATIONS = {
+  'Hotel Assistant Food and Beverage': [
+    { from: '2026-02', to: '2026-01', count: 1 },
+  ],
+};
 function isDemandEligible(s) {
   const ob = (s.onboardingStatus || '').trim().toLowerCase();
   if (ob === 'resign' || ob === 'resigned') return false;
@@ -970,9 +979,19 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     if (DEMAND_BY_HIRE_MONTH.has(pos)) {
       // Special case: bucket each hire into the demand month matching its
       // actual Hired_Date month (not the waterfall).
+      const monthRecs = {};   // mk -> [records]
+      monthList.forEach(mk => {
+        monthRecs[mk] = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
+      });
+      // Apply manual reallocations (move surplus from one month to another)
+      (DEMAND_REALLOCATIONS[pos] || []).forEach(({ from, to, count }) => {
+        if (!monthRecs[from] || !monthRecs[to]) return;
+        const moved = monthRecs[from].splice(0, count);   // take from the front
+        monthRecs[to] = monthRecs[to].concat(moved);
+      });
       monthList.forEach(mk => {
         const dem = Number(monthly[mk]?.[pos] || 0);
-        const inMonth = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
+        const inMonth = monthRecs[mk] || [];
         alloc[pos][mk] = {
           dem,
           hired:     inMonth.filter(r => r.hasId).length,
