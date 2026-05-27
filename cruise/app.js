@@ -1036,9 +1036,12 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
       const a = alloc[p][mk];
       sub.dem+=a.dem; sub.remaining+=a.remaining; sub.hired+=a.hired;
       sub.male+=a.male; sub.female+=a.female; sub.pending+=a.pending;
+      const special = DEMAND_BY_HIRE_MONTH.has(p)
+        ? ` <span class="rpt-special" title="Special case: counted by actual hire-date month">★ special</span>`
+        : '';
       return `
         <tr>
-          <td class="rpt-td">${escH(p)}</td>
+          <td class="rpt-td">${escH(p)}${special}</td>
           <td class="rpt-td rpt-num">${a.dem}</td>
           <td class="rpt-td rpt-num">${a.remaining}</td>
           <td class="rpt-td rpt-num">${a.hired}</td>
@@ -1110,6 +1113,13 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
         ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
       </ul>
 
+      ${[...demandPositions].some(p => DEMAND_BY_HIRE_MONTH.has(p)) ? `
+      <div class="rpt-special-note">
+        <strong>★ Special case — Hotel Assistant Food and Beverage:</strong>
+        counted by actual hire-date month (a hire lands in the month it was made),
+        capped at each month's demand. 1 February hire reallocated to cover January.
+      </div>` : ''}
+
       <div class="rpt-footer">
         <span>DATE: ${fmtReportDate(reportDate)}</span>
         <span>PAGE 1</span>
@@ -1151,6 +1161,12 @@ const REPORT_STYLES = `
 .rpt-td.rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
 .rpt-section td { background:#F0F0F0; padding:7px 8px; border:1px solid #ddd; font-size:11px; }
 .rpt-section .rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
+.rpt-special { font-size:8.5px; font-weight:700; color:#B01A18; background:rgba(176,26,24,0.08);
+  border:1px solid rgba(176,26,24,0.25); border-radius:8px; padding:1px 6px; margin-left:6px;
+  letter-spacing:0.03em; white-space:nowrap; vertical-align:middle; }
+.rpt-special-note { margin-top:12px; padding:9px 12px; font-size:10px; line-height:1.5;
+  color:#7a1a18; background:rgba(176,26,24,0.06); border:1px solid rgba(176,26,24,0.18);
+  border-radius:6px; }
 .rpt-subtotal td { background:#FAFAFA; border:1px solid #e0e0e0; color:#444; }
 .rpt-total td { background:#EDEDED; border:1px solid #bbb; }
 .rpt-empty { padding:14px; text-align:center; color:#999; font-size:11.5px; font-style:italic; }
