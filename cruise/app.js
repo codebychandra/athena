@@ -304,9 +304,8 @@ pages.reports = async function () {
 
     <div class="task-layout">
       <nav class="task-tabbar">
-        <button class="task-sub-link active" data-section="generate">Hiring Report</button>
-        <button class="task-sub-link" data-section="mistral">Mistral Request</button>
-        <button class="task-sub-link" data-section="demand">Requisition Setup</button>
+        <button class="task-sub-link active" data-section="generate">CUK Weekly Report</button>
+        <button class="task-sub-link" data-section="mistral">CUK Mistral ID Request</button>
         <button class="task-sub-link" data-section="history">History</button>
       </nav>
 
@@ -314,6 +313,14 @@ pages.reports = async function () {
 
       <!-- ═══ Generate Report ═══ -->
       <section class="task-section" data-section="generate">
+
+        <!-- Inner sub-nav: Report vs Requisition Setup -->
+        <div class="rpt-subnav">
+          <button class="rpt-subnav-btn active" data-sub="report">Report</button>
+          <button class="rpt-subnav-btn" data-sub="setup">Requisition Setup</button>
+        </div>
+
+        <div id="rptReportPanel">
         <div class="card" style="padding:22px 26px;margin-bottom:18px;">
           <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;">
             <div>
@@ -336,6 +343,10 @@ pages.reports = async function () {
 
         <!-- The actual report preview (Recruiting Notes are editable inline) -->
         <div id="rptPreview" class="card" style="padding:0;"></div>
+        </div><!-- /#rptReportPanel -->
+
+        <!-- Requisition Setup panel (lives inside CUK Weekly Report) -->
+        <div id="rptSetupPanel" style="display:none;"></div>
       </section>
 
       <!-- ═══ Mistral Request ═══ -->
@@ -467,7 +478,18 @@ pages.reports = async function () {
 };
 
 pageEvents.reports = function () {
-  // Tab switching
+  // Relocate the Requisition Setup markup into the CUK Weekly Report tab
+  // (it used to be its own top-level tab).
+  const setupPanel = document.getElementById('rptSetupPanel');
+  const demandSec  = document.querySelector('.task-section[data-section="demand"]');
+  if (setupPanel && demandSec) {
+    demandSec.classList.remove('task-section');
+    demandSec.removeAttribute('data-section');
+    demandSec.style.display = '';
+    setupPanel.appendChild(demandSec);
+  }
+
+  // Top-tab switching
   document.querySelectorAll('.task-sub-link').forEach(link => {
     link.addEventListener('click', () => {
       const target = link.dataset.section;
@@ -476,6 +498,19 @@ pageEvents.reports = function () {
       document.querySelectorAll('.task-section').forEach(s => {
         s.style.display = s.dataset.section === target ? '' : 'none';
       });
+    });
+  });
+
+  // Inner sub-nav (Report vs Requisition Setup) within CUK Weekly Report
+  document.querySelectorAll('.rpt-subnav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.sub;
+      document.querySelectorAll('.rpt-subnav-btn').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      const rp = document.getElementById('rptReportPanel');
+      const sp = document.getElementById('rptSetupPanel');
+      if (rp) rp.style.display = sub === 'report' ? '' : 'none';
+      if (sp) sp.style.display = sub === 'setup'  ? '' : 'none';
     });
   });
 
