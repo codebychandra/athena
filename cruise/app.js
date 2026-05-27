@@ -697,12 +697,26 @@ function isTalentPoolEligible(s) {
   return true;
 }
 
+// Demand (P&O) eligibility — different rule from the talent pool:
+//   Onboarding Status is NOT Resign  AND  Hire Date on/after 1 Jan 2025
+const DEMAND_HIRE_CUTOFF = new Date('2025-01-01');
+function isDemandEligible(s) {
+  const ob = (s.onboardingStatus || '').trim().toLowerCase();
+  if (ob === 'resign' || ob === 'resigned') return false;
+  if (!s.hiredDate) return false;
+  const d = new Date(s.hiredDate);
+  if (isNaN(d)) return false;
+  return d >= DEMAND_HIRE_CUTOFF;
+}
+
 function aggregateBrandData(brand, allSeafarers, allFinalInt) {
-  // Both Talent Pool AND Monthly Demand layouts count from BOTH sources:
-  //   - Recruit Seafarers (passing the eligibility filter above)
-  //   - CUK Final Interview sheet pre-hires (already filtered server-side)
-  const seafarers = allSeafarers.filter(s =>
-    (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
+  // Pick the eligibility rule by layout:
+  //   talent-pool  (Cunard, CUK) → New Hire / no Sign On / onboarding in list
+  //   monthly-demand (P&O)       → onboarding != Resign AND hired >= 2025-01-01
+  const layout     = BRAND_LAYOUT[brand] || 'talent-pool';
+  const eligibleFn = layout === 'monthly-demand' ? isDemandEligible : isTalentPoolEligible;
+  const seafarers  = allSeafarers.filter(s =>
+    (s.cruiseLine || '').trim() === brand && eligibleFn(s)
   );
   const finalInt  = allFinalInt.filter(f =>
     brand === 'CUK Maritime'
@@ -762,8 +776,10 @@ function buildDataStatusBadge(brand, allSeafarers, allFinalInt) {
   const brandFi   = allFinalInt.filter(f => (brand === 'CUK Maritime')
       ? f.cruiseLine === 'CUK Maritime'
       : (f.cruiseLine === brand || f.cruiseLine === '—' || !f.cruiseLine)).length;
+  const layout    = BRAND_LAYOUT[brand] || 'talent-pool';
+  const eligFn    = layout === 'monthly-demand' ? isDemandEligible : isTalentPoolEligible;
   const eligible  = allSeafarers.filter(s =>
-    (s.cruiseLine || '').trim() === brand && isTalentPoolEligible(s)
+    (s.cruiseLine || '').trim() === brand && eligFn(s)
   ).length;
 
   const warn = (totalSeaf === 0);
