@@ -702,8 +702,15 @@ function isTalentPoolEligible(s) {
 // Default cutoff is 1 Jan 2025; specific positions can override it.
 const DEMAND_HIRE_CUTOFF = new Date('2025-01-01');
 const DEMAND_POSITION_CUTOFFS = {
-  'Hotel Assistant Food and Beverage': new Date('2026-05-01'),
+  // (HOAS F&B is handled as a special hire-date-bucketed case below, not a cutoff)
 };
+
+// Positions allocated by ACTUAL hire-date month rather than the waterfall.
+// A hire counts in the demand month matching its Hired_Date (e.g. hired in
+// January → January's hired number). Used for HOAS F&B special request.
+const DEMAND_BY_HIRE_MONTH = new Set([
+  'Hotel Assistant Food and Beverage',
+]);
 function isDemandEligible(s) {
   const ob = (s.onboardingStatus || '').trim().toLowerCase();
   if (ob === 'resign' || ob === 'resigned') return false;
@@ -957,9 +964,29 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
   // alloc[pos][mk] = { dem, hired, pending, male, female, remaining }
   const alloc = {};
   demandPositions.forEach(pos => {
-    const recs = (agg.byPosition[pos] || []).slice();    // already date-sorted asc
-    let idx = 0;
     alloc[pos] = {};
+    const recs = (agg.byPosition[pos] || []).slice();    // already date-sorted asc
+
+    if (DEMAND_BY_HIRE_MONTH.has(pos)) {
+      // Special case: bucket each hire into the demand month matching its
+      // actual Hired_Date month (not the waterfall).
+      monthList.forEach(mk => {
+        const dem = Number(monthly[mk]?.[pos] || 0);
+        const inMonth = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
+        alloc[pos][mk] = {
+          dem,
+          hired:     inMonth.filter(r => r.hasId).length,
+          pending:   inMonth.filter(r => !r.hasId).length,
+          male:      inMonth.filter(r => r.hasId && r.gender === 'M').length,
+          female:    inMonth.filter(r => r.hasId && r.gender === 'F').length,
+          remaining: Math.max(0, dem - inMonth.length),
+        };
+      });
+      return;
+    }
+
+    // Default: waterfall — fill each month's demand from the shared pool.
+    let idx = 0;
     monthList.forEach(mk => {
       const dem   = Number(monthly[mk]?.[pos] || 0);
       const take  = Math.max(0, Math.min(dem, recs.length - idx));
