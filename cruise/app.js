@@ -800,11 +800,9 @@ function buildTalentPoolReport(brand, reportDate, agg) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const talentPool= node.talentPool || {};
-  // Talent Pool positions are the canonical list, plus any position that has
-  // pool members even if no quota was set.
-  const positions = new Set(Object.keys(talentPool));
-  Object.keys(agg.byPosition).forEach(p => positions.add(p));
-  const posList = Array.from(positions).sort();
+  // Only the positions configured in Requisition Setup appear in the report —
+  // hires in any other position are intentionally ignored here.
+  const posList = Object.keys(talentPool).sort();
 
   // Fulfilment = records WITH Seafarer ID Number (any hire date).
   // Male/Female headcount = gender split of the fulfilment (with-ID) records,
@@ -823,7 +821,7 @@ function buildTalentPoolReport(brand, reportDate, agg) {
     return { pos, req, remaining, fulfil, male, female };
   });
 
-  const notes = generateNotes(brand, agg, 'talent-pool');
+  const notes = generateNotes(brand, agg, 'talent-pool', new Set(posList));
 
   return `
     <div id="rptDoc" class="rpt-doc">
@@ -986,7 +984,8 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     `;
   });
 
-  const notes = generateNotes(brand, agg, 'monthly-demand');
+  const notes = generateNotes(brand, agg, 'monthly-demand',
+    new Set([...demandPositions, ...tpPositions]));
 
   return `
     <div id="rptDoc" class="rpt-doc">
@@ -1028,10 +1027,13 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
 }
 
 // Auto-generate Recruiting Notes from the pooled records (no date filter).
-function generateNotes(brand, agg, layout) {
+// `allowed` optionally restricts notes to a set of position names.
+function generateNotes(brand, agg, layout, allowed) {
   const notes = [];
-  Object.keys(agg.byPosition).sort().forEach(p => {
+  const positions = (allowed ? [...allowed] : Object.keys(agg.byPosition)).sort();
+  positions.forEach(p => {
     const recs    = agg.byPosition[p];
+    if (!recs) return;
     const withId  = recs.filter(r => r.hasId).length;
     const pending = recs.filter(r => !r.hasId).length;
     if (withId > 0 && pending > 0) {
