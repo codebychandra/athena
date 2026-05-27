@@ -700,7 +700,7 @@ function isTalentPoolEligible(s) {
 // Demand (P&O) eligibility — different rule from the talent pool:
 //   Onboarding Status is NOT Resign  AND  Hire Date on/after the cutoff.
 // Default cutoff is 1 Jan 2025; specific positions can override it.
-const DEMAND_HIRE_CUTOFF = new Date('2025-01-01');
+const DEMAND_HIRE_CUTOFF = new Date('2026-01-01');
 const DEMAND_POSITION_CUTOFFS = {
   // (HOAS F&B is handled as a special hire-date-bucketed case below, not a cutoff)
 };
