@@ -390,6 +390,22 @@ const SF = {
   email:              'Email',
   phone:              'Mobile',               // 'Phone' doesn't exist; field is named 'Mobile'
   country:            'Country',
+  // ── extra fields for the CUK Mistral Request report ──
+  placeOfBirth:       'Place_of_Birth',
+  dateOfBirth:        'Date_of_Birth',
+  maritalStatus:      'Marital_Status',
+  passportNumber:     'Passport_Number',
+  passportIssuedDate: 'Passport_Issued_Date',
+  passportExpiredDate:'Passport_Expired_Date',
+  passportIssuedNation:'Passport_Issued_Country',
+  hairColor:          'Hair_Color',
+  eyeColor:           'Eye_Color',
+  height:             'Height',
+  weight:             'Weight',
+  city:               'City',
+  street:             'Street',
+  postalCode:         'Zip_Code',
+  gatewayAirport:     'Gateway_Airport',
 };
 
 // ── Record mappers ────────────────────────────────────────────────────────
@@ -587,6 +603,22 @@ function mapSeafarer(r) {
     email:            r[SF.email]             || '—',
     phone:            r[SF.phone]             || '—',
     country:          r[SF.country]           || '—',
+    // extra fields for the Mistral Request report
+    placeOfBirth:        r[SF.placeOfBirth]        || '',
+    dateOfBirth:         r[SF.dateOfBirth]         || '',
+    maritalStatus:       r[SF.maritalStatus]       || '',
+    passportNumber:      r[SF.passportNumber]      || '',
+    passportIssuedDate:  r[SF.passportIssuedDate]  || '',
+    passportExpiredDate: r[SF.passportExpiredDate] || '',
+    passportIssuedNation:r[SF.passportIssuedNation]|| '',
+    hairColor:           r[SF.hairColor]           || '',
+    eyeColor:            r[SF.eyeColor]            || '',
+    height:              r[SF.height]              || '',
+    weight:              r[SF.weight]              || '',
+    city:                r[SF.city]                || '',
+    street:              r[SF.street]              || '',
+    postalCode:          r[SF.postalCode]          || '',
+    gatewayAirport:      r[SF.gatewayAirport]      || '',
   };
 }
 

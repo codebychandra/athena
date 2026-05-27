@@ -179,6 +179,51 @@ async function fetchCruiseData(forceRefresh) {
   return { seafarers: _seafarersCache, finalInt: _finalIntCache };
 }
 
+// ── CUK Mistral Request report ───────────────────────────────────────────────
+const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
+// Column label -> record field accessor
+const MISTRAL_COLUMNS = [
+  ['Hired Date',            r => r.hiredDate],
+  ['Seafarer Name',         r => r.fullName],
+  ['Position Hired',        r => r.positionHired],
+  ['Cruise Line',           r => r.cruiseLine],
+  ['Place of Birth',        r => r.placeOfBirth],
+  ['Date of Birth',         r => r.dateOfBirth],
+  ['Gender',                r => r.gender],
+  ['Marital Status',        r => r.maritalStatus],
+  ['Email',                 r => r.email],
+  ['Mobile',                r => r.phone],
+  ['Passport Number',       r => r.passportNumber],
+  ['Passport Issued Date',  r => r.passportIssuedDate],
+  ['Passport Expired Date', r => r.passportExpiredDate],
+  ['Passport Issued Nation',r => r.passportIssuedNation],
+  ['Hair Color',            r => r.hairColor],
+  ['Height',                r => r.height],
+  ['Eye Color',             r => r.eyeColor],
+  ['Weight',                r => r.weight],
+  ['Country',               r => r.country],
+  ['City',                  r => r.city],
+  ['Street',                r => r.street],
+  ['Postal Code',           r => r.postalCode],
+  ['Gateway Airport',       r => r.gatewayAirport],
+];
+function cleanVal(v) {
+  if (v == null) return '';
+  const s = String(v).trim();
+  return (s === '—') ? '' : s;
+}
+// Hired seafarers in CUK brands with no Seafarer ID yet (excludes resigned)
+function mistralRequestRows(seafarers) {
+  return seafarers.filter(s => {
+    if (!CUK_BRANDS.includes((s.cruiseLine || '').trim())) return false;
+    if (s.seafarerIdNumber && String(s.seafarerIdNumber).trim()) return false;  // already has ID
+    const ob = (s.onboardingStatus || '').trim().toLowerCase();
+    if (ob === 'resign' || ob === 'resigned') return false;
+    if (!s.hiredDate) return false;   // must be hired
+    return true;
+  }).sort((a, b) => new Date(a.hiredDate) - new Date(b.hiredDate));
+}
+
 // ── Editable recruiting notes (per brand, this session) ──────────────────────
 const _reportNotes = {};   // brand -> raw textarea string
 function notesLines(str) {
@@ -249,7 +294,8 @@ pages.reports = async function () {
 
     <div class="task-layout">
       <nav class="task-tabbar">
-        <button class="task-sub-link active" data-section="generate">Generate Report</button>
+        <button class="task-sub-link active" data-section="generate">Hiring Report</button>
+        <button class="task-sub-link" data-section="mistral">Mistral Request</button>
         <button class="task-sub-link" data-section="demand">Requisition Setup</button>
         <button class="task-sub-link" data-section="history">History</button>
       </nav>
@@ -280,6 +326,25 @@ pages.reports = async function () {
 
         <!-- The actual report preview (Recruiting Notes are editable inline) -->
         <div id="rptPreview" class="card" style="padding:0;"></div>
+      </section>
+
+      <!-- ═══ Mistral Request ═══ -->
+      <section class="task-section" data-section="mistral" style="display:none;">
+        <div class="card" style="padding:22px 26px;margin-bottom:18px;">
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">CUK Mistral Request</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">
+                Hired seafarers across Cunard, P&amp;O and CUK Maritime with no Seafarer ID yet — Mistral registration needed.
+              </div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button id="mistralRefresh" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
+              <button id="mistralDownload" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download Excel (CSV)</button>
+            </div>
+          </div>
+        </div>
+        <div id="mistralPreview" class="card" style="padding:0;overflow:auto;"></div>
       </section>
 
       <!-- ═══ Demand Setup ═══ -->
@@ -400,10 +465,8 @@ pageEvents.reports = function () {
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
       const { seafarers, finalInt } = await fetchCruiseData(false);
-      // Seed this brand's notes with auto-generated text the first time
-      if (_reportNotes[brand] == null) {
-        _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
-      }
+      // Notes start blank by default — use the Auto-fill button to generate.
+      if (_reportNotes[brand] == null) _reportNotes[brand] = '';
       const notes = notesLines(_reportNotes[brand]);
       preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt, notes, true) +
         buildDataStatusBadge(brand, seafarers, finalInt);
@@ -461,6 +524,70 @@ pageEvents.reports = function () {
     }
   });
   regenerate();
+
+  // ── Mistral Request wiring ─────────────────────────────────────────────────
+  async function renderMistral() {
+    const wrap = document.getElementById('mistralPreview');
+    if (!wrap) return;
+    wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading…</div>`;
+    try {
+      const { seafarers } = await fetchCruiseData(false);
+      const rows = mistralRequestRows(seafarers);
+      if (!rows.length) {
+        wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">No pending Mistral requests — every hired CUK seafarer already has a Seafarer ID.</div>`;
+        return;
+      }
+      const th = MISTRAL_COLUMNS.map(([label]) =>
+        `<th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+          text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+          border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${escH(label)}</th>`).join('');
+      const trs = rows.map(r => `<tr>${MISTRAL_COLUMNS.map(([,fn]) =>
+        `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(fn(r)))}</td>`).join('')}</tr>`).join('');
+      wrap.innerHTML = `
+        <div style="padding:12px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
+          <strong style="color:var(--text);">${rows.length}</strong> seafarer${rows.length!==1?'s':''} pending Mistral ID registration
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>${th}</tr></thead>
+          <tbody>${trs}</tbody>
+        </table>`;
+    } catch (e) {
+      wrap.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
+    }
+  }
+  function downloadMistralCSV(rows) {
+    const esc = v => {
+      const s = cleanVal(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    const header = MISTRAL_COLUMNS.map(([label]) => esc(label)).join(',');
+    const lines  = rows.map(r => MISTRAL_COLUMNS.map(([,fn]) => esc(fn(r))).join(','));
+    const csv    = '﻿' + [header, ...lines].join('\r\n');   // BOM for Excel
+    const blob   = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url;
+    a.download = `CUK_MISTRAL_REQUEST_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  document.getElementById('mistralRefresh')?.addEventListener('click', async () => {
+    await fetchCruiseData(true);
+    renderMistral();
+  });
+  document.getElementById('mistralDownload')?.addEventListener('click', async () => {
+    const { seafarers } = await fetchCruiseData(false);
+    downloadMistralCSV(mistralRequestRows(seafarers));
+  });
+  // Render the Mistral table the first time its tab is opened
+  let _mistralLoaded = false;
+  document.querySelectorAll('.task-sub-link').forEach(link => {
+    if (link.dataset.section === 'mistral') {
+      link.addEventListener('click', () => {
+        if (!_mistralLoaded) { _mistralLoaded = true; renderMistral(); }
+      });
+    }
+  });
 
   // ── Demand Setup wiring ────────────────────────────────────────────────────
   const dmdBrand = document.getElementById('dmdBrand');
