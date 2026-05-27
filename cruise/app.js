@@ -243,7 +243,7 @@ pages.reports = async function () {
               </select>
             </div>
             <div>
-              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date (Tuesday)</div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date</div>
               <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;">
@@ -976,18 +976,20 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     });
   });
 
-  // Render each month's block
+  // Render each month's block with a per-month subtotal, plus a grand total.
   let monthlyBlocks = '';
+  const grand = { dem:0, remaining:0, hired:0, male:0, female:0, pending:0 };
   monthList.forEach(mk => {
     const positions = Object.keys(monthly[mk] || {})
       .filter(p => demandPositions.has(p))
       .sort();
     if (!positions.length) return;
-    monthlyBlocks += `
-      <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
-      ${positions.map(p => {
-        const a = alloc[p][mk];
-        return `
+    const sub = { dem:0, remaining:0, hired:0, male:0, female:0, pending:0 };
+    const rowsHtml = positions.map(p => {
+      const a = alloc[p][mk];
+      sub.dem+=a.dem; sub.remaining+=a.remaining; sub.hired+=a.hired;
+      sub.male+=a.male; sub.female+=a.female; sub.pending+=a.pending;
+      return `
         <tr>
           <td class="rpt-td">${escH(p)}</td>
           <td class="rpt-td rpt-num">${a.dem}</td>
@@ -997,9 +999,37 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
           <td class="rpt-td rpt-num">${a.female}</td>
           <td class="rpt-td rpt-num">${a.pending}</td>
         </tr>`;
-      }).join('')}
+    }).join('');
+    // accumulate into grand total
+    grand.dem+=sub.dem; grand.remaining+=sub.remaining; grand.hired+=sub.hired;
+    grand.male+=sub.male; grand.female+=sub.female; grand.pending+=sub.pending;
+    monthlyBlocks += `
+      <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
+      ${rowsHtml}
+      <tr class="rpt-subtotal">
+        <td class="rpt-td"><strong>${escH(monthLabel(mk).replace(/ \d{4}$/,''))} Subtotal</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.dem}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.remaining}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.hired}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.male}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.female}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${sub.pending}</strong></td>
+      </tr>
     `;
   });
+  // Grand total row appended after all months
+  if (monthlyBlocks) {
+    monthlyBlocks += `
+      <tr class="rpt-total">
+        <td class="rpt-td"><strong>TOTAL</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.dem}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.remaining}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.hired}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.male}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.female}</strong></td>
+        <td class="rpt-td rpt-num"><strong>${grand.pending}</strong></td>
+      </tr>`;
+  }
 
   const notes = generateNotes(brand, agg, 'monthly-demand',
     new Set([...demandPositions, ...tpPositions]));
@@ -1073,7 +1103,8 @@ const REPORT_STYLES = `
 .rpt-td { padding:7px 8px; border:1px solid #ddd; vertical-align:middle; }
 .rpt-td.rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
 .rpt-section td { background:#F0F0F0; padding:7px 8px; border:1px solid #ddd; font-size:11px; }
-.rpt-total td { background:#F8F8F8; border:1px solid #ccc; }
+.rpt-subtotal td { background:#FAFAFA; border:1px solid #e0e0e0; color:#444; }
+.rpt-total td { background:#EDEDED; border:1px solid #bbb; }
 .rpt-empty { padding:14px; text-align:center; color:#999; font-size:11.5px; font-style:italic; }
 .rpt-notes-h { margin-top:18px; font-size:11px; font-weight:700; letter-spacing:0.05em; padding-bottom:4px; border-bottom:1px solid #333; }
 .rpt-notes { margin:8px 0 0 18px; font-size:11px; line-height:1.55; padding-left:0; }
