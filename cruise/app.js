@@ -278,21 +278,7 @@ pages.reports = async function () {
           </div>
         </div>
 
-        <!-- Editable Recruiting Notes (auto-filled, edit before download) -->
-        <div class="card" style="padding:18px 22px;margin-bottom:18px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);">
-              Recruiting Notes — <span id="rptNotesBrand"></span>
-            </div>
-            <button id="rptNotesReset" style="font-size:11px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text-muted,#888);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;">Auto-fill</button>
-          </div>
-          <textarea id="rptNotes" rows="4" placeholder="Type the recruiting notes for this brand. One line per bullet."
-            style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:8px;
-              font-size:13px;font-family:inherit;line-height:1.6;background:var(--card-bg,#fff);color:var(--text);resize:vertical;"></textarea>
-          <div style="font-size:11px;color:var(--text-muted,#aaa);margin-top:6px;">Each line becomes one bullet in the PDF. Notes are saved per brand for this session.</div>
-        </div>
-
-        <!-- The actual report preview -->
+        <!-- The actual report preview (Recruiting Notes are editable inline) -->
         <div id="rptPreview" class="card" style="padding:0;"></div>
       </section>
 
@@ -406,31 +392,6 @@ pageEvents.reports = function () {
   const today   = new Date();
   dateEl.value  = today.toISOString().slice(0, 10);
 
-  // ── Recruiting Notes (editable, per brand) ─────────────────────────────────
-  const notesEl      = document.getElementById('rptNotes');
-  const notesBrandEl = document.getElementById('rptNotesBrand');
-
-  function syncNotesTextarea(brand, seafarers, finalInt, date) {
-    if (notesBrandEl) notesBrandEl.textContent = brand;
-    if (_reportNotes[brand] == null) {
-      // First time for this brand → pre-fill with auto-generated notes
-      _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
-    }
-    notesEl.value = _reportNotes[brand];
-  }
-  notesEl?.addEventListener('input', () => {
-    const brand = document.getElementById('rptBrand').value;
-    _reportNotes[brand] = notesEl.value;
-  });
-  document.getElementById('rptNotesReset')?.addEventListener('click', async () => {
-    const brand = document.getElementById('rptBrand').value;
-    const date  = new Date(document.getElementById('rptDate').value);
-    const { seafarers, finalInt } = await fetchCruiseData(false);
-    _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
-    notesEl.value = _reportNotes[brand];
-    regenerate();
-  });
-
   // ── Generate Report wiring ─────────────────────────────────────────────────
   async function regenerate() {
     const brand = document.getElementById('rptBrand').value;
@@ -439,10 +400,24 @@ pageEvents.reports = function () {
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
       const { seafarers, finalInt } = await fetchCruiseData(false);
-      syncNotesTextarea(brand, seafarers, finalInt, date);
+      // Seed this brand's notes with auto-generated text the first time
+      if (_reportNotes[brand] == null) {
+        _reportNotes[brand] = computeAutoNotes(brand, seafarers, finalInt, date).join('\n');
+      }
       const notes = notesLines(_reportNotes[brand]);
-      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt, notes) +
+      preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt, notes, true) +
         buildDataStatusBadge(brand, seafarers, finalInt);
+
+      // Wire the inline editable notes textarea (lives inside the report)
+      const inline = document.getElementById('rptNotesInline');
+      if (inline) {
+        inline.addEventListener('input', () => { _reportNotes[brand] = inline.value; });
+      }
+      document.getElementById('rptNotesAuto')?.addEventListener('click', async () => {
+        const fresh = await fetchCruiseData(false);
+        _reportNotes[brand] = computeAutoNotes(brand, fresh.seafarers, fresh.finalInt, date).join('\n');
+        regenerate();
+      });
     } catch (e) {
       preview.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
     }
@@ -850,12 +825,30 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
   return { byPosition, seafarers, finalInt };
 }
 
-function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt, notesOverride) {
+function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt, notesOverride, editable) {
   const agg    = aggregateBrandData(brand, allSeafarers, allFinalInt);
   const layout = BRAND_LAYOUT[brand] || 'talent-pool';
   return layout === 'monthly-demand'
-    ? buildMonthlyDemandReport(brand, reportDate, agg, notesOverride)
-    : buildTalentPoolReport(brand, reportDate, agg, notesOverride);
+    ? buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable)
+    : buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable);
+}
+
+// Recruiting Notes block — editable textarea in the preview, static bullets in the PDF.
+function renderNotesSection(notes, editable) {
+  if (editable) {
+    return `
+      <div class="rpt-notes-h" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>RECRUITING NOTES</span>
+        <button type="button" id="rptNotesAuto" class="rpt-notes-auto">Auto-fill</button>
+      </div>
+      <textarea id="rptNotesInline" class="rpt-notes-edit" rows="4"
+        placeholder="Type recruiting notes — one line per bullet">${escH(notes.join('\n'))}</textarea>`;
+  }
+  return `
+    <div class="rpt-notes-h">RECRUITING NOTES</div>
+    <ul class="rpt-notes">
+      ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
+    </ul>`;
 }
 
 // CTI-branded report header (logo + company name + report title)
@@ -924,7 +917,7 @@ function buildDataStatusBadge(brand, allSeafarers, allFinalInt) {
 // ── Layout A: Talent Pool (Cunard, CUK Maritime) ─────────────────────────────
 // NO hire-date filter — the talent pool is a running count of everyone
 // currently eligible and in the pool, regardless of when they were hired.
-function buildTalentPoolReport(brand, reportDate, agg, notesOverride) {
+function buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const talentPool= node.talentPool || {};
@@ -990,10 +983,7 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride) {
         </tbody>
       </table>
 
-      <div class="rpt-notes-h">RECRUITING NOTES</div>
-      <ul class="rpt-notes">
-        ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
-      </ul>
+      ${renderNotesSection(notes, editable)}
 
       <div class="rpt-footer">
         <span>DATE: ${fmtReportDate(reportDate)}</span>
@@ -1010,7 +1000,7 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride) {
 // across the demand months in chronological order: fill January's demand
 // first, overflow into February, and so on.
 //   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
-function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride) {
+function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const monthly   = node.monthly    || {};
@@ -1200,10 +1190,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride) {
         </tbody>
       </table>
 
-      <div class="rpt-notes-h">RECRUITING NOTES</div>
-      <ul class="rpt-notes">
-        ${notes.map(n => `<li>${escH(n)}</li>`).join('') || '<li>(no activity this period)</li>'}
-      </ul>
+      ${renderNotesSection(notes, editable)}
 
       <div class="rpt-footer">
         <span>DATE: ${fmtReportDate(reportDate)}</span>
@@ -1265,6 +1252,13 @@ const REPORT_STYLES = `
 .rpt-notes-h { margin-top:18px; font-size:11px; font-weight:700; letter-spacing:0.05em; padding-bottom:4px; border-bottom:1px solid #333; }
 .rpt-notes { margin:8px 0 0 18px; font-size:11px; line-height:1.55; padding-left:0; }
 .rpt-notes li { margin-bottom:4px; }
+.rpt-notes-auto { font-size:10px; font-weight:600; border:1px solid #ccc; background:#fff;
+  color:#666; border-radius:6px; padding:3px 10px; cursor:pointer; font-family:inherit; }
+.rpt-notes-auto:hover { border-color:#B01A18; color:#B01A18; }
+.rpt-notes-edit { width:100%; margin-top:8px; padding:9px 11px; border:1px dashed #B01A18;
+  border-radius:6px; font-size:11px; line-height:1.6; font-family:inherit; color:#1A1A1A;
+  background:#fffdfd; resize:vertical; box-sizing:border-box; }
+.rpt-notes-edit:focus { outline:none; border-style:solid; box-shadow:0 0 0 2px rgba(176,26,24,0.12); }
 .rpt-footer { margin-top:22px; padding-top:10px; border-top:1px solid #333; display:flex; justify-content:space-between; font-size:9.5px; font-weight:600; letter-spacing:0.04em; color:#444; }
 </style>
 `;
