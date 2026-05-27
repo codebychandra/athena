@@ -1003,18 +1003,18 @@ function buildMonthlyDemandReport(brand, reportDate, agg) {
     // accumulate into grand total
     grand.dem+=sub.dem; grand.remaining+=sub.remaining; grand.hired+=sub.hired;
     grand.male+=sub.male; grand.female+=sub.female; grand.pending+=sub.pending;
+    // Month header row carries the month's subtotal in the numeric columns
     monthlyBlocks += `
-      <tr class="rpt-section"><td colspan="7"><strong>${escH(monthLabel(mk))}</strong></td></tr>
-      ${rowsHtml}
-      <tr class="rpt-subtotal">
-        <td class="rpt-td"><strong>${escH(monthLabel(mk).replace(/ \d{4}$/,''))} Subtotal</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.dem}</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.remaining}</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.hired}</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.male}</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.female}</strong></td>
-        <td class="rpt-td rpt-num"><strong>${sub.pending}</strong></td>
+      <tr class="rpt-section">
+        <td><strong>${escH(monthLabel(mk))}</strong></td>
+        <td class="rpt-num"><strong>${sub.dem}</strong></td>
+        <td class="rpt-num"><strong>${sub.remaining}</strong></td>
+        <td class="rpt-num"><strong>${sub.hired}</strong></td>
+        <td class="rpt-num"><strong>${sub.male}</strong></td>
+        <td class="rpt-num"><strong>${sub.female}</strong></td>
+        <td class="rpt-num"><strong>${sub.pending}</strong></td>
       </tr>
+      ${rowsHtml}
     `;
   });
   // Grand total row appended after all months
@@ -1103,6 +1103,7 @@ const REPORT_STYLES = `
 .rpt-td { padding:7px 8px; border:1px solid #ddd; vertical-align:middle; }
 .rpt-td.rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
 .rpt-section td { background:#F0F0F0; padding:7px 8px; border:1px solid #ddd; font-size:11px; }
+.rpt-section .rpt-num { text-align:center; font-variant-numeric:tabular-nums; }
 .rpt-subtotal td { background:#FAFAFA; border:1px solid #e0e0e0; color:#444; }
 .rpt-total td { background:#EDEDED; border:1px solid #bbb; }
 .rpt-empty { padding:14px; text-align:center; color:#999; font-size:11.5px; font-style:italic; }
