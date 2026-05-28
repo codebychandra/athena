@@ -636,6 +636,14 @@ pageEvents.requisition = function () {
 
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const tick = dark ? '#aaa' : '#555';
+  // Compact display labels for the x-axis only. The underlying chart.data
+  // labels keep the full name so right-click drill-down still matches.
+  const LABEL_ABBR = {
+    'Food & Beverage':        'F&B',
+    'Deck & Engine':          'D&E',
+    'Information Technology': 'IT',
+    'Provisions & Inventory': 'P&I',
+  };
   const baseOpts = {
     responsive: true, maintainAspectRatio: false,
     layout: { padding: { top: 18 } },        // room for the data labels above each bar
@@ -650,7 +658,16 @@ pageEvents.requisition = function () {
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
+      x: {
+        grid: { display: false },
+        ticks: {
+          color: tick, font: { size: 10 },
+          callback(value) {
+            const lbl = this.getLabelForValue(value);
+            return LABEL_ABBR[lbl] || lbl;
+          },
+        },
+      },
       y: { display: false, beginAtZero: true },
     },
   };
