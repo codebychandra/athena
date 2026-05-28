@@ -42,6 +42,91 @@ async function safeJson(url, opts = {}) {
   if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
   return r.json();
 }
+
+// ── Multiselect helpers (ported from J1) ─────────────────────────────────────
+function buildMS(id, label, opts) {
+  const items = opts.map(v => `
+    <label class="j1-ms-item">
+      <input type="checkbox" class="j1-ms-cb" value="${escH(v)}">
+      <span class="j1-ms-opt">${escH(v)}</span>
+    </label>`).join('');
+  return `
+    <div class="j1-multiselect" id="${id}">
+      <button class="j1-ms-btn" type="button">
+        <span class="j1-ms-lbl">${escH(label)}</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
+      </button>
+      <div class="j1-ms-panel">
+        <div class="j1-ms-list">${items}</div>
+        <div class="j1-ms-footer">
+          <button class="j1-ms-clear-one" type="button">Clear</button>
+          <span class="j1-ms-sel-count"></span>
+        </div>
+      </div>
+    </div>`;
+}
+function buildColMS(id, opts) {
+  const items = opts.map(v =>
+    `<label class="j1-ms-item"><input type="checkbox" class="j1-ms-cb" value="${escH(v)}"><span class="j1-ms-opt">${escH(v)}</span></label>`
+  ).join('');
+  return `<div id="${id}" class="j1-multiselect req-cf-ms">
+    <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
+      <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
+    </button>
+    <div class="j1-ms-panel">
+      <div class="j1-ms-list">${items}</div>
+      <div class="j1-ms-footer"><button class="j1-ms-clear-one" type="button">Clear</button><span class="j1-ms-sel-count"></span></div>
+    </div>
+  </div>`;
+}
+function msGetVals(id) {
+  const el = document.getElementById(id);
+  if (!el) return [];
+  return [...el.querySelectorAll('.j1-ms-cb:checked')].map(cb => cb.value);
+}
+function msClear(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelectorAll('.j1-ms-cb').forEach(cb => cb.checked = false);
+  _msUpdateBadge(el);
+}
+function _msUpdateBadge(el) {
+  const checked = el.querySelectorAll('.j1-ms-cb:checked').length;
+  const badge = el.querySelector('.j1-ms-badge');
+  const count = el.querySelector('.j1-ms-sel-count');
+  if (badge) badge.textContent = checked ? ` (${checked})` : '';
+  if (count) count.textContent = checked ? `${checked} selected` : '';
+  el.querySelector('.j1-ms-btn')?.classList.toggle('j1-ms-active', checked > 0);
+}
+function msOnChange(id, cb) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelectorAll('.j1-ms-cb').forEach(input => input.addEventListener('change', () => { _msUpdateBadge(el); cb(); }));
+  el.querySelector('.j1-ms-clear-one')?.addEventListener('click', e => { e.stopPropagation(); msClear(id); cb(); });
+}
+let _msOutsideClickBound = false;
+function initMS(container) {
+  (container || document).querySelectorAll('.j1-multiselect').forEach(ms => {
+    if (ms.dataset.msInit) return;
+    ms.dataset.msInit = '1';
+    const btn = ms.querySelector('.j1-ms-btn');
+    const panel = ms.querySelector('.j1-ms-panel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const isOpen = panel.classList.contains('open');
+      document.querySelectorAll('.j1-ms-panel.open').forEach(p => p.classList.remove('open'));
+      if (!isOpen) panel.classList.add('open');
+    });
+  });
+  if (!_msOutsideClickBound) {
+    _msOutsideClickBound = true;
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.j1-multiselect')) {
+        document.querySelectorAll('.j1-ms-panel.open').forEach(p => p.classList.remove('open'));
+      }
+    }, { capture: true });
+  }
+}
 function monthKey(d) {
   const dt = (d instanceof Date) ? d : new Date(d);
   if (isNaN(dt)) return null;
@@ -329,20 +414,25 @@ pages.requisition = async function () {
       </div>`;
   }
 
-  const COLS = [
-    ['Cruise Line',       r => escH(r.clientName)],
-    ['Requisition Status',r => reqStatusBadge(r.status)],
-    ['Department',        r => escH(r.department)],
-    ['Rank',              r => `<span style="font-weight:600;color:var(--text);">${escH(r.positionName)}</span>`],
-    ['Marlins (%)',       r => escH(r.marlins)],
-    ['Salary',            r => escH(r.salary)],
-    ['Payment Frequency', r => escH(r.paymentFrequency)],
-    ['Contract Length',   r => escH(r.contractLength)],
-    ['Flight Ticket',     r => escH(r.flightTicket)],
-  ];
+  const statuses = [...new Set(rows.map(r => r.status).filter(v => v && v !== '—'))].sort();
+  const positions= [...new Set(rows.map(r => r.positionName).filter(v => v && v !== '—'))].sort();
 
-  const tbody = rows.map(r => `<tr>${COLS.map(([,fn]) =>
-    `<td style="padding:10px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${fn(r)}</td>`).join('')}</tr>`).join('');
+  // Column defs: field used for filter/sort; ms = categorical (multiselect), text = contains
+  const COLS = REQ_COLS;
+
+  const thSort = COLS.map(c =>
+    `<th data-field="${c.field}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">
+       ${escH(c.label)} <span class="req-sort-icon">⇅</span>
+     </th>`).join('');
+
+  const colFilterOpts = { clientName: cruiseLines, status: statuses, department: depts, positionName: positions };
+  const thFilter = COLS.map(c => {
+    const opts = colFilterOpts[c.field];
+    return `<th>${opts
+      ? buildColMS(`reqCF_${c.field}`, opts)
+      : `<input class="req-cf req-col-f" data-field="${c.field}" type="text" placeholder="—" style="width:100%;height:26px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`
+    }</th>`;
+  }).join('');
 
   return `
     <div class="req-page-header">
@@ -351,26 +441,35 @@ pages.requisition = async function () {
       <span class="req-page-sub">Cruise job openings (Sea Based &amp; River)</span>
     </div>
 
+    <!-- Global filter bar -->
+    <div class="card req-filter-bar">
+      ${buildMS('reqCruiseFilter', 'Cruise Line', cruiseLines)}
+      ${buildMS('reqStatusFilter', 'Status', statuses)}
+      ${buildMS('reqDeptFilter', 'Department', depts)}
+      <button id="reqClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="reqCount" class="req-count-badge">${rows.length} requisitions</span>
+    </div>
+
     <!-- KPIs -->
     <div class="req-kpi-grid">
       <div class="req-kpi-card">
         <span class="req-kpi-label">Total Requisitions</span>
-        <span class="req-kpi-value" style="color:#1B3A6B;">${rows.length}</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;" id="reqKpiCount">${rows.length}</span>
         <span class="req-kpi-sub">cruise job openings</span>
       </div>
       <div class="req-kpi-card">
         <span class="req-kpi-label">Total Headcount</span>
-        <span class="req-kpi-value" style="color:#B01A18;">${totalHeadcount.toLocaleString()}</span>
+        <span class="req-kpi-value" style="color:#B01A18;" id="reqKpiHeadcount">${totalHeadcount.toLocaleString()}</span>
         <span class="req-kpi-sub">open positions</span>
       </div>
       <div class="req-kpi-card">
         <span class="req-kpi-label">Total Cruise Lines</span>
-        <span class="req-kpi-value" style="color:#2D7A55;">${cruiseLines.length}</span>
+        <span class="req-kpi-value" style="color:#2D7A55;" id="reqKpiLines">${cruiseLines.length}</span>
         <span class="req-kpi-sub">clients</span>
       </div>
       <div class="req-kpi-card">
         <span class="req-kpi-label">Total Departments</span>
-        <span class="req-kpi-value" style="color:#B87A14;">${depts.length}</span>
+        <span class="req-kpi-value" style="color:#B87A14;" id="reqKpiDepts">${depts.length}</span>
         <span class="req-kpi-sub">departments</span>
       </div>
     </div>
@@ -393,13 +492,117 @@ pages.requisition = async function () {
     <div class="card req-table-card">
       <div class="req-table-outer">
         <table id="reqMainTable">
-          <thead><tr>${COLS.map(([label]) =>
-            `<th style="white-space:nowrap;">${escH(label)}</th>`).join('')}</tr></thead>
-          <tbody>${tbody}</tbody>
+          <thead>
+            <tr id="reqSortRow">${thSort}</tr>
+            <tr id="reqColFilterRow">${thFilter}</tr>
+          </thead>
+          <tbody id="reqTableBody"></tbody>
         </table>
       </div>
     </div>`;
 };
+
+// Cruise requisition table columns
+const REQ_COLS = [
+  { label:'Cruise Line',        field:'clientName',       render:r => escH(r.clientName) },
+  { label:'Requisition Status', field:'status',           render:r => reqStatusBadge(r.status) },
+  { label:'Department',         field:'department',       render:r => escH(r.department) },
+  { label:'Rank',               field:'positionName',     render:r => `<span style="font-weight:600;color:var(--text);">${escH(r.positionName)}</span>` },
+  { label:'Marlins (%)',        field:'marlins',          render:r => escH(r.marlins) },
+  { label:'Salary',             field:'salary',           render:r => escH(r.salary) },
+  { label:'Payment Frequency',  field:'paymentFrequency', render:r => escH(r.paymentFrequency) },
+  { label:'Contract Length',    field:'contractLength',   render:r => escH(r.contractLength) },
+  { label:'Flight Ticket',      field:'flightTicket',     render:r => escH(r.flightTicket) },
+];
+
+function renderReqTableBody(rows) {
+  const tb = document.getElementById('reqTableBody');
+  if (!tb) return;
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="${REQ_COLS.length}" style="padding:24px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No requisitions match the filters.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = rows.map(r => `<tr>${REQ_COLS.map(c =>
+    `<td style="padding:10px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${c.render(r)}</td>`).join('')}</tr>`).join('');
+}
+
+// Wire global filters, column filters, and sorting for the cruise requisition table
+function wireRequisitionFilters() {
+  let sortField = null, sortDir = 1;
+
+  function currentFiltered() {
+    const gCruise = msGetVals('reqCruiseFilter');
+    const gStatus = msGetVals('reqStatusFilter');
+    const gDept   = msGetVals('reqDeptFilter');
+    // column filters
+    const colMS = {};
+    ['clientName','status','department','positionName'].forEach(f => {
+      const vals = msGetVals(`reqCF_${f}`);
+      if (vals.length) colMS[f] = vals;
+    });
+    const colText = {};
+    document.querySelectorAll('.req-col-f').forEach(inp => {
+      const v = inp.value.trim().toLowerCase();
+      if (v) colText[inp.dataset.field] = v;
+    });
+
+    let out = _reqRows.filter(r => {
+      if (gCruise.length && !gCruise.includes(r.clientName)) return false;
+      if (gStatus.length && !gStatus.includes(r.status)) return false;
+      if (gDept.length   && !gDept.includes(r.department)) return false;
+      for (const f in colMS)   if (!colMS[f].includes(r[f])) return false;
+      for (const f in colText) if (!String(r[f] ?? '').toLowerCase().includes(colText[f])) return false;
+      return true;
+    });
+
+    if (sortField) {
+      out = out.slice().sort((a, b) => {
+        let av = a[sortField], bv = b[sortField];
+        if (sortField === 'numPositions') { av = +av||0; bv = +bv||0; return (av-bv)*sortDir; }
+        return String(av ?? '').localeCompare(String(bv ?? ''), undefined, { numeric:true }) * sortDir;
+      });
+    }
+    return out;
+  }
+
+  function apply() {
+    const rows = currentFiltered();
+    renderReqTableBody(rows);
+    // update KPIs
+    const hc = rows.reduce((s, r) => s + (parseInt(r.numPositions) || 0), 0);
+    const setT = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    setT('reqKpiCount', rows.length);
+    setT('reqKpiHeadcount', hc.toLocaleString());
+    setT('reqKpiLines', new Set(rows.map(r => r.clientName).filter(v => v && v !== '—')).size);
+    setT('reqKpiDepts', new Set(rows.map(r => r.department).filter(v => v && v !== '—')).size);
+    setT('reqCount', `${rows.length} requisition${rows.length !== 1 ? 's' : ''}`);
+    if (window._cruiseReqRenderCharts) window._cruiseReqRenderCharts(rows);
+  }
+
+  initMS();
+  ['reqCruiseFilter','reqStatusFilter','reqDeptFilter',
+   'reqCF_clientName','reqCF_status','reqCF_department','reqCF_positionName'].forEach(id => msOnChange(id, apply));
+  document.querySelectorAll('.req-col-f').forEach(inp => inp.addEventListener('input', apply));
+  document.getElementById('reqClearBtn')?.addEventListener('click', () => {
+    ['reqCruiseFilter','reqStatusFilter','reqDeptFilter',
+     'reqCF_clientName','reqCF_status','reqCF_department','reqCF_positionName'].forEach(msClear);
+    document.querySelectorAll('.req-col-f').forEach(inp => inp.value = '');
+    sortField = null; sortDir = 1;
+    document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(s => s.textContent = '⇅');
+    apply();
+  });
+  document.querySelectorAll('#reqSortRow th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const f = th.dataset.field;
+      if (sortField === f) sortDir *= -1; else { sortField = f; sortDir = 1; }
+      document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(s => s.textContent = '⇅');
+      th.querySelector('.req-sort-icon').textContent = sortDir > 0 ? '↑' : '↓';
+      apply();
+    });
+  });
+
+  renderReqTableBody(_reqRows);   // initial fill
+}
 
 function reqStatusBadge(s) {
   const map = { 'Active':'#2D7A55', 'On Hold':'#B87A14', 'Closed':'#6B7280', 'Filled':'#1B3A6B' };
@@ -411,47 +614,51 @@ function reqStatusBadge(s) {
 }
 
 pageEvents.requisition = function () {
-  if (typeof Chart === 'undefined' || !_reqRows.length) return;
-
-  const sumBy = (key) => {
-    const m = {};
-    _reqRows.forEach(r => {
-      const k = (r[key] || '—');
-      if (k === '—') return;
-      m[k] = (m[k] || 0) + (parseInt(r.numPositions) || 0);
-    });
-    return Object.entries(m).sort((a, b) => b[1] - a[1]);
-  };
+  if (!_reqRows.length) return;
+  wireRequisitionFilters();      // global + column filters + sorting
+  if (typeof Chart === 'undefined') return;
 
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const grid = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
   const tick = dark ? '#aaa' : '#555';
   const baseOpts = {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: c => ` ${c.parsed.y} positions` } },
+    },
     scales: {
-      x: { grid: { color: grid }, ticks: { color: tick, font: { size: 10 } } },
-      y: { grid: { color: grid }, ticks: { color: tick, font: { size: 10 }, precision: 0 }, beginAtZero: true },
+      x: { grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
+      y: { display: false, beginAtZero: true },   // hide y-axis numbers entirely
     },
   };
 
-  const lineData = sumBy('clientName');
-  const deptData = sumBy('department');
-
+  // Build charts from the currently-filtered rows
+  window._cruiseReqCharts = window._cruiseReqCharts || {};
   const mkBar = (id, entries, color) => {
     const el = document.getElementById(id);
     if (!el) return;
-    new Chart(el, {
+    if (window._cruiseReqCharts[id]) window._cruiseReqCharts[id].destroy();
+    window._cruiseReqCharts[id] = new Chart(el, {
       type: 'bar',
       data: {
         labels: entries.map(e => e[0]),
-        datasets: [{ data: entries.map(e => e[1]), backgroundColor: color, borderRadius: 4, maxBarThickness: 46 }],
+        datasets: [{ data: entries.map(e => e[1]), backgroundColor: color, borderRadius: 0, maxBarThickness: 46 }],
       },
       options: baseOpts,
     });
   };
-  mkBar('reqLineChart', lineData, '#B01A18');
-  mkBar('reqDeptChart', deptData, '#1B3A6B');
+
+  window._cruiseReqRenderCharts = (rows) => {
+    const by = (key) => {
+      const m = {};
+      rows.forEach(r => { const k = r[key] || '—'; if (k === '—') return; m[k] = (m[k] || 0) + (parseInt(r.numPositions) || 0); });
+      return Object.entries(m).sort((a, b) => b[1] - a[1]);
+    };
+    mkBar('reqLineChart', by('clientName'), '#B01A18');
+    mkBar('reqDeptChart', by('department'), '#1B3A6B');
+  };
+  window._cruiseReqRenderCharts(_reqRows);
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
