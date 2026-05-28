@@ -386,7 +386,10 @@ let _reqRows = [];   // cached for chart init in pageEvents
 async function fetchCruiseRequisitions() {
   const r = await safeJson(WORKER_URL + '/api/recruit/job-openings');
   const all = r.data || [];
-  return all.filter(j => CRUISE_REQ_CATEGORIES.includes((j.placementCategory || '').trim()));
+  return all.filter(j =>
+    CRUISE_REQ_CATEGORIES.includes((j.placementCategory || '').trim())
+    && (j.status || '').trim().toLowerCase() !== 'closed'    // exclude Closed
+  );
 }
 
 pages.requisition = async function () {
@@ -618,28 +621,39 @@ pageEvents.requisition = function () {
   wireRequisitionFilters();      // global + column filters + sorting
   if (typeof Chart === 'undefined') return;
 
+  // Register the datalabels plugin once so it draws values on top of bars
+  if (Chart && window.ChartDataLabels && !Chart._cruiseDLRegistered) {
+    Chart.register(window.ChartDataLabels);
+    Chart._cruiseDLRegistered = true;
+  }
+
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const grid = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
   const tick = dark ? '#aaa' : '#555';
   const baseOpts = {
     responsive: true, maintainAspectRatio: false,
+    layout: { padding: { top: 18 } },        // room for the data labels above each bar
     plugins: {
       legend: { display: false },
       tooltip: { callbacks: { label: c => ` ${c.parsed.y} positions` } },
+      datalabels: {
+        anchor: 'end', align: 'end', offset: 2,
+        color: dark ? '#eee' : '#1A1A1A',
+        font: { size: 10, weight: 700 },
+        formatter: v => v,
+      },
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
-      y: { display: false, beginAtZero: true },   // hide y-axis numbers entirely
+      y: { display: false, beginAtZero: true },
     },
   };
 
-  // Build charts from the currently-filtered rows
   window._cruiseReqCharts = window._cruiseReqCharts || {};
-  const mkBar = (id, entries, color) => {
+  const mkBar = (id, entries, color, onContext) => {
     const el = document.getElementById(id);
     if (!el) return;
     if (window._cruiseReqCharts[id]) window._cruiseReqCharts[id].destroy();
-    window._cruiseReqCharts[id] = new Chart(el, {
+    const chart = new Chart(el, {
       type: 'bar',
       data: {
         labels: entries.map(e => e[0]),
@@ -647,6 +661,17 @@ pageEvents.requisition = function () {
       },
       options: baseOpts,
     });
+    // Right-click on a bar → callback with the label
+    el.oncontextmenu = (ev) => {
+      const pts = chart.getElementsAtEventForMode(ev, 'nearest', { intersect: true }, true);
+      if (pts.length) {
+        ev.preventDefault();
+        const label = chart.data.labels[pts[0].index];
+        const value = chart.data.datasets[0].data[pts[0].index];
+        onContext(label, value);
+      }
+    };
+    window._cruiseReqCharts[id] = chart;
   };
 
   window._cruiseReqRenderCharts = (rows) => {
@@ -655,11 +680,119 @@ pageEvents.requisition = function () {
       rows.forEach(r => { const k = r[key] || '—'; if (k === '—') return; m[k] = (m[k] || 0) + (parseInt(r.numPositions) || 0); });
       return Object.entries(m).sort((a, b) => b[1] - a[1]);
     };
-    mkBar('reqLineChart', by('clientName'), '#B01A18');
-    mkBar('reqDeptChart', by('department'), '#1B3A6B');
+    mkBar('reqLineChart', by('clientName'),  '#B01A18', showCruiseLineDetail);
+    mkBar('reqDeptChart', by('department'),  '#1B3A6B', showDepartmentDetail);
   };
   window._cruiseReqRenderCharts(_reqRows);
 };
+
+// ── Right-click drill-down modals ──────────────────────────────────────────
+function ensureReqModal() {
+  let m = document.getElementById('reqDrillModal');
+  if (m) return m;
+  m = document.createElement('div');
+  m.id = 'reqDrillModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:9999;';
+  m.innerHTML = `
+    <div style="background:var(--card-bg,#fff);color:var(--text);max-width:780px;width:92%;max-height:80vh;
+      border-radius:14px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.25);display:flex;flex-direction:column;">
+      <div id="reqDrillHead" style="padding:18px 22px;border-bottom:1px solid var(--border,#eee);
+        display:flex;align-items:center;justify-content:space-between;gap:10px;"></div>
+      <div id="reqDrillBody" style="padding:0;overflow:auto;"></div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+  return m;
+}
+function openReqModal(title, bodyHtml) {
+  const m = ensureReqModal();
+  document.getElementById('reqDrillHead').innerHTML = `
+    <div>
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);">Drill-down</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:2px;">${title}</div>
+    </div>
+    <button onclick="document.getElementById('reqDrillModal').style.display='none'"
+      style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted,#888);line-height:1;">×</button>`;
+  document.getElementById('reqDrillBody').innerHTML = bodyHtml;
+  m.style.display = 'flex';
+}
+
+// Department drill — show positions in this department × cruise line
+function showDepartmentDetail(dept) {
+  const rows = _reqRows.filter(r => r.department === dept);
+  // group by cruiseLine -> { position -> headcount }
+  const tree = {};
+  rows.forEach(r => {
+    const cl = r.clientName || '—';
+    const pos = r.positionName || '—';
+    tree[cl] = tree[cl] || {};
+    tree[cl][pos] = (tree[cl][pos] || 0) + (parseInt(r.numPositions) || 0);
+  });
+  const lines = Object.keys(tree).sort();
+  const body = lines.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="background:var(--bg-page,#fafafa);">
+        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Cruise Line</th>
+        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Rank</th>
+        <th style="text-align:right;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);width:120px;">Headcount</th>
+      </tr></thead>
+      <tbody>
+        ${lines.flatMap(cl => {
+          const positions = Object.entries(tree[cl]).sort((a,b) => b[1]-a[1]);
+          return positions.map((p, i) => `
+            <tr>
+              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);font-weight:${i===0?'600':'400'};${i===0?'':'color:transparent;'}">${i===0?escH(cl):escH(cl)}</td>
+              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p[0])}</td>
+              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;">${p[1]}</td>
+            </tr>`);
+        }).join('')}
+      </tbody>
+    </table>` : `<div style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">No positions found.</div>`;
+  openReqModal(`Department: ${escH(dept)} — positions by cruise line`, body);
+}
+
+// Cruise line drill — show talent pool and demand config for this cruise line
+function showCruiseLineDetail(line) {
+  const node = brandNode(loadDemand(), line);
+  const tp = node.talentPool || {};
+  const monthly = node.monthly || {};
+  const tpPositions = Object.keys(tp).sort();
+  const monthList = Object.keys(monthly).sort();
+
+  const tpHtml = tpPositions.length ? `
+    <div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">Talent Pool (Running)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="background:var(--bg-page,#fafafa);">
+        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Position</th>
+        <th style="text-align:right;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);width:120px;">Quota</th>
+      </tr></thead>
+      <tbody>
+        ${tpPositions.map(p => `<tr>
+          <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
+          <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;">${tp[p]}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : `<div style="padding:18px 22px;color:var(--text-muted,#aaa);font-size:12.5px;">No talent pool configured for ${escH(line)}.</div>`;
+
+  const demandHtml = monthList.length ? monthList.map(mk => {
+    const month = monthly[mk] || {};
+    const positions = Object.entries(month).sort((a,b) => b[1]-a[1]);
+    if (!positions.length) return '';
+    return `
+      <div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">${escH(monthLabel(mk))}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <tbody>
+          ${positions.map(([p, q]) => `<tr>
+            <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;width:120px;">${q}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }).join('') : `<div style="padding:18px 22px;color:var(--text-muted,#aaa);font-size:12.5px;">No monthly demand configured for ${escH(line)}.</div>`;
+
+  openReqModal(`Cruise Line: ${escH(line)} — talent pool &amp; demand`,
+    tpHtml + `<div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">Monthly Demand</div>` + demandHtml);
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // REPORT PAGE — Weekly cruise hiring report generator
