@@ -2075,6 +2075,16 @@ thead th.sortable:hover {
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.req-drill-hint {
+  font-size: 10px;
+  font-weight: 600;
+  color: #B01A18;
+  letter-spacing: 0.02em;
 }
 .req-card-sub {
   font-size: 10px;

@@ -480,12 +480,18 @@ pages.requisition = async function () {
     <!-- Charts -->
     <div class="req-chart-row">
       <div class="card req-chart-card">
-        <div class="req-card-title">Headcount by Cruise Line</div>
+        <div class="req-card-title">
+          Headcount by Cruise Line
+          <span class="req-drill-hint">↘ right-click a bar for talent pool &amp; demand</span>
+        </div>
         <div class="req-card-sub">Open positions per cruise line</div>
         <canvas id="reqLineChart"></canvas>
       </div>
       <div class="card req-chart-card">
-        <div class="req-card-title">Headcount by Department</div>
+        <div class="req-card-title">
+          Headcount by Department
+          <span class="req-drill-hint">↘ right-click a bar for positions by cruise line</span>
+        </div>
         <div class="req-card-sub">Open positions per department</div>
         <canvas id="reqDeptChart"></canvas>
       </div>
@@ -509,6 +515,7 @@ pages.requisition = async function () {
 const REQ_COLS = [
   { label:'Cruise Line',        field:'clientName',       render:r => escH(r.clientName) },
   { label:'Requisition Status', field:'status',           render:r => reqStatusBadge(r.status) },
+  { label:'Headcount',          field:'numPositions',     render:r => `<span style="font-weight:700;color:var(--text);">${parseInt(r.numPositions)||0}</span>` },
   { label:'Department',         field:'department',       render:r => escH(r.department) },
   { label:'Rank',               field:'positionName',     render:r => `<span style="font-weight:600;color:var(--text);">${escH(r.positionName)}</span>` },
   { label:'Marlins (%)',        field:'marlins',          render:r => escH(r.marlins) },
