@@ -1576,6 +1576,10 @@ pageEvents.reports = function () {
   }
 
   function renderMistralTable() {
+    // Snapshot text-filter values before DOM is wiped
+    const _savedText = {};
+    document.querySelectorAll('.mistral-col-f').forEach(inp => { _savedText[inp.dataset.field] = inp.value; });
+
     const rows = mistralCurrent();
     renderMistralKpis(rows);
     const wrap = document.getElementById('mistralPreview');
@@ -1601,6 +1605,8 @@ pageEvents.reports = function () {
       </table>`;
 
     initMS(wrap);
+    // Restore text-filter values so typing doesn't reset on each keypress
+    document.querySelectorAll('.mistral-col-f').forEach(inp => { if (_savedText[inp.dataset.field]) inp.value = _savedText[inp.dataset.field]; });
     // re-attach filter / sort / detail handlers
     document.querySelectorAll('.mistral-col-f').forEach(inp => inp.addEventListener('input', renderMistralTable));
     document.querySelectorAll('[id^="mistralCF_"]').forEach(el =>
