@@ -843,23 +843,27 @@ pages.seafarer = async function () {
       <span id="sfCount" class="req-count-badge">${_sfRows.length} seafarers</span>
     </div>
 
-    <div class="req-kpi-grid">
-      <div class="req-kpi-card">
+    <div class="req-kpi-grid" id="sfKpiGrid">
+      <div class="req-kpi-card" data-kpi="all" data-color="#1B3A6B"
+        style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
         <span class="req-kpi-label">Total Seafarer</span>
         <span class="req-kpi-value" style="color:#1B3A6B;" id="sfKpiTotal">${total}</span>
-        <span class="req-kpi-sub">resigned excluded</span>
+        <span class="req-kpi-sub">resigned excluded · click to reset</span>
       </div>
-      <div class="req-kpi-card">
+      <div class="req-kpi-card" data-kpi="ready" data-color="#2D7A55"
+        style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
         <span class="req-kpi-label">Ready To Go · No Assignment</span>
         <span class="req-kpi-value" style="color:#2D7A55;" id="sfKpiReady">${readyNoAsgn}</span>
         <span class="req-kpi-sub">no sign-on date set</span>
       </div>
-      <div class="req-kpi-card">
+      <div class="req-kpi-card" data-kpi="hasAsgn" data-color="#B87A14"
+        style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
         <span class="req-kpi-label">Have Assignment · Not Ready</span>
         <span class="req-kpi-value" style="color:#B87A14;" id="sfKpiHasAsgn">${hasAsgnNotRdy}</span>
         <span class="req-kpi-sub">future sign-on, docs incomplete</span>
       </div>
-      <div class="req-kpi-card">
+      <div class="req-kpi-card" data-kpi="noAsgnNotReady" data-color="#B01A18"
+        style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
         <span class="req-kpi-label">No Assignment · Not Ready</span>
         <span class="req-kpi-value" style="color:#B01A18;" id="sfKpiNoAsgnNotReady">${noAsgnNotReady}</span>
         <span class="req-kpi-sub">no sign-on, not ready to go</span>
@@ -950,6 +954,7 @@ pageEvents.seafarer = function () {
   };
 
   let sfSortF = null, sfSortD = 1;
+  let sfActiveKpi = null;   // 'all' | 'ready' | 'hasAsgn' | 'noAsgnNotReady' | null
 
   function sfFiltered() {
     const gCruise = msGetVals('sfCruiseFilter');
@@ -981,6 +986,19 @@ pageEvents.seafarer = function () {
       }
       return true;
     });
+    // Apply active KPI filter on top of other filters
+    if (sfActiveKpi && sfActiveKpi !== 'all') {
+      const _td = new Date(); _td.setHours(0,0,0,0);
+      if (sfActiveKpi === 'ready') {
+        out = out.filter(r => !r.signOnDate && sfIsReadyToGo(r));
+      } else if (sfActiveKpi === 'hasAsgn') {
+        out = out.filter(r => r.signOnDate && new Date(r.signOnDate) > _td &&
+          ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase()));
+      } else if (sfActiveKpi === 'noAsgnNotReady') {
+        out = out.filter(r => !r.signOnDate && !sfIsReadyToGo(r));
+      }
+    }
+
     if (sfSortF) {
       out = out.slice().sort((a,b) => {
         if (sfSortF === '_countdown') return (sfCountdownSort(a)-sfCountdownSort(b))*sfSortD;
@@ -1002,9 +1020,25 @@ pageEvents.seafarer = function () {
     setT('sfKpiNoAsgnNotReady', rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length);
     setT('sfCount', `${rows.length} seafarer${rows.length!==1?'s':''}`);
     renderSFCharts(rows);
+    // Reflect active KPI with an outline on the card
+    document.querySelectorAll('#sfKpiGrid [data-kpi]').forEach(card => {
+      const isActive = card.dataset.kpi === (sfActiveKpi || 'all');
+      const col = card.dataset.color || '#1B3A6B';
+      card.style.outline    = isActive ? `2px solid ${col}` : '';
+      card.style.boxShadow  = isActive ? `0 2px 12px ${col}33` : '';
+      card.style.transform  = isActive ? 'translateY(-1px)' : '';
+    });
   }
 
   initMS();
+  // KPI card clicks — toggle filter; clicking same card or "all" resets
+  document.querySelectorAll('#sfKpiGrid [data-kpi]').forEach(card => {
+    card.addEventListener('click', () => {
+      const kpi = card.dataset.kpi;
+      sfActiveKpi = (sfActiveKpi === kpi || kpi === 'all') ? null : kpi;
+      sfApply();
+    });
+  });
   ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(id => msOnChange(id, sfApply));
   document.querySelectorAll('[id^="sfCF_"]').forEach(el => msOnChange(el.id, sfApply));
   document.querySelectorAll('.sf-col-f').forEach(inp => inp.addEventListener('input', sfApply));
@@ -1018,7 +1052,7 @@ pageEvents.seafarer = function () {
     ['sfGlobalSearch','sfSignOnFrom','sfSignOnTo'].forEach(id => {
       const el=document.getElementById(id); if(el) el.value='';
     });
-    sfSortF=null; sfSortD=1;
+    sfSortF=null; sfSortD=1; sfActiveKpi=null;
     document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
     sfApply();
   });
