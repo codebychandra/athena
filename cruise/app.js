@@ -698,6 +698,345 @@ pageEvents.task = function () {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// SEAFARER PAGE — active seafarers dashboard
+// ═════════════════════════════════════════════════════════════════════════════
+let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-use
+
+// ── Module-level badge helpers shared by seafarer page ───────────────────────
+function sfCruiseBadge(c) {
+  if (!c || c === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+  const map = { 'Cunard Line':'#1B3A6B','P&O Cruises':'#2D7A55','CUK Maritime':'#B87A14' };
+  const col = map[c] || '#6B7280';
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+    background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(c)}</span>`;
+}
+function sfOnbBadge(s) {
+  if (!s) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+  const map = { 'Completing Documents':'#B87A14','Ready to Go':'#2D7A55',
+    'Rescheduled':'#7C3AED','Resign':'#6B7280','Resigned':'#6B7280','Applicant':'#1B3A6B' };
+  const col = map[s] || '#6B7280';
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+    background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(s)}</span>`;
+}
+function sfEmpBadge(s) {
+  if (!s) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+  const map = { 'New Hire':'#1B3A6B','Active':'#2D7A55','On Board':'#2D7A55','Inactive':'#6B7280' };
+  const col = map[s] || '#6B7280';
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+    background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(s)}</span>`;
+}
+function sfIsReadyToGo(r) {
+  return (r.onboardingStatus || '').trim().toLowerCase() === 'ready to go';
+}
+function sfCountdownSort(r) {
+  if (!r.signOnDate) return Infinity;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sign  = new Date(r.signOnDate); sign.setHours(0,0,0,0);
+  return Math.round((sign - today) / 86400000);
+}
+function sfCountdownBadge(r) {
+  if (!r.signOnDate)
+    return '<span style="font-size:11px;color:var(--text-muted,#aaa);font-style:italic;">No Assignment</span>';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sign  = new Date(r.signOnDate); sign.setHours(0,0,0,0);
+  const diff  = Math.round((sign - today) / 86400000);
+  if (diff === 0)
+    return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+      background:#B01A1818;color:#B01A18;border:1px solid #B01A1830;">Today</span>`;
+  if (diff > 0)
+    return `<span style="font-weight:700;color:#1B3A6B;">${diff}d</span>`;
+  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+    background:#6B728018;color:#6B7280;border:1px solid #6B728030;">Started</span>`;
+}
+const _dash = '<span style="color:var(--text-muted,#aaa);">—</span>';
+
+// Column definitions for the seafarer table
+// Fields not yet in the worker mapping render "—" (noFilter skips the column filter cell)
+const SF_TABLE_COLS = [
+  { label:'Countdown',          field:'_countdown',       sortFn:sfCountdownSort, render:r => sfCountdownBadge(r) },
+  { label:'Onboarding Status',  field:'onboardingStatus', filterMS:true,          render:r => sfOnbBadge(r.onboardingStatus) },
+  { label:'Employment Status',  field:'employmentStatus', filterMS:true,          render:r => sfEmpBadge(r.employmentStatus) },
+  { label:'Seafarer Status',    field:'_seafarerStatus',  noFilter:true,          render:() => _dash },
+  { label:'CTI Office',         field:'_ctiOffice',       noFilter:true,          render:() => _dash },
+  { label:'Seafarer Name',      field:'fullName',                                 render:r => `<span style="font-weight:600;color:var(--text);">${escH(r.fullName||'—')}</span>` },
+  { label:'Email',              field:'email',                                    render:r => r.email&&r.email!=='—'?`<a href="mailto:${escH(r.email)}" style="color:var(--text-muted,#888);font-size:11px;">${escH(r.email)}</a>`:_dash },
+  { label:'Seafarer ID',        field:'seafarerIdNumber',                         render:r => r.seafarerIdNumber?`<code style="font-size:11px;">${escH(String(r.seafarerIdNumber))}</code>`:_dash },
+  { label:'Position Hired',     field:'positionHired',    filterMS:true,          render:r => `<span style="font-weight:600;">${escH(r.positionHired||'—')}</span>` },
+  { label:'Cruise Line',        field:'cruiseLine',       filterMS:true,          render:r => sfCruiseBadge(r.cruiseLine) },
+  { label:'Joining Ship',       field:'_joiningShip',     noFilter:true,          render:() => _dash },
+  { label:'Sign On Date',       field:'signOnDate',                               render:r => r.signOnDate?`<span style="font-size:11.5px;">${escH(r.signOnDate)}</span>`:_dash },
+  { label:'Sign Off Date',      field:'_signOffDate',     noFilter:true,          render:() => _dash },
+  { label:'Sign On Port',       field:'_signOnPort',      noFilter:true,          render:() => _dash },
+];
+
+pages.seafarer = async function () {
+  let allRows = [], errorMsg = null;
+  try {
+    const { seafarers } = await fetchCruiseData(false);
+    allRows = seafarers || [];
+  } catch (e) { errorMsg = e.message; }
+
+  const RESIGNED = new Set(['resign','resigned']);
+  _sfRows = allRows.filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
+
+  if (errorMsg) return `
+    <div class="req-page-header"><h1>Seafarer</h1></div>
+    <div class="req-error-banner"><span>⚠️</span><div><strong>Server error</strong> — ${escH(errorMsg)}</div></div>`;
+
+  const cruiseLines = [...new Set(_sfRows.map(r => r.cruiseLine).filter(v => v&&v!=='—'))].sort();
+  const onbSts      = [...new Set(_sfRows.map(r => r.onboardingStatus).filter(v => v&&v!=='—'))].sort();
+  const empSts      = [...new Set(_sfRows.map(r => r.employmentStatus).filter(v => v&&v!=='—'))].sort();
+  const positions   = [...new Set(_sfRows.map(r => r.positionHired).filter(v => v&&v!=='—'))].sort();
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const total          = _sfRows.length;
+  const readyNoAsgn    = _sfRows.filter(r => !r.signOnDate && sfIsReadyToGo(r)).length;
+  const hasAsgnNotRdy  = _sfRows.filter(r => r.signOnDate && new Date(r.signOnDate)>today &&
+    ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length;
+  const noAsgnNotReady = _sfRows.filter(r => !r.signOnDate && !sfIsReadyToGo(r)).length;
+
+  const sfCFOpts = { onboardingStatus:onbSts, employmentStatus:empSts, positionHired:positions, cruiseLine:cruiseLines };
+
+  const thSort = SF_TABLE_COLS.map(c =>
+    `<th data-field="${c.field}" class="${c.noFilter?'':'sf-sortable'}"
+      style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;
+        ${c.noFilter?'':'cursor:pointer;user-select:none;'}">
+      ${escH(c.label)}${c.noFilter?'':' <span class="sf-sort-icon">⇅</span>'}
+    </th>`).join('');
+
+  const thFilter = SF_TABLE_COLS.map(c => {
+    if (c.noFilter)
+      return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
+    const opts = sfCFOpts[c.field];
+    const cell = opts
+      ? buildColMS(`sfCF_${c.field}`, opts)
+      : `<input class="sf-col-f" data-field="${c.field}" type="text" placeholder="—"
+          style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
+            border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+    return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${cell}</th>`;
+  }).join('');
+
+  return `
+    <div class="req-page-header">
+      <h1>Seafarer</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">Active seafarers — resigned excluded</span>
+    </div>
+
+    <div class="card req-filter-bar">
+      ${buildMS('sfCruiseFilter','Cruise Line',cruiseLines)}
+      ${buildMS('sfOnbFilter','Onboarding Status',onbSts)}
+      ${buildMS('sfEmpFilter','Employment Status',empSts)}
+      <input id="sfSignOnFrom" type="date" title="Sign On Date from"
+        style="height:32px;font-size:12px;padding:0 8px;border:1px solid var(--border,#ddd);
+          border-radius:8px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+      <input id="sfSignOnTo" type="date" title="Sign On Date to"
+        style="height:32px;font-size:12px;padding:0 8px;border:1px solid var(--border,#ddd);
+          border-radius:8px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+      <input id="sfGlobalSearch" type="text" placeholder="🔍 Search…"
+        style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
+          border:1px solid var(--border,#ddd);border-radius:8px;
+          background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+      <button id="sfClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span id="sfCount" class="req-count-badge">${_sfRows.length} seafarers</span>
+    </div>
+
+    <div class="req-kpi-grid">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Seafarer</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;" id="sfKpiTotal">${total}</span>
+        <span class="req-kpi-sub">resigned excluded</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Ready To Go · No Assignment</span>
+        <span class="req-kpi-value" style="color:#2D7A55;" id="sfKpiReady">${readyNoAsgn}</span>
+        <span class="req-kpi-sub">no sign-on date set</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Have Assignment · Not Ready</span>
+        <span class="req-kpi-value" style="color:#B87A14;" id="sfKpiHasAsgn">${hasAsgnNotRdy}</span>
+        <span class="req-kpi-sub">future sign-on, docs incomplete</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">No Assignment · Not Ready</span>
+        <span class="req-kpi-value" style="color:#B01A18;" id="sfKpiNoAsgnNotReady">${noAsgnNotReady}</span>
+        <span class="req-kpi-sub">no sign-on, not ready to go</span>
+      </div>
+    </div>
+
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Active Seafarers by Cruise Line</div>
+        <div class="req-card-sub">Count per cruise line</div>
+        <canvas id="sfLineChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Ready To Go · No Assignment by Cruise Line</div>
+        <div class="req-card-sub">Ready seafarers awaiting deployment</div>
+        <canvas id="sfReadyChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="sfMainTable">
+          <thead>
+            <tr id="sfSortRow">${thSort}</tr>
+            <tr id="sfColFilterRow">${thFilter}</tr>
+          </thead>
+          <tbody id="sfTableBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+function renderSFTableBody(rows) {
+  const tb = document.getElementById('sfTableBody');
+  if (!tb) return;
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="${SF_TABLE_COLS.length}"
+      style="padding:24px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">
+      No seafarers match the filters.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = rows.map(r => `<tr>${SF_TABLE_COLS.map(c =>
+    `<td style="padding:9px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${c.render(r)}</td>`
+  ).join('')}</tr>`).join('');
+}
+
+pageEvents.seafarer = function () {
+  if (typeof Chart === 'undefined') return;
+  if (Chart && window.ChartDataLabels && !Chart._cruiseDLRegistered) {
+    Chart.register(window.ChartDataLabels);
+    Chart._cruiseDLRegistered = true;
+  }
+
+  window._sfCharts = window._sfCharts || {};
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const sfBaseOpts = {
+    responsive:true, maintainAspectRatio:false,
+    layout: { padding: { top: 18 } },
+    plugins: {
+      legend: { display:false },
+      tooltip: { callbacks: { label: c => ` ${c.parsed.y}` } },
+      datalabels: { anchor:'end',align:'end',offset:2,
+        color:dark?'#eee':'#1A1A1A', font:{size:10,weight:700}, formatter:v=>v },
+    },
+    scales: {
+      x: { grid:{display:false}, ticks:{color:dark?'#aaa':'#555',font:{size:10}} },
+      y: { display:false, beginAtZero:true },
+    },
+  };
+  const mkSFBar = (id, entries, color) => {
+    const el = document.getElementById(id); if (!el) return;
+    if (window._sfCharts[id]) window._sfCharts[id].destroy();
+    window._sfCharts[id] = new Chart(el, {
+      type:'bar',
+      data:{ labels:entries.map(e=>e[0]),
+        datasets:[{data:entries.map(e=>e[1]),backgroundColor:color,borderRadius:0,maxBarThickness:46}] },
+      options:sfBaseOpts,
+    });
+  };
+  const renderSFCharts = rows => {
+    const byLine={}, byReady={};
+    rows.forEach(r => { const k=r.cruiseLine||'—'; if(k!=='—') byLine[k]=(byLine[k]||0)+1; });
+    rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).forEach(r => {
+      const k=r.cruiseLine||'—'; if(k!=='—') byReady[k]=(byReady[k]||0)+1;
+    });
+    mkSFBar('sfLineChart',  Object.entries(byLine).sort((a,b)=>b[1]-a[1]),  '#1B3A6B');
+    mkSFBar('sfReadyChart', Object.entries(byReady).sort((a,b)=>b[1]-a[1]), '#2D7A55');
+  };
+
+  let sfSortF = null, sfSortD = 1;
+
+  function sfFiltered() {
+    const gCruise = msGetVals('sfCruiseFilter');
+    const gOnb    = msGetVals('sfOnbFilter');
+    const gEmp    = msGetVals('sfEmpFilter');
+    const soFrom  = document.getElementById('sfSignOnFrom')?.value || '';
+    const soTo    = document.getElementById('sfSignOnTo')?.value   || '';
+    const search  = (document.getElementById('sfGlobalSearch')?.value||'').trim().toLowerCase();
+    const colMS   = {}, colText = {};
+    document.querySelectorAll('[id^="sfCF_"]').forEach(el => {
+      const v = msGetVals(el.id); if (v.length) colMS[el.id.replace('sfCF_','')] = v;
+    });
+    document.querySelectorAll('.sf-col-f').forEach(inp => {
+      const v = inp.value.trim().toLowerCase(); if (v) colText[inp.dataset.field] = v;
+    });
+    let out = _sfRows.filter(r => {
+      if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
+      if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
+      if (gEmp.length    && !gEmp.includes(r.employmentStatus)) return false;
+      if (soFrom && (r.signOnDate||'') < soFrom) return false;
+      if (soTo   && (r.signOnDate||'9999') > soTo) return false;
+      for (const f in colMS)   if (!colMS[f].includes(r[f])) return false;
+      for (const f in colText) if (!String(r[f]??'').toLowerCase().includes(colText[f])) return false;
+      if (search) {
+        const hay = [r.fullName,r.email,r.positionHired,r.cruiseLine,
+          r.onboardingStatus,r.employmentStatus,r.seafarerIdNumber,r.signOnDate]
+          .map(v=>String(v??'').toLowerCase()).join(' ');
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+    if (sfSortF) {
+      out = out.slice().sort((a,b) => {
+        if (sfSortF === '_countdown') return (sfCountdownSort(a)-sfCountdownSort(b))*sfSortD;
+        return String(a[sfSortF]??'').localeCompare(String(b[sfSortF]??''),undefined,{numeric:true})*sfSortD;
+      });
+    }
+    return out;
+  }
+
+  function sfApply() {
+    const rows = sfFiltered();
+    renderSFTableBody(rows);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const setT  = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    setT('sfKpiTotal', rows.length);
+    setT('sfKpiReady', rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length);
+    setT('sfKpiHasAsgn', rows.filter(r=>r.signOnDate&&new Date(r.signOnDate)>today&&
+      ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length);
+    setT('sfKpiNoAsgnNotReady', rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length);
+    setT('sfCount', `${rows.length} seafarer${rows.length!==1?'s':''}`);
+    renderSFCharts(rows);
+  }
+
+  initMS();
+  ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(id => msOnChange(id, sfApply));
+  document.querySelectorAll('[id^="sfCF_"]').forEach(el => msOnChange(el.id, sfApply));
+  document.querySelectorAll('.sf-col-f').forEach(inp => inp.addEventListener('input', sfApply));
+  document.getElementById('sfSignOnFrom')?.addEventListener('change', sfApply);
+  document.getElementById('sfSignOnTo')?.addEventListener('change', sfApply);
+  document.getElementById('sfGlobalSearch')?.addEventListener('input', sfApply);
+  document.getElementById('sfClearBtn')?.addEventListener('click', () => {
+    ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(msClear);
+    document.querySelectorAll('[id^="sfCF_"]').forEach(el => msClear(el.id));
+    document.querySelectorAll('.sf-col-f').forEach(inp => inp.value='');
+    ['sfGlobalSearch','sfSignOnFrom','sfSignOnTo'].forEach(id => {
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    sfSortF=null; sfSortD=1;
+    document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
+    sfApply();
+  });
+  document.querySelectorAll('#sfSortRow th.sf-sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const f = th.dataset.field;
+      if (sfSortF===f) sfSortD*=-1; else { sfSortF=f; sfSortD=1; }
+      document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
+      th.querySelector('.sf-sort-icon').textContent = sfSortD>0?'↑':'↓';
+      sfApply();
+    });
+  });
+
+  renderSFTableBody(_sfRows);   // initial fill
+  renderSFCharts(_sfRows);      // initial charts
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REQUISITION PAGE — cruise job openings (Sea Based + River)
 // ═════════════════════════════════════════════════════════════════════════════
 const CRUISE_REQ_CATEGORIES = ['Sea Based', 'River'];
