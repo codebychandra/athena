@@ -518,11 +518,11 @@ const REQ_COLS = [
   { label:'Headcount',          field:'numPositions',     render:r => `<span style="font-weight:700;color:var(--text);">${parseInt(r.numPositions)||0}</span>` },
   { label:'Department',         field:'department',       render:r => escH(r.department) },
   { label:'Rank',               field:'positionName',     render:r => `<span style="font-weight:600;color:var(--text);">${escH(r.positionName)}</span>` },
-  { label:'Marlins (%)',        field:'marlins',          render:r => escH(r.marlins) },
   { label:'Salary',             field:'salary',           render:r => escH(r.salary) },
   { label:'Payment Frequency',  field:'paymentFrequency', render:r => escH(r.paymentFrequency) },
   { label:'Contract Length',    field:'contractLength',   render:r => escH(r.contractLength) },
   { label:'Flight Ticket',      field:'flightTicket',     render:r => escH(r.flightTicket) },
+  { label:'Marlins (%)',        field:'marlins',          render:r => escH(r.marlins) },
 ];
 
 function renderReqTableBody(rows) {
@@ -699,10 +699,10 @@ function ensureReqModal() {
   if (m) return m;
   m = document.createElement('div');
   m.id = 'reqDrillModal';
-  m.style.cssText = `position:fixed;top:120px;left:60%;width:440px;max-height:70vh;
+  m.style.cssText = `position:fixed;top:120px;left:62%;width:360px;max-height:72vh;
     background:var(--card-bg,#fff);color:var(--text);
-    border:1px solid var(--border,#e5e7eb);border-radius:12px;
-    box-shadow:0 12px 36px rgba(0,0,0,0.22);
+    border:1px solid var(--border,#e5e7eb);border-radius:10px;
+    box-shadow:0 10px 32px rgba(0,0,0,0.22);
     display:none;flex-direction:column;z-index:9999;overflow:hidden;`;
   m.innerHTML = `
     <div id="reqDrillHead"
@@ -744,10 +744,18 @@ function openReqModal(title, bodyHtml) {
   m.style.display = 'flex';
 }
 
-// Department drill — show positions in this department × cruise line
+// Shared compact-drill styles
+const DRILL_TH = `padding:5px 10px;text-align:left;font-size:9px;font-weight:700;
+  letter-spacing:0.05em;text-transform:uppercase;color:#fff;background:#1A1A1A;`;
+const DRILL_TD = `padding:5px 10px;font-size:10.5px;border-bottom:1px solid var(--border,#f0f0f0);
+  white-space:nowrap;`;
+const DRILL_SECTION = `padding:8px 12px 4px;font-size:9.5px;font-weight:800;
+  letter-spacing:0.1em;text-transform:uppercase;color:#B01A18;
+  background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);`;
+
+// Department drill — positions in this department, grouped by cruise line
 function showDepartmentDetail(dept) {
   const rows = _reqRows.filter(r => r.department === dept);
-  // group by cruiseLine -> { position -> headcount }
   const tree = {};
   rows.forEach(r => {
     const cl = r.clientName || '—';
@@ -756,69 +764,86 @@ function showDepartmentDetail(dept) {
     tree[cl][pos] = (tree[cl][pos] || 0) + (parseInt(r.numPositions) || 0);
   });
   const lines = Object.keys(tree).sort();
+  const total = rows.reduce((s, r) => s + (parseInt(r.numPositions) || 0), 0);
+
   const body = lines.length ? `
-    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-      <thead><tr style="background:var(--bg-page,#fafafa);">
-        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Cruise Line</th>
-        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Rank</th>
-        <th style="text-align:right;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);width:120px;">Headcount</th>
+    <div style="${DRILL_SECTION}border-top:none;">Positions by Cruise Line · ${total} total</div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="${DRILL_TH}">Cruise Line</th>
+        <th style="${DRILL_TH}">Rank</th>
+        <th style="${DRILL_TH}text-align:right;width:60px;">HC</th>
       </tr></thead>
       <tbody>
         ${lines.flatMap(cl => {
-          const positions = Object.entries(tree[cl]).sort((a,b) => b[1]-a[1]);
-          return positions.map((p, i) => `
-            <tr>
-              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);font-weight:${i===0?'600':'400'};${i===0?'':'color:transparent;'}">${i===0?escH(cl):escH(cl)}</td>
-              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p[0])}</td>
-              <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;">${p[1]}</td>
-            </tr>`);
+          const positions = Object.entries(tree[cl]).sort((a, b) => b[1] - a[1]);
+          const subtotal  = positions.reduce((s, p) => s + p[1], 0);
+          return [
+            `<tr style="background:rgba(176,26,24,0.04);">
+              <td style="${DRILL_TD}font-weight:700;color:#B01A18;">${escH(cl)}</td>
+              <td style="${DRILL_TD}color:var(--text-muted,#888);font-style:italic;">${positions.length} position${positions.length!==1?'s':''}</td>
+              <td style="${DRILL_TD}text-align:right;font-weight:700;color:#B01A18;">${subtotal}</td>
+            </tr>`,
+            ...positions.map(([p, q]) => `<tr>
+              <td style="${DRILL_TD}color:transparent;">·</td>
+              <td style="${DRILL_TD}padding-left:22px;">${escH(p)}</td>
+              <td style="${DRILL_TD}text-align:right;font-weight:600;">${q}</td>
+            </tr>`),
+          ];
         }).join('')}
       </tbody>
-    </table>` : `<div style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">No positions found.</div>`;
-  openReqModal(`Department: ${escH(dept)} — positions by cruise line`, body);
+    </table>` : `<div style="padding:24px;text-align:center;color:var(--text-muted,#aaa);font-size:11px;">No positions found.</div>`;
+  openReqModal(`${escH(dept)}`, body);
 }
 
-// Cruise line drill — show talent pool and demand config for this cruise line
+// Cruise line drill — talent pool quotas and monthly demand
 function showCruiseLineDetail(line) {
   const node = brandNode(loadDemand(), line);
   const tp = node.talentPool || {};
   const monthly = node.monthly || {};
   const tpPositions = Object.keys(tp).sort();
   const monthList = Object.keys(monthly).sort();
+  const tpTotal = tpPositions.reduce((s, p) => s + Number(tp[p] || 0), 0);
 
-  const tpHtml = tpPositions.length ? `
-    <div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">Talent Pool (Running)</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-      <thead><tr style="background:var(--bg-page,#fafafa);">
-        <th style="text-align:left;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Position</th>
-        <th style="text-align:right;padding:10px 14px;border-bottom:1px solid var(--border,#eee);font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);width:120px;">Quota</th>
+  const tpBlock = tpPositions.length ? `
+    <div style="${DRILL_SECTION}border-top:none;">Talent Pool (running) · ${tpTotal}</div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="${DRILL_TH}">Position</th>
+        <th style="${DRILL_TH}text-align:right;width:60px;">Qty</th>
       </tr></thead>
       <tbody>
         ${tpPositions.map(p => `<tr>
-          <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
-          <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;">${tp[p]}</td>
+          <td style="${DRILL_TD}">${escH(p)}</td>
+          <td style="${DRILL_TD}text-align:right;font-weight:600;">${tp[p]}</td>
         </tr>`).join('')}
       </tbody>
-    </table>` : `<div style="padding:18px 22px;color:var(--text-muted,#aaa);font-size:12.5px;">No talent pool configured for ${escH(line)}.</div>`;
+    </table>` : `<div style="${DRILL_SECTION}border-top:none;">Talent Pool</div>
+    <div style="padding:10px 14px;color:var(--text-muted,#aaa);font-size:10.5px;font-style:italic;">No talent pool configured.</div>`;
 
-  const demandHtml = monthList.length ? monthList.map(mk => {
+  const demandBlocks = monthList.length ? monthList.map(mk => {
     const month = monthly[mk] || {};
-    const positions = Object.entries(month).sort((a,b) => b[1]-a[1]);
+    const positions = Object.entries(month).sort((a, b) => b[1] - a[1]);
     if (!positions.length) return '';
+    const sub = positions.reduce((s, p) => s + p[1], 0);
     return `
-      <div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">${escH(monthLabel(mk))}</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <div style="${DRILL_SECTION}">${escH(monthLabel(mk))} · ${sub}</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="${DRILL_TH}">Position</th>
+          <th style="${DRILL_TH}text-align:right;width:60px;">Qty</th>
+        </tr></thead>
         <tbody>
           ${positions.map(([p, q]) => `<tr>
-            <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);">${escH(p)}</td>
-            <td style="padding:9px 14px;border-bottom:1px solid var(--border,#f3f3f3);text-align:right;font-weight:600;width:120px;">${q}</td>
+            <td style="${DRILL_TD}">${escH(p)}</td>
+            <td style="${DRILL_TD}text-align:right;font-weight:600;">${q}</td>
           </tr>`).join('')}
         </tbody>
       </table>`;
-  }).join('') : `<div style="padding:18px 22px;color:var(--text-muted,#aaa);font-size:12.5px;">No monthly demand configured for ${escH(line)}.</div>`;
+  }).join('') : `<div style="${DRILL_SECTION}">Monthly Demand</div>
+    <div style="padding:10px 14px;color:var(--text-muted,#aaa);font-size:10.5px;font-style:italic;">No monthly demand configured.</div>`;
 
-  openReqModal(`Cruise Line: ${escH(line)} — talent pool &amp; demand`,
-    tpHtml + `<div style="padding:14px 22px 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted,#888);">Monthly Demand</div>` + demandHtml);
+  openReqModal(`${escH(line)}`, tpBlock + demandBlocks);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
