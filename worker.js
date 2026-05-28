@@ -378,6 +378,7 @@ const JF = {
 // 'Seafarers' in this account). Field API names confirmed via
 // /api/cruise/debug/fields probe.
 const SF = {
+  candidateId:        'Candidate_ID',          // 'Seafarer ID' (autonumber, e.g. CTI-26512)
   fullName:           'Full_Name',
   firstName:          'First_Name',
   lastName:           'Last_Name',
@@ -591,8 +592,9 @@ function mapSeafarer(r) {
   return {
     _source:          'recruit',
     id:               r.id,
-    createdTime:      r.Created_Time  || null,
-    modifiedTime:     r.Modified_Time || null,
+    candidateId:      r[SF.candidateId]    || null,
+    createdTime:      r.Created_Time       || null,
+    modifiedTime:     r.Modified_Time      || null,
     fullName:         r[SF.fullName] || [r[SF.firstName], r[SF.lastName]].filter(Boolean).join(' ') || '—',
     firstName:        r[SF.firstName] || '—',
     lastName:         r[SF.lastName]  || '—',
@@ -948,7 +950,9 @@ export default {
         const rawBody = await request.json();
         const body    = rawBody.data ? rawBody : { data: [{ ...rawBody }] };
         const data    = await zPut(`${ZOHO_RECRUIT}/${module}/${id}`, token, body);
+        // Drop both caches so the next reader sees fresh data.
         await clearCached(env, 'recruit-j1-participants');
+        if (module === 'Candidates') await clearCached(env, 'cruise-seafarers');
         return json(data, 200, ch);
       }
 

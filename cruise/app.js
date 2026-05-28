@@ -266,52 +266,50 @@ async function fetchCruiseData(forceRefresh) {
 
 // ── CUK Mistral Request report ───────────────────────────────────────────────
 const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
-// Column label -> record field accessor
+// Column definitions — each: { label, field, zoho (API name for save), filter? }
 const MISTRAL_COLUMNS = [
-  ['Hired Date',            r => r.hiredDate],
-  ['Seafarer Name',         r => r.fullName],
-  ['Position Hired',        r => r.positionHired],
-  ['Cruise Line',           r => r.cruiseLine],
-  ['Place of Birth',        r => r.placeOfBirth],
-  ['Date of Birth',         r => r.dateOfBirth],
-  ['Gender',                r => r.gender],
-  ['Marital Status',        r => r.maritalStatus],
-  ['Email',                 r => r.email],
-  ['Mobile',                r => r.phone],
-  ['Passport Number',       r => r.passportNumber],
-  ['Passport Issued Date',  r => r.passportIssuedDate],
-  ['Passport Expired Date', r => r.passportExpiredDate],
-  ['Passport Issued Nation',r => r.passportIssuedNation],
-  ['Hair Color',            r => r.hairColor],
-  ['Height',                r => r.height],
-  ['Eye Color',             r => r.eyeColor],
-  ['Weight',                r => r.weight],
-  ['Country',               r => r.country],
-  ['City',                  r => r.city],
-  ['Street',                r => r.street],
-  ['Postal Code',           r => r.postalCode],
-  ['Gateway Airport',       r => r.gatewayAirport],
+  { label:'Crew ID Number',        field:'candidateId',         zoho:null },           // autonumber, read-only
+  { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date' },
+  { label:'Seafarer Name',         field:'fullName',            zoho:null },                                       // computed
+  { label:'Position Hired',        field:'positionHired',       zoho:'Position_Applied' },
+  { label:'Cruise Line',           field:'cruiseLine',          zoho:'Cruise_Line',          filterMS:true },
+  { label:'Place of Birth',        field:'placeOfBirth',        zoho:'Place_of_Birth' },
+  { label:'Date of Birth',         field:'dateOfBirth',         zoho:'Date_of_Birth',        type:'date' },
+  { label:'Gender',                field:'gender',              zoho:'Gender',               filterMS:true },
+  { label:'Marital Status',        field:'maritalStatus',       zoho:'Marital_Status' },
+  { label:'Email',                 field:'email',               zoho:'Email' },
+  { label:'Mobile',                field:'phone',               zoho:'Mobile' },
+  { label:'Passport Number',       field:'passportNumber',      zoho:'Passport_Number' },
+  { label:'Passport Issued Date',  field:'passportIssuedDate',  zoho:'Passport_Issued_Date', type:'date' },
+  { label:'Passport Expired Date', field:'passportExpiredDate', zoho:'Passport_Expired_Date',type:'date' },
+  { label:'Passport Issued Nation',field:'passportIssuedNation',zoho:'Passport_Issued_Country' },
+  { label:'Hair Color',            field:'hairColor',           zoho:'Hair_Color' },
+  { label:'Height',                field:'height',              zoho:'Height',               type:'number' },
+  { label:'Eye Color',             field:'eyeColor',            zoho:'Eye_Color' },
+  { label:'Weight',                field:'weight',              zoho:'Weight',               type:'number' },
+  { label:'Country',               field:'country',             zoho:'Country' },
+  { label:'City',                  field:'city',                zoho:'City' },
+  { label:'Street',                field:'street',              zoho:'Street' },
+  { label:'Postal Code',           field:'postalCode',          zoho:'Zip_Code' },
+  { label:'Gateway Airport',       field:'gatewayAirport',      zoho:'Gateway_Airport' },
 ];
 function cleanVal(v) {
   if (v == null) return '';
   const s = String(v).trim();
   return (s === '—') ? '' : s;
 }
-// Hired seafarers in CUK brands with no Seafarer ID yet.
-// opts: { from:'YYYY-MM-DD', to:'YYYY-MM-DD', excludeResigned:bool }
+// Hired seafarers in CUK brands with no Seafarer ID yet. Resigned always excluded.
+// opts: { from:'YYYY-MM-DD', to:'YYYY-MM-DD' }
 function mistralRequestRows(seafarers, opts = {}) {
   const from = opts.from ? new Date(opts.from) : null;
   const to   = opts.to   ? new Date(opts.to)   : null;
   if (to) to.setHours(23, 59, 59, 999);
-  const excludeResigned = opts.excludeResigned !== false;   // default true
   return seafarers.filter(s => {
     if (!CUK_BRANDS.includes((s.cruiseLine || '').trim())) return false;
     if (s.seafarerIdNumber && String(s.seafarerIdNumber).trim()) return false;  // already has ID
     if (!s.hiredDate) return false;   // must be hired
-    if (excludeResigned) {
-      const ob = (s.onboardingStatus || '').trim().toLowerCase();
-      if (ob === 'resign' || ob === 'resigned') return false;
-    }
+    const ob = (s.onboardingStatus || '').trim().toLowerCase();
+    if (ob === 'resign' || ob === 'resigned') return false;
     const d = new Date(s.hiredDate);
     if (from && d < from) return false;
     if (to   && d > to)   return false;
@@ -937,9 +935,9 @@ pages.reports = async function () {
         <div class="card" style="padding:22px 26px;margin-bottom:18px;">
           <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
             <div>
-              <div style="font-size:16px;font-weight:700;color:var(--text);">CUK Mistral Request</div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">CUK Mistral ID Request</div>
               <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">
-                Hired seafarers across Cunard, P&amp;O and CUK Maritime with no Seafarer ID yet — Mistral registration needed.
+                Hired seafarers across Cunard, P&amp;O and CUK Maritime with no Seafarer ID yet — Mistral registration needed. Resigned excluded.
               </div>
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;">
@@ -948,7 +946,7 @@ pages.reports = async function () {
             </div>
           </div>
 
-          <!-- Filters -->
+          <!-- Date range filter -->
           <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border,#eee);">
             <div>
               <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Hired From</div>
@@ -958,13 +956,13 @@ pages.reports = async function () {
               <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Hired To</div>
               <input type="date" id="mistralTo" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
-            <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">
-              <input type="checkbox" id="mistralExclResign" checked style="width:15px;height:15px;accent-color:#B01A18;cursor:pointer;">
-              Exclude resigned
-            </label>
-            <button id="mistralApply" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Apply Filters</button>
+            <button id="mistralApply" style="padding:8px 18px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Apply</button>
           </div>
         </div>
+
+        <!-- KPIs -->
+        <div class="req-kpi-grid" id="mistralKpis"></div>
+
         <div id="mistralPreview" class="card" style="padding:0;overflow:auto;"></div>
       </section>
 
@@ -1171,50 +1169,152 @@ pageEvents.reports = function () {
   regenerate();
 
   // ── Mistral Request wiring ─────────────────────────────────────────────────
+  let _mistralBase   = [];    // base rows (date-filtered)
+  let _mistralSortF  = null;
+  let _mistralSortD  = 1;
+
   function mistralOpts() {
     return {
       from: document.getElementById('mistralFrom')?.value || null,
       to:   document.getElementById('mistralTo')?.value   || null,
-      excludeResigned: document.getElementById('mistralExclResign')?.checked !== false,
     };
   }
-  async function renderMistral() {
+
+  function mistralCurrent() {
+    // apply per-column filters + sort on top of the date-filtered base
+    const colMS = {};
+    document.querySelectorAll('[id^="mistralCF_"]').forEach(el => {
+      const field = el.id.replace('mistralCF_', '');
+      const vals  = msGetVals(el.id);
+      if (vals.length) colMS[field] = vals;
+    });
+    const colText = {};
+    document.querySelectorAll('.mistral-col-f').forEach(inp => {
+      const v = inp.value.trim().toLowerCase();
+      if (v) colText[inp.dataset.field] = v;
+    });
+    let out = _mistralBase.filter(r => {
+      for (const f in colMS)   if (!colMS[f].includes(r[f]))                  return false;
+      for (const f in colText) if (!String(r[f] ?? '').toLowerCase().includes(colText[f])) return false;
+      return true;
+    });
+    if (_mistralSortF) {
+      out = out.slice().sort((a, b) => {
+        const av = a[_mistralSortF], bv = b[_mistralSortF];
+        return String(av ?? '').localeCompare(String(bv ?? ''), undefined, { numeric:true }) * _mistralSortD;
+      });
+    }
+    return out;
+  }
+
+  function renderMistralKpis(rows) {
+    const wrap = document.getElementById('mistralKpis');
+    if (!wrap) return;
+    const total   = rows.length;
+    const cunard  = rows.filter(r => r.cruiseLine === 'Cunard Line').length;
+    const po      = rows.filter(r => r.cruiseLine === 'P&O Cruises').length;
+    const cuk     = rows.filter(r => r.cruiseLine === 'CUK Maritime').length;
+    const noPass  = rows.filter(r => !cleanVal(r.passportNumber)).length;
+    const card = (label, val, color, sub) => `
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">${escH(label)}</span>
+        <span class="req-kpi-value" style="color:${color};">${val}</span>
+        <span class="req-kpi-sub">${escH(sub)}</span>
+      </div>`;
+    wrap.innerHTML =
+      card('Total Need to Request', total,  '#B01A18', 'seafarers pending ID') +
+      card('Cunard Line',           cunard, '#1B3A6B', 'pending') +
+      card('P&O Cruises',           po,     '#2D7A55', 'pending') +
+      card('CUK Maritime',          cuk,    '#B87A14', 'pending') +
+      card('Total No Passport',     noPass, '#7C3AED', 'passport missing');
+  }
+
+  function buildMistralHeaderRows() {
+    const thSort = MISTRAL_COLUMNS.map(c =>
+      `<th data-field="${c.field}" class="sortable" style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;cursor:pointer;user-select:none;">
+        ${escH(c.label)} <span class="mistral-sort-icon">⇅</span>
+      </th>`).join('') + `<th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);width:70px;"></th>`;
+
+    const thFilter = MISTRAL_COLUMNS.map(c => {
+      let cell;
+      if (c.filterMS) {
+        const opts = [...new Set(_mistralBase.map(r => r[c.field]).filter(v => v && v !== '—' && v !== ''))].sort();
+        cell = buildColMS(`mistralCF_${c.field}`, opts);
+      } else {
+        cell = `<input class="mistral-col-f" data-field="${c.field}" type="text" placeholder="—" style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+      }
+      return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${cell}</th>`;
+    }).join('') + `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
+
+    return `<tr>${thSort}</tr><tr>${thFilter}</tr>`;
+  }
+
+  function renderMistralTable() {
+    const rows = mistralCurrent();
+    renderMistralKpis(rows);
     const wrap = document.getElementById('mistralPreview');
     if (!wrap) return;
-    wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading…</div>`;
+    const header = buildMistralHeaderRows();
+    const bodyHtml = rows.length
+      ? rows.map(r => `<tr data-id="${escH(r.id)}">${MISTRAL_COLUMNS.map(c =>
+          `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(r[c.field]))}</td>`).join('')}
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;">
+            <button class="mistral-detail-btn" data-id="${escH(r.id)}"
+              style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;">Detail</button>
+          </td></tr>`).join('')
+      : `<tr><td colspan="${MISTRAL_COLUMNS.length+1}" style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No matching seafarers.</td></tr>`;
+    wrap.innerHTML = `
+      <div style="padding:10px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
+        <strong style="color:var(--text);">${rows.length}</strong> seafarer${rows.length!==1?'s':''} pending Mistral ID
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>${header}</thead>
+        <tbody id="mistralBody">${bodyHtml}</tbody>
+      </table>`;
+
+    initMS(wrap);
+    // re-attach filter / sort / detail handlers
+    document.querySelectorAll('.mistral-col-f').forEach(inp => inp.addEventListener('input', renderMistralTable));
+    document.querySelectorAll('[id^="mistralCF_"]').forEach(el =>
+      msOnChange(el.id, renderMistralTable));
+    document.querySelectorAll('#mistralPreview th.sortable').forEach(th => {
+      th.addEventListener('click', () => {
+        const f = th.dataset.field;
+        if (_mistralSortF === f) _mistralSortD *= -1; else { _mistralSortF = f; _mistralSortD = 1; }
+        renderMistralTable();
+      });
+    });
+    // Restore the active sort icon
+    document.querySelectorAll('#mistralPreview .mistral-sort-icon').forEach(s => s.textContent = '⇅');
+    if (_mistralSortF) {
+      const cur = document.querySelector(`#mistralPreview th.sortable[data-field="${_mistralSortF}"] .mistral-sort-icon`);
+      if (cur) cur.textContent = _mistralSortD > 0 ? '↑' : '↓';
+    }
+    document.querySelectorAll('.mistral-detail-btn').forEach(b => {
+      b.addEventListener('click', () => openMistralDetail(b.dataset.id));
+    });
+  }
+
+  async function reloadMistral() {
+    const wrap = document.getElementById('mistralPreview');
+    if (wrap) wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading…</div>`;
     try {
       const { seafarers } = await fetchCruiseData(false);
-      const rows = mistralRequestRows(seafarers, mistralOpts());
-      if (!rows.length) {
-        wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">No pending Mistral requests — every hired CUK seafarer already has a Seafarer ID.</div>`;
-        return;
-      }
-      const th = MISTRAL_COLUMNS.map(([label]) =>
-        `<th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
-          text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
-          border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${escH(label)}</th>`).join('');
-      const trs = rows.map(r => `<tr>${MISTRAL_COLUMNS.map(([,fn]) =>
-        `<td style="padding:8px 12px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(fn(r)))}</td>`).join('')}</tr>`).join('');
-      wrap.innerHTML = `
-        <div style="padding:12px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
-          <strong style="color:var(--text);">${rows.length}</strong> seafarer${rows.length!==1?'s':''} pending Mistral ID registration
-        </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr>${th}</tr></thead>
-          <tbody>${trs}</tbody>
-        </table>`;
+      _mistralBase = mistralRequestRows(seafarers, mistralOpts());
+      renderMistralTable();
     } catch (e) {
-      wrap.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
+      if (wrap) wrap.innerHTML = `<div style="padding:32px;color:#B01A18;font-size:13px;">Failed to load: ${escH(e.message)}</div>`;
     }
   }
+
   function downloadMistralCSV(rows) {
     const esc = v => {
       const s = cleanVal(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
     };
-    const header = MISTRAL_COLUMNS.map(([label]) => esc(label)).join(',');
-    const lines  = rows.map(r => MISTRAL_COLUMNS.map(([,fn]) => esc(fn(r))).join(','));
-    const csv    = '﻿' + [header, ...lines].join('\r\n');   // BOM for Excel
+    const header = MISTRAL_COLUMNS.map(c => esc(c.label)).join(',');
+    const lines  = rows.map(r => MISTRAL_COLUMNS.map(c => esc(r[c.field])).join(','));
+    const csv    = '﻿' + [header, ...lines].join('\r\n');
     const blob   = new Blob([csv], { type:'text/csv;charset=utf-8;' });
     const url    = URL.createObjectURL(blob);
     const a      = document.createElement('a');
@@ -1223,21 +1323,93 @@ pageEvents.reports = function () {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  // Detail / edit panel for a single Mistral row
+  function openMistralDetail(zohoId) {
+    const row = _mistralBase.find(r => r.id === zohoId);
+    if (!row) return;
+    const m = ensureReqModal();
+    m.style.width = '480px';
+    const editable = MISTRAL_COLUMNS.filter(c => c.zoho);
+    const formHtml = editable.map(c => {
+      const val = row[c.field] == null ? '' : String(row[c.field]).replace(/^—$/, '');
+      const inputType = c.type === 'date' ? 'date' : c.type === 'number' ? 'number' : 'text';
+      return `
+        <label style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border,#f3f3f3);">
+          <span style="flex:0 0 140px;font-size:10.5px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.04em;">${escH(c.label)}</span>
+          <input data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}" type="${inputType}" value="${escH(val)}"
+            style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--border,#ddd);border-radius:5px;
+            font-size:11.5px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+        </label>`;
+    }).join('');
+    const body = `
+      <div style="padding:8px 12px;background:var(--bg-page,#fafafa);font-size:10.5px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
+        <strong style="color:var(--text);">${escH(row.fullName || '—')}</strong>
+        ${row.candidateId ? ` · ${escH(row.candidateId)}` : ''}
+      </div>
+      <form id="mistralEditForm">${formHtml}</form>
+      <div style="padding:10px 12px;display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
+        <span id="mistralEditStatus" style="margin-right:auto;font-size:11px;color:var(--text-muted,#888);align-self:center;"></span>
+        <button id="mistralEditCancel" style="padding:6px 14px;font-size:11.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;cursor:pointer;font-family:inherit;">Close</button>
+        <button id="mistralEditSave" style="padding:6px 16px;font-size:11.5px;font-weight:600;border:none;background:#B01A18;color:#fff;border-radius:5px;cursor:pointer;font-family:inherit;">Save to Zoho</button>
+      </div>`;
+    openReqModal(`Seafarer Detail`, body, { x: window.innerWidth/2 - 240, y: 80 });
+
+    document.getElementById('mistralEditCancel').addEventListener('click', () => {
+      m.style.display = 'none';
+    });
+    document.getElementById('mistralEditSave').addEventListener('click', async () => {
+      const status = document.getElementById('mistralEditStatus');
+      const inputs = document.querySelectorAll('#mistralEditForm input[data-zoho]');
+      const changes = {};
+      inputs.forEach(inp => {
+        const zk = inp.dataset.zoho;
+        const fk = inp.dataset.field;
+        const oldVal = row[fk] == null ? '' : String(row[fk]).replace(/^—$/, '');
+        if (inp.value !== oldVal) changes[zk] = inp.value || null;
+      });
+      if (!Object.keys(changes).length) {
+        status.textContent = 'No changes to save.';
+        return;
+      }
+      status.textContent = 'Saving…';
+      try {
+        const res = await fetch(`${WORKER_URL}/api/recruit/Candidates/${zohoId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(changes),
+        });
+        const data = await res.json();
+        const code = data?.data?.[0]?.code;
+        if (code && code !== 'SUCCESS') throw new Error(data.data[0].message || code);
+        status.textContent = '✓ Saved';
+        status.style.color = '#2D7A55';
+        // Update local row + UI
+        inputs.forEach(inp => { row[inp.dataset.field] = inp.value; });
+        renderMistralTable();
+        setTimeout(() => { m.style.display = 'none'; }, 900);
+      } catch (e) {
+        status.textContent = '✗ ' + e.message;
+        status.style.color = '#B01A18';
+      }
+    });
+  }
+
   document.getElementById('mistralRefresh')?.addEventListener('click', async () => {
     await fetchCruiseData(true);
-    renderMistral();
+    reloadMistral();
   });
-  document.getElementById('mistralApply')?.addEventListener('click', renderMistral);
-  document.getElementById('mistralDownload')?.addEventListener('click', async () => {
-    const { seafarers } = await fetchCruiseData(false);
-    downloadMistralCSV(mistralRequestRows(seafarers, mistralOpts()));
+  document.getElementById('mistralApply')?.addEventListener('click', reloadMistral);
+  document.getElementById('mistralDownload')?.addEventListener('click', () => {
+    downloadMistralCSV(mistralCurrent());
   });
+
   // Render the Mistral table the first time its tab is opened
   let _mistralLoaded = false;
   document.querySelectorAll('.task-sub-link').forEach(link => {
     if (link.dataset.section === 'mistral') {
       link.addEventListener('click', () => {
-        if (!_mistralLoaded) { _mistralLoaded = true; renderMistral(); }
+        if (!_mistralLoaded) { _mistralLoaded = true; reloadMistral(); }
       });
     }
   });
