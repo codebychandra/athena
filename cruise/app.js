@@ -376,6 +376,328 @@ Object.keys(CRUISE_PAGE_TITLES).forEach(key => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
+// TASK PAGE — cruise data maintenance (Duplicate Checker)
+// ═════════════════════════════════════════════════════════════════════════════
+pages.task = async function () {
+  return `
+    <div class="req-page-header">
+      <h1>Task</h1>
+      <span class="req-page-sub">Data maintenance &amp; utilities</span>
+    </div>
+
+    <div class="task-layout">
+      <nav class="task-tabbar">
+        <button class="task-sub-link active" data-section="duplicate">Duplicate Checker</button>
+      </nav>
+
+      <div class="task-content">
+        <section class="task-section" data-section="duplicate">
+          <div class="card" id="dupCheckerCard" style="padding:28px 32px;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;
+              margin-bottom:24px;flex-wrap:wrap;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--border,#eee);">
+              <div>
+                <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:-0.01em;">
+                  Duplicate Checker
+                </div>
+                <div style="font-size:12.5px;color:var(--text-muted,#888);">
+                  Scan the Seafarer (Candidate) module for duplicate records.
+                </div>
+              </div>
+              <button id="dupRunBtn"
+                style="padding:10px 22px;font-size:13px;font-weight:600;border-radius:8px;
+                  background:#B01A18;color:#fff;border:none;cursor:pointer;font-family:inherit;
+                  display:inline-flex;align-items:center;gap:8px;">
+                <svg id="dupRunBtnIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="6 4 20 12 6 20 6 4"/>
+                </svg>
+                <span id="dupRunBtnLabel">Run Check</span>
+              </button>
+            </div>
+
+            <div style="margin-bottom:24px;">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
+                color:var(--text-muted,#888);margin-bottom:12px;">Match Criteria</div>
+              <div style="display:flex;gap:28px;flex-wrap:wrap;">
+                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
+                  <input type="checkbox" id="dupByEmail" checked style="width:15px;height:15px;accent-color:#B01A18;cursor:pointer;">
+                  Email Address
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
+                  <input type="checkbox" id="dupByPhone" style="width:15px;height:15px;accent-color:#B01A18;cursor:pointer;">
+                  Phone Number
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);">
+                  <input type="checkbox" id="dupByName" style="width:15px;height:15px;accent-color:#B01A18;cursor:pointer;">
+                  Full Name
+                </label>
+              </div>
+            </div>
+
+            <div id="dupResults">
+              <div style="text-align:center;padding:40px 0;color:var(--text-muted,#aaa);font-size:13px;">
+                Select criteria above and click <strong style="color:var(--text);">Run Check</strong> to scan for duplicates.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>`;
+};
+
+pageEvents.task = function () {
+  const btn       = document.getElementById('dupRunBtn');
+  const btnIcon   = document.getElementById('dupRunBtnIcon');
+  const btnLabel  = document.getElementById('dupRunBtnLabel');
+  const resultsEl = document.getElementById('dupResults');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const byEmail = document.getElementById('dupByEmail')?.checked;
+    const byPhone = document.getElementById('dupByPhone')?.checked;
+    const byName  = document.getElementById('dupByName')?.checked;
+
+    if (!byEmail && !byPhone && !byName) {
+      resultsEl.innerHTML = `<div style="padding:12px 14px;background:rgba(176,26,24,0.07);
+        border:1px solid rgba(176,26,24,0.2);border-radius:8px;color:#B01A18;font-size:13px;">
+        ⚠ Please select at least one match criterion.
+      </div>`;
+      return;
+    }
+
+    btn.disabled = true;
+    btn.style.opacity = '0.75';
+    btnIcon.outerHTML = `<span id="dupRunBtnIcon" style="width:13px;height:13px;
+      border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;
+      display:inline-block;animation:spin 0.65s linear infinite;"></span>`;
+    btnLabel.textContent = 'Scanning…';
+    resultsEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:24px 0;color:var(--text-muted,#888);font-size:13px;">
+        <div style="width:18px;height:18px;border:2.5px solid var(--border,#ddd);border-top-color:#B01A18;border-radius:50%;animation:spin 0.65s linear infinite;flex-shrink:0;"></div>
+        Fetching Seafarer records…
+      </div>`;
+
+    try {
+      const { seafarers } = await fetchCruiseData(false);
+      const allRows = seafarers || [];
+      if (!allRows.length) {
+        resultsEl.innerHTML = `<div style="text-align:center;padding:28px 0;color:var(--text-muted,#aaa);font-size:13px;">No records returned.</div>`;
+        return;
+      }
+
+      const normEmail = v => (v || '').toLowerCase().trim().replace(/\s+/g,'');
+      const normPhone = v => (v || '').replace(/\D/g,'');
+      const normName  = r => (`${r.firstName||''} ${r.lastName||''}`).toLowerCase().trim().replace(/\s+/g,' ');
+
+      function findGroups(rows, keyFn, label) {
+        const map = new Map();
+        rows.forEach(r => {
+          const k = keyFn(r);
+          if (!k || k === '—') return;
+          if (!map.has(k)) map.set(k, []);
+          map.get(k).push(r);
+        });
+        const out = [];
+        map.forEach((members, key) => { if (members.length >= 2) out.push({ key, label, members }); });
+        return out;
+      }
+
+      const allGroups = [];
+      const seenKeys  = new Set();
+      const addGroups = gs => gs.forEach(g => {
+        const sig = g.label + '|' + g.members.map(r => r.id).sort().join(',');
+        if (!seenKeys.has(sig)) { seenKeys.add(sig); allGroups.push(g); }
+      });
+      if (byEmail) addGroups(findGroups(allRows, r => normEmail(r.email), 'Email'));
+      if (byPhone) addGroups(findGroups(allRows, r => normPhone(r.phone), 'Phone'));
+      if (byName)  addGroups(findGroups(allRows, r => normName(r),         'Name'));
+
+      const totalDups = allGroups.reduce((s, g) => s + g.members.length, 0);
+      if (!allGroups.length) {
+        resultsEl.innerHTML = `
+          <div style="display:flex;align-items:center;gap:14px;padding:20px 18px;
+            background:rgba(45,122,85,0.07);border:1px solid rgba(45,122,85,0.22);border-radius:10px;">
+            <span style="font-size:28px;">✅</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#2D7A55;margin-bottom:4px;">No duplicates found</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);">
+                Scanned ${allRows.length.toLocaleString()} seafarer records.
+              </div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      // ── Helpers ──
+      const filled = v => v && v !== '—' && v !== '' && v !== null;
+      function dupScore(r) {
+        let s = 0;
+        ['firstName','lastName','email','phone','country','dateOfBirth','gender','passportNumber']
+          .forEach(f => { if (filled(r[f])) s += 1; });
+        if (filled(r.positionHired))    s += 2;
+        if (filled(r.cruiseLine))       s += 2;
+        if (filled(r.hiredDate))        s += 2;
+        if (filled(r.seafarerIdNumber)) s += 3;          // having a Mistral ID = more established
+        if (filled(r.onboardingStatus) && r.onboardingStatus !== 'Applicant') s += 2;
+        if (r.createdTime) {
+          const ageDays = (Date.now() - new Date(r.createdTime).getTime()) / 86400000;
+          if (ageDays > 0) s += Math.min(Math.floor(ageDays / 60), 6);
+        }
+        return s;
+      }
+      const recBadge = rec => {
+        const m = {
+          KEEP:   { c:'#2D7A55', l:'KEEP' },
+          DELETE: { c:'#B01A18', l:'DELETE' },
+          REVIEW: { c:'#B87A14', l:'REVIEW' },
+        }[rec];
+        return `<span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:10px;
+          background:${m.c}18;color:${m.c};border:1px solid ${m.c}40;letter-spacing:0.06em;white-space:nowrap;">${m.l}</span>`;
+      };
+      const cruiseBadge = c => {
+        if (!c || c === '—') return '<span style="color:var(--text-muted,#aaa);">—</span>';
+        const map = { 'Cunard Line':'#1B3A6B','P&O Cruises':'#2D7A55','CUK Maritime':'#B87A14' };
+        const col = map[c] || '#6B7280';
+        return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+          background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(c)}</span>`;
+      };
+      const onbBadge = s => {
+        if (!s) return '<span style="color:var(--text-muted,#aaa);">—</span>';
+        const map = {
+          'Completing Documents':'#B87A14',
+          'Ready to Go':'#2D7A55',
+          'Rescheduled':'#7C3AED',
+          'Resign':'#6B7280','Resigned':'#6B7280',
+          'Applicant':'#1B3A6B',
+        };
+        const col = map[s] || '#6B7280';
+        return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+          background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(s)}</span>`;
+      };
+      const processAge = r => {
+        if (!r.createdTime) return '—';
+        const created  = new Date(r.createdTime);
+        const modified = r.modifiedTime ? new Date(r.modifiedTime) : new Date();
+        const days     = Math.max(1, Math.round((modified - created) / 86400000));
+        if (days < 31)  return `${days}d`;
+        if (days < 365) return `${Math.round(days/30)}mo`;
+        return `${(days/365).toFixed(1)}y`;
+      };
+      const fmtCreated = t => {
+        if (!t) return '—';
+        const d = new Date(t); if (isNaN(d)) return '—';
+        return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+      };
+      const fmtDOB = v => {
+        if (!v) return '—';
+        const d = new Date(v); if (isNaN(d)) return escH(v);
+        return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      };
+      const dupEmail = e => e
+        ? `<a href="mailto:${escH(e)}" style="color:#B01A18;text-decoration:none;">${escH(e)}</a>`
+        : `<span style="color:var(--text-muted,#aaa);">—</span>`;
+      const dupPhone = p => p
+        ? `<a href="tel:${escH(String(p).replace(/\s+/g,''))}" style="color:var(--text);text-decoration:none;white-space:nowrap;font-variant-numeric:tabular-nums;">${escH(p)}</a>`
+        : `<span style="color:var(--text-muted,#aaa);">—</span>`;
+
+      // Annotate each group
+      allGroups.forEach(g => {
+        g.members.forEach(r => { r._dupScore = dupScore(r); });
+        g.members.sort((a, b) => b._dupScore - a._dupScore);
+        const top = g.members[0]._dupScore;
+        g.members.forEach((r, i) => {
+          if (i === 0) r._dupRec = 'KEEP';
+          else if (i === g.members.length - 1 && (top - r._dupScore) >= 3) r._dupRec = 'DELETE';
+          else r._dupRec = 'REVIEW';
+        });
+      });
+      let recDelete = 0, recReview = 0;
+      allGroups.forEach(g => g.members.forEach(r => {
+        if (r._dupRec === 'DELETE') recDelete++;
+        else if (r._dupRec === 'REVIEW') recReview++;
+      }));
+
+      // ── Build HTML ──
+      const COLS = ['Recommend','Score','Crew ID','Name','Cruise Line','Position Hired','Onboarding','Created','Process Age','Email','Phone','DOB'];
+      let html = `
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;">
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.07);border:1px solid rgba(176,26,24,0.18);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:#B01A18;">${allGroups.length}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Duplicate Groups</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.05);border:1px solid var(--border,#eee);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:var(--text);">${totalDups}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Affected Records</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(176,26,24,0.06);border:1px solid rgba(176,26,24,0.22);border-radius:10px;text-align:center;min-width:120px;">
+            <div style="font-size:22px;font-weight:800;color:#B01A18;">${recDelete}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Recommend Delete</div>
+          </div>
+          <div style="padding:12px 18px;background:rgba(184,122,20,0.06);border:1px solid rgba(184,122,20,0.22);border-radius:10px;text-align:center;min-width:100px;">
+            <div style="font-size:22px;font-weight:800;color:#B87A14;">${recReview}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">Manual Review</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted,#999);margin-bottom:14px;">
+          Scanned ${allRows.length.toLocaleString()} Seafarer record${allRows.length!==1?'s':''} · ${allGroups.length} duplicate group${allGroups.length!==1?'s':''} found
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text-muted,#888);">
+          <span>Recommendation based on:</span>
+          <span><strong style="color:var(--text);">Completeness</strong> · fields filled</span>
+          <span><strong style="color:var(--text);">Progress</strong> · Mistral ID + onboarding</span>
+          <span><strong style="color:var(--text);">Age</strong> · created time</span>
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--border,#e5e7eb);border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:var(--bg-page,#fafafa);">
+            ${COLS.map(h => `<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${h}</th>`).join('')}
+          </tr></thead>
+          <tbody>`;
+
+      allGroups.forEach((g, gi) => {
+        g.members.forEach(r => {
+          const fullName = (`${r.firstName||''} ${r.lastName||''}`).trim() || (r.fullName || '—');
+          const rowAccent = r._dupRec === 'DELETE' ? 'opacity:0.85;' : '';
+          html += `<tr style="border-bottom:1px solid var(--border,#f0f0f0);${rowAccent}">
+            <td style="padding:11px 14px;">${recBadge(r._dupRec)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;color:var(--text-muted,#888);font-variant-numeric:tabular-nums;">${r._dupScore}</td>
+            <td style="padding:11px 14px;font-size:11.5px;color:var(--text-muted,#777);white-space:nowrap;">${escH(r.candidateId || '—')}</td>
+            <td style="padding:11px 14px;font-weight:600;white-space:nowrap;color:var(--text);">${escH(fullName)}</td>
+            <td style="padding:11px 14px;">${cruiseBadge(r.cruiseLine)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;">${escH(r.positionHired || '—')}</td>
+            <td style="padding:11px 14px;">${onbBadge(r.onboardingStatus)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;">${fmtCreated(r.createdTime)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;font-variant-numeric:tabular-nums;">${processAge(r)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;">${dupEmail(r.email)}</td>
+            <td style="padding:11px 14px;font-size:11.5px;">${dupPhone(r.phone)}</td>
+            <td style="padding:11px 14px;color:var(--text-muted,#777);font-size:11.5px;white-space:nowrap;">${fmtDOB(r.dateOfBirth)}</td>
+          </tr>`;
+        });
+        if (gi < allGroups.length - 1) {
+          html += `<tr><td colspan="${COLS.length}" style="padding:0;height:6px;background:var(--bg-page,#f5f5f5);border:none;"></td></tr>`;
+        }
+      });
+
+      html += `</tbody></table></div>`;
+      resultsEl.innerHTML = html;
+
+    } catch (err) {
+      resultsEl.innerHTML = `<div style="padding:12px 14px;background:rgba(176,26,24,0.07);
+        border:1px solid rgba(176,26,24,0.2);border-radius:8px;color:#B01A18;font-size:13px;">
+        ⚠ Error: ${escH(err.message || 'Failed to fetch data. Please try again.')}
+      </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = '';
+      const spinnerEl = document.getElementById('dupRunBtnIcon');
+      if (spinnerEl) {
+        spinnerEl.outerHTML = `<svg id="dupRunBtnIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
+      }
+      btnLabel.textContent = 'Run Check';
+    }
+  });
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REQUISITION PAGE — cruise job openings (Sea Based + River)
 // ═════════════════════════════════════════════════════════════════════════════
 const CRUISE_REQ_CATEGORIES = ['Sea Based', 'River'];
