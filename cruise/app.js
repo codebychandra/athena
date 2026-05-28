@@ -686,33 +686,53 @@ pageEvents.requisition = function () {
   window._cruiseReqRenderCharts(_reqRows);
 };
 
-// ── Right-click drill-down modals ──────────────────────────────────────────
+// ── Right-click drill-down: small floating draggable panel ────────────────
 function ensureReqModal() {
   let m = document.getElementById('reqDrillModal');
   if (m) return m;
   m = document.createElement('div');
   m.id = 'reqDrillModal';
-  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:9999;';
+  m.style.cssText = `position:fixed;top:120px;left:60%;width:440px;max-height:70vh;
+    background:var(--card-bg,#fff);color:var(--text);
+    border:1px solid var(--border,#e5e7eb);border-radius:12px;
+    box-shadow:0 12px 36px rgba(0,0,0,0.22);
+    display:none;flex-direction:column;z-index:9999;overflow:hidden;`;
   m.innerHTML = `
-    <div style="background:var(--card-bg,#fff);color:var(--text);max-width:780px;width:92%;max-height:80vh;
-      border-radius:14px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.25);display:flex;flex-direction:column;">
-      <div id="reqDrillHead" style="padding:18px 22px;border-bottom:1px solid var(--border,#eee);
-        display:flex;align-items:center;justify-content:space-between;gap:10px;"></div>
-      <div id="reqDrillBody" style="padding:0;overflow:auto;"></div>
-    </div>`;
+    <div id="reqDrillHead"
+      style="padding:11px 14px;border-bottom:1px solid var(--border,#eee);background:var(--bg-page,#fafafa);
+        display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:move;user-select:none;"></div>
+    <div id="reqDrillBody" style="padding:0;overflow:auto;flex:1;font-size:12px;"></div>`;
   document.body.appendChild(m);
-  m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+
+  // Drag by header
+  const head = m.querySelector('#reqDrillHead');
+  let drag = null;
+  head.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    drag = { x: e.clientX - m.offsetLeft, y: e.clientY - m.offsetTop };
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const x = Math.max(0, Math.min(window.innerWidth  - 60, e.clientX - drag.x));
+    const y = Math.max(0, Math.min(window.innerHeight - 30, e.clientY - drag.y));
+    m.style.left = x + 'px';
+    m.style.top  = y + 'px';
+    m.style.right = 'auto';
+  });
+  document.addEventListener('mouseup', () => { drag = null; document.body.style.userSelect = ''; });
+
   return m;
 }
 function openReqModal(title, bodyHtml) {
   const m = ensureReqModal();
   document.getElementById('reqDrillHead').innerHTML = `
-    <div>
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);">Drill-down</div>
-      <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:2px;">${title}</div>
+    <div style="min-width:0;flex:1;">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);">Drill-down</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
     </div>
     <button onclick="document.getElementById('reqDrillModal').style.display='none'"
-      style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted,#888);line-height:1;">×</button>`;
+      style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted,#888);line-height:1;padding:2px 6px;border-radius:4px;flex-shrink:0;">×</button>`;
   document.getElementById('reqDrillBody').innerHTML = bodyHtml;
   m.style.display = 'flex';
 }
