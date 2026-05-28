@@ -668,14 +668,14 @@ pageEvents.requisition = function () {
       },
       options: baseOpts,
     });
-    // Right-click on a bar → callback with the label
+    // Right-click on a bar → callback with the label + cursor coords
     el.oncontextmenu = (ev) => {
       const pts = chart.getElementsAtEventForMode(ev, 'nearest', { intersect: true }, true);
       if (pts.length) {
         ev.preventDefault();
         const label = chart.data.labels[pts[0].index];
         const value = chart.data.datasets[0].data[pts[0].index];
-        onContext(label, value);
+        onContext(label, value, { x: ev.clientX, y: ev.clientY });
       }
     };
     window._cruiseReqCharts[id] = chart;
@@ -731,7 +731,7 @@ function ensureReqModal() {
 
   return m;
 }
-function openReqModal(title, bodyHtml) {
+function openReqModal(title, bodyHtml, at) {
   const m = ensureReqModal();
   document.getElementById('reqDrillHead').innerHTML = `
     <div style="min-width:0;flex:1;">
@@ -742,6 +742,18 @@ function openReqModal(title, bodyHtml) {
       style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted,#888);line-height:1;padding:2px 6px;border-radius:4px;flex-shrink:0;">×</button>`;
   document.getElementById('reqDrillBody').innerHTML = bodyHtml;
   m.style.display = 'flex';
+
+  // Position the panel at the cursor (offset slightly so the click point is
+  // visible), clamped inside the viewport.
+  if (at && typeof at.x === 'number') {
+    const w  = m.offsetWidth  || 360;
+    const h  = Math.min(m.offsetHeight || 400, window.innerHeight * 0.72);
+    const x  = Math.max(8, Math.min(window.innerWidth  - w - 8, at.x + 12));
+    const y  = Math.max(8, Math.min(window.innerHeight - h - 8, at.y + 12));
+    m.style.left  = x + 'px';
+    m.style.top   = y + 'px';
+    m.style.right = 'auto';
+  }
 }
 
 // Shared compact-drill styles
@@ -754,7 +766,7 @@ const DRILL_SECTION = `padding:8px 12px 4px;font-size:9.5px;font-weight:800;
   background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);`;
 
 // Department drill — positions in this department, grouped by cruise line
-function showDepartmentDetail(dept) {
+function showDepartmentDetail(dept, _value, at) {
   const rows = _reqRows.filter(r => r.department === dept);
   const tree = {};
   rows.forEach(r => {
@@ -793,11 +805,11 @@ function showDepartmentDetail(dept) {
         }).join('')}
       </tbody>
     </table>` : `<div style="padding:24px;text-align:center;color:var(--text-muted,#aaa);font-size:11px;">No positions found.</div>`;
-  openReqModal(`${escH(dept)}`, body);
+  openReqModal(`${escH(dept)}`, body, at);
 }
 
 // Cruise line drill — talent pool quotas and monthly demand
-function showCruiseLineDetail(line) {
+function showCruiseLineDetail(line, _value, at) {
   const node = brandNode(loadDemand(), line);
   const tp = node.talentPool || {};
   const monthly = node.monthly || {};
@@ -843,7 +855,7 @@ function showCruiseLineDetail(line) {
   }).join('') : `<div style="${DRILL_SECTION}">Monthly Demand</div>
     <div style="padding:10px 14px;color:var(--text-muted,#aaa);font-size:10.5px;font-style:italic;">No monthly demand configured.</div>`;
 
-  openReqModal(`${escH(line)}`, tpBlock + demandBlocks);
+  openReqModal(`${escH(line)}`, tpBlock + demandBlocks, at);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
