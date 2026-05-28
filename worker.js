@@ -369,6 +369,8 @@ const JF = {
   contractLength:    'Contract_Length',
   j1ProgramType:     'xx',
   clientName:        'Client_Name',
+  marlins:           'Marlins_Passing_Score',   // 'Marlins (%)'
+  flightTicket:      'Flight_Ticket',
 };
 
 // ── Cruise Line Seafarer field map ───────────────────────────────────────
@@ -576,6 +578,10 @@ function mapJob(r) {
                          ? r[JF.j1ProgramType].join('; ')
                          : r[JF.j1ProgramType] || '—',
     clientName:        r[JF.clientName]?.name || r[JF.clientName] || '—',
+    marlins:           r[JF.marlins]           || '—',
+    flightTicket:      Array.isArray(r[JF.flightTicket])
+                         ? r[JF.flightTicket].join(', ')
+                         : r[JF.flightTicket] || '—',
   };
 }
 

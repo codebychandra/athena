@@ -293,6 +293,168 @@ Object.keys(CRUISE_PAGE_TITLES).forEach(key => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
+// REQUISITION PAGE — cruise job openings (Sea Based + River)
+// ═════════════════════════════════════════════════════════════════════════════
+const CRUISE_REQ_CATEGORIES = ['Sea Based', 'River'];
+let _reqRows = [];   // cached for chart init in pageEvents
+
+async function fetchCruiseRequisitions() {
+  const r = await safeJson(WORKER_URL + '/api/recruit/job-openings');
+  const all = r.data || [];
+  return all.filter(j => CRUISE_REQ_CATEGORIES.includes((j.placementCategory || '').trim()));
+}
+
+pages.requisition = async function () {
+  let rows = [], errorMsg = null;
+  try { rows = await fetchCruiseRequisitions(); }
+  catch (e) { errorMsg = e.message; }
+  _reqRows = rows;
+
+  const totalHeadcount = rows.reduce((s, r) => s + (parseInt(r.numPositions) || 0), 0);
+  const cruiseLines    = [...new Set(rows.map(r => r.clientName).filter(v => v && v !== '—'))];
+  const depts          = [...new Set(rows.map(r => r.department).filter(v => v && v !== '—'))];
+
+  if (errorMsg) {
+    return `
+      <div class="req-page-header"><h1>Requisition</h1></div>
+      <div class="req-error-banner"><span>⚠️</span><div><strong>Server error</strong> — ${escH(errorMsg)}</div></div>`;
+  }
+  if (!rows.length) {
+    return `
+      <div class="req-page-header"><h1>Requisition</h1>
+        <span class="req-page-sub">Cruise job openings</span></div>
+      <div class="card" style="text-align:center;padding:48px 24px;">
+        <div style="font-size:40px;margin-bottom:12px;opacity:0.2;">🚢</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-muted);">No cruise requisitions found.</div>
+      </div>`;
+  }
+
+  const COLS = [
+    ['Cruise Line',       r => escH(r.clientName)],
+    ['Requisition Status',r => reqStatusBadge(r.status)],
+    ['Department',        r => escH(r.department)],
+    ['Rank',              r => `<span style="font-weight:600;color:var(--text);">${escH(r.positionName)}</span>`],
+    ['Marlins (%)',       r => escH(r.marlins)],
+    ['Salary',            r => escH(r.salary)],
+    ['Payment Frequency', r => escH(r.paymentFrequency)],
+    ['Contract Length',   r => escH(r.contractLength)],
+    ['Flight Ticket',     r => escH(r.flightTicket)],
+  ];
+
+  const tbody = rows.map(r => `<tr>${COLS.map(([,fn]) =>
+    `<td style="padding:10px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${fn(r)}</td>`).join('')}</tr>`).join('');
+
+  return `
+    <div class="req-page-header">
+      <h1>Requisition</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">Cruise job openings (Sea Based &amp; River)</span>
+    </div>
+
+    <!-- KPIs -->
+    <div class="req-kpi-grid">
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Requisitions</span>
+        <span class="req-kpi-value" style="color:#1B3A6B;">${rows.length}</span>
+        <span class="req-kpi-sub">cruise job openings</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Headcount</span>
+        <span class="req-kpi-value" style="color:#B01A18;">${totalHeadcount.toLocaleString()}</span>
+        <span class="req-kpi-sub">open positions</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Cruise Lines</span>
+        <span class="req-kpi-value" style="color:#2D7A55;">${cruiseLines.length}</span>
+        <span class="req-kpi-sub">clients</span>
+      </div>
+      <div class="req-kpi-card">
+        <span class="req-kpi-label">Total Departments</span>
+        <span class="req-kpi-value" style="color:#B87A14;">${depts.length}</span>
+        <span class="req-kpi-sub">departments</span>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Headcount by Cruise Line</div>
+        <div class="req-card-sub">Open positions per cruise line</div>
+        <canvas id="reqLineChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Headcount by Department</div>
+        <div class="req-card-sub">Open positions per department</div>
+        <canvas id="reqDeptChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card req-table-card">
+      <div class="req-table-outer">
+        <table id="reqMainTable">
+          <thead><tr>${COLS.map(([label]) =>
+            `<th style="white-space:nowrap;">${escH(label)}</th>`).join('')}</tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+function reqStatusBadge(s) {
+  const map = { 'Active':'#2D7A55', 'On Hold':'#B87A14', 'Closed':'#6B7280', 'Filled':'#1B3A6B' };
+  const c = map[s] || '#6B7280';
+  return s && s !== '—'
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;
+        background:${c}18;color:${c};border:1px solid ${c}30;white-space:nowrap;">${escH(s)}</span>`
+    : '<span style="color:var(--text-muted,#aaa);">—</span>';
+}
+
+pageEvents.requisition = function () {
+  if (typeof Chart === 'undefined' || !_reqRows.length) return;
+
+  const sumBy = (key) => {
+    const m = {};
+    _reqRows.forEach(r => {
+      const k = (r[key] || '—');
+      if (k === '—') return;
+      m[k] = (m[k] || 0) + (parseInt(r.numPositions) || 0);
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  };
+
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const grid = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const tick = dark ? '#aaa' : '#555';
+  const baseOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: grid }, ticks: { color: tick, font: { size: 10 } } },
+      y: { grid: { color: grid }, ticks: { color: tick, font: { size: 10 }, precision: 0 }, beginAtZero: true },
+    },
+  };
+
+  const lineData = sumBy('clientName');
+  const deptData = sumBy('department');
+
+  const mkBar = (id, entries, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: entries.map(e => e[0]),
+        datasets: [{ data: entries.map(e => e[1]), backgroundColor: color, borderRadius: 4, maxBarThickness: 46 }],
+      },
+      options: baseOpts,
+    });
+  };
+  mkBar('reqLineChart', lineData, '#B01A18');
+  mkBar('reqDeptChart', deptData, '#1B3A6B');
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REPORT PAGE — Weekly cruise hiring report generator
 // ═════════════════════════════════════════════════════════════════════════════
 pages.reports = async function () {
