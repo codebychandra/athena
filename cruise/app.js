@@ -769,6 +769,22 @@ const SF_TABLE_COLS = [
   { label:'Sign On Port',       field:'_signOnPort',      noFilter:true,          render:() => _dash },
 ];
 
+// Applies a date operator comparison. recordDate and filterDate are ISO strings (YYYY-MM-DD).
+// Returns true (pass) when filterDate is empty or the comparison holds; false to exclude the row.
+function sfDateOp(recordDate, op, filterDate) {
+  if (!filterDate) return true;
+  if (!recordDate) return false;   // record has no date → never matches a date filter
+  const r = String(recordDate).slice(0, 10);
+  const f = String(filterDate).slice(0, 10);
+  switch (op) {
+    case '>':  return r >  f;
+    case '>=': return r >= f;
+    case '<':  return r <  f;
+    case '<=': return r <= f;
+    default:   return r === f;     // '=' is default
+  }
+}
+
 pages.seafarer = async function () {
   let allRows = [], errorMsg = null;
   try {
@@ -829,12 +845,30 @@ pages.seafarer = async function () {
       ${buildMS('sfCruiseFilter','Cruise Line',cruiseLines)}
       ${buildMS('sfOnbFilter','Onboarding Status',onbSts)}
       ${buildMS('sfEmpFilter','Employment Status',empSts)}
-      <input id="sfSignOnFrom" type="date" title="Sign On Date from"
-        style="height:32px;font-size:12px;padding:0 8px;border:1px solid var(--border,#ddd);
-          border-radius:8px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
-      <input id="sfSignOnTo" type="date" title="Sign On Date to"
-        style="height:32px;font-size:12px;padding:0 8px;border:1px solid var(--border,#ddd);
-          border-radius:8px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+      <!-- Sign On Date operator + date -->
+      <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
+        <select id="sfSignOnOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
+          <option value="=">=</option>
+          <option value=">=">&gt;=</option>
+          <option value=">">&gt;</option>
+          <option value="<=">&lt;=</option>
+          <option value="<">&lt;</option>
+        </select>
+        <input id="sfSignOnDate" type="date" title="Sign On Date"
+          style="height:32px;font-size:12px;padding:0 8px;border:none;border-left:1px solid var(--border,#ddd);background:transparent;color:var(--text);font-family:inherit;outline:none;">
+      </span>
+      <!-- Sign Off Date operator + date -->
+      <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign Off Date filter">
+        <select id="sfSignOffOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
+          <option value="=">=</option>
+          <option value=">=">&gt;=</option>
+          <option value=">">&gt;</option>
+          <option value="<=">&lt;=</option>
+          <option value="<">&lt;</option>
+        </select>
+        <input id="sfSignOffDate" type="date" title="Sign Off Date"
+          style="height:32px;font-size:12px;padding:0 8px;border:none;border-left:1px solid var(--border,#ddd);background:transparent;color:var(--text);font-family:inherit;outline:none;">
+      </span>
       <input id="sfGlobalSearch" type="text" placeholder="🔍 Search…"
         style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
           border:1px solid var(--border,#ddd);border-radius:8px;
@@ -960,8 +994,10 @@ pageEvents.seafarer = function () {
     const gCruise = msGetVals('sfCruiseFilter');
     const gOnb    = msGetVals('sfOnbFilter');
     const gEmp    = msGetVals('sfEmpFilter');
-    const soFrom  = document.getElementById('sfSignOnFrom')?.value || '';
-    const soTo    = document.getElementById('sfSignOnTo')?.value   || '';
+    const soDate  = document.getElementById('sfSignOnDate')?.value  || '';
+    const soOp    = document.getElementById('sfSignOnOp')?.value   || '=';
+    const soffDate= document.getElementById('sfSignOffDate')?.value || '';
+    const soffOp  = document.getElementById('sfSignOffOp')?.value  || '=';
     const search  = (document.getElementById('sfGlobalSearch')?.value||'').trim().toLowerCase();
     const colMS   = {}, colText = {};
     document.querySelectorAll('[id^="sfCF_"]').forEach(el => {
@@ -974,8 +1010,8 @@ pageEvents.seafarer = function () {
       if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
       if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
       if (gEmp.length    && !gEmp.includes(r.employmentStatus)) return false;
-      if (soFrom && (r.signOnDate||'') < soFrom) return false;
-      if (soTo   && (r.signOnDate||'9999') > soTo) return false;
+      if (soDate   && !sfDateOp(r.signOnDate,   soOp,   soDate))   return false;
+      if (soffDate && !sfDateOp(r.signOffDate,  soffOp, soffDate)) return false;
       for (const f in colMS)   if (!colMS[f].includes(r[f])) return false;
       for (const f in colText) if (!String(r[f]??'').toLowerCase().includes(colText[f])) return false;
       if (search) {
@@ -1042,15 +1078,20 @@ pageEvents.seafarer = function () {
   ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(id => msOnChange(id, sfApply));
   document.querySelectorAll('[id^="sfCF_"]').forEach(el => msOnChange(el.id, sfApply));
   document.querySelectorAll('.sf-col-f').forEach(inp => inp.addEventListener('input', sfApply));
-  document.getElementById('sfSignOnFrom')?.addEventListener('change', sfApply);
-  document.getElementById('sfSignOnTo')?.addEventListener('change', sfApply);
+  document.getElementById('sfSignOnDate')?.addEventListener('change', sfApply);
+  document.getElementById('sfSignOnOp')?.addEventListener('change', sfApply);
+  document.getElementById('sfSignOffDate')?.addEventListener('change', sfApply);
+  document.getElementById('sfSignOffOp')?.addEventListener('change', sfApply);
   document.getElementById('sfGlobalSearch')?.addEventListener('input', sfApply);
   document.getElementById('sfClearBtn')?.addEventListener('click', () => {
     ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(msClear);
     document.querySelectorAll('[id^="sfCF_"]').forEach(el => msClear(el.id));
     document.querySelectorAll('.sf-col-f').forEach(inp => inp.value='');
-    ['sfGlobalSearch','sfSignOnFrom','sfSignOnTo'].forEach(id => {
+    ['sfGlobalSearch','sfSignOnDate','sfSignOffDate'].forEach(id => {
       const el=document.getElementById(id); if(el) el.value='';
+    });
+    ['sfSignOnOp','sfSignOffOp'].forEach(id => {
+      const el=document.getElementById(id); if(el) el.value='=';
     });
     sfSortF=null; sfSortD=1; sfActiveKpi=null;
     document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
