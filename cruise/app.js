@@ -880,7 +880,7 @@ pages.reports = async function () {
   return `
     <div class="req-page-header">
       <h1>Report</h1>
-      <span class="req-page-sub">Weekly cruise hiring report — sent to CUK every Tuesday</span>
+      <span class="req-page-sub">Cruise line reports</span>
     </div>
 
     <div class="task-layout">
@@ -942,7 +942,7 @@ pages.reports = async function () {
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;">
               <button id="mistralRefresh" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
-              <button id="mistralDownload" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download Excel (CSV)</button>
+              <button id="mistralDownload" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download Excel</button>
             </div>
           </div>
 
@@ -960,8 +960,8 @@ pages.reports = async function () {
           </div>
         </div>
 
-        <!-- KPIs -->
-        <div class="req-kpi-grid" id="mistralKpis"></div>
+        <!-- KPIs (one row) -->
+        <div class="req-kpi-grid" id="mistralKpis" style="grid-template-columns:repeat(5,minmax(0,1fr));"></div>
 
         <div id="mistralPreview" class="card" style="padding:0;overflow:auto;"></div>
       </section>
@@ -1230,10 +1230,14 @@ pageEvents.reports = function () {
   }
 
   function buildMistralHeaderRows() {
+    // Empty sticky column at the front for the Detail buttons
+    const frontTh = `<th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);width:74px;"></th>`;
+    const frontFilter = `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
+
     const thSort = MISTRAL_COLUMNS.map(c =>
       `<th data-field="${c.field}" class="sortable" style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;cursor:pointer;user-select:none;">
         ${escH(c.label)} <span class="mistral-sort-icon">⇅</span>
-      </th>`).join('') + `<th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);width:70px;"></th>`;
+      </th>`).join('');
 
     const thFilter = MISTRAL_COLUMNS.map(c => {
       let cell;
@@ -1244,9 +1248,9 @@ pageEvents.reports = function () {
         cell = `<input class="mistral-col-f" data-field="${c.field}" type="text" placeholder="—" style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
       }
       return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${cell}</th>`;
-    }).join('') + `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
+    }).join('');
 
-    return `<tr>${thSort}</tr><tr>${thFilter}</tr>`;
+    return `<tr>${frontTh}${thSort}</tr><tr>${frontFilter}${thFilter}</tr>`;
   }
 
   function renderMistralTable() {
@@ -1256,12 +1260,14 @@ pageEvents.reports = function () {
     if (!wrap) return;
     const header = buildMistralHeaderRows();
     const bodyHtml = rows.length
-      ? rows.map(r => `<tr data-id="${escH(r.id)}">${MISTRAL_COLUMNS.map(c =>
-          `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(r[c.field]))}</td>`).join('')}
+      ? rows.map(r => `<tr data-id="${escH(r.id)}">
           <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;">
             <button class="mistral-detail-btn" data-id="${escH(r.id)}"
               style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;">Detail</button>
-          </td></tr>`).join('')
+          </td>
+          ${MISTRAL_COLUMNS.map(c =>
+            `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(r[c.field]))}</td>`).join('')}
+        </tr>`).join('')
       : `<tr><td colspan="${MISTRAL_COLUMNS.length+1}" style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No matching seafarers.</td></tr>`;
     wrap.innerHTML = `
       <div style="padding:10px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
@@ -1307,19 +1313,31 @@ pageEvents.reports = function () {
     }
   }
 
-  function downloadMistralCSV(rows) {
-    const esc = v => {
-      const s = cleanVal(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-    };
-    const header = MISTRAL_COLUMNS.map(c => esc(c.label)).join(',');
-    const lines  = rows.map(r => MISTRAL_COLUMNS.map(c => esc(r[c.field])).join(','));
-    const csv    = '﻿' + [header, ...lines].join('\r\n');
-    const blob   = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-    const url    = URL.createObjectURL(blob);
-    const a      = document.createElement('a');
-    a.href = url;
-    a.download = `CUK_MISTRAL_REQUEST_${new Date().toISOString().slice(0,10)}.csv`;
+  function downloadMistralExcel(rows) {
+    const filename = `CUK_MISTRAL_REQUEST_${new Date().toISOString().slice(0,10)}`;
+    // Build [header, ...rows] AOA for SheetJS
+    const header = MISTRAL_COLUMNS.map(c => c.label);
+    const body   = rows.map(r => MISTRAL_COLUMNS.map(c => cleanVal(r[c.field])));
+    const aoa    = [header, ...body];
+
+    if (window.XLSX) {
+      const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+      // auto-ish column widths
+      ws['!cols'] = header.map((h, i) => ({
+        wch: Math.max(h.length, ...body.map(r => String(r[i] || '').length)) + 1
+      }));
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, 'Mistral Request');
+      window.XLSX.writeFile(wb, filename + '.xlsx');
+      return;
+    }
+    // CSV fallback if XLSX library failed to load
+    const esc = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g,'""')}"` : v;
+    const csv = '﻿' + aoa.map(row => row.map(esc).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename + '.csv';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -1329,31 +1347,60 @@ pageEvents.reports = function () {
     const row = _mistralBase.find(r => r.id === zohoId);
     if (!row) return;
     const m = ensureReqModal();
-    m.style.width = '480px';
-    const editable = MISTRAL_COLUMNS.filter(c => c.zoho);
-    const formHtml = editable.map(c => {
+    m.style.width = '500px';
+
+    // Editable fields = anything with a zoho api name PLUS Seafarer ID Number
+    // (the whole point of this panel — entering the new Mistral ID).
+    const fields = [
+      { label:'Seafarer ID Number', field:'seafarerIdNumber', zoho:'Crew_ID_Number', highlight:true },
+      ...MISTRAL_COLUMNS.filter(c => c.zoho),
+    ];
+
+    const formHtml = fields.map(c => {
       const val = row[c.field] == null ? '' : String(row[c.field]).replace(/^—$/, '');
       const inputType = c.type === 'date' ? 'date' : c.type === 'number' ? 'number' : 'text';
+      const inputId   = c.highlight ? 'mistralEditIdInput' : '';
+      const labelBg   = c.highlight ? 'background:rgba(176,26,24,0.06);' : '';
+      const inputCss  = c.highlight
+        ? 'border:1.5px solid #B01A18;background:#fffdfd;font-weight:700;color:#B01A18;'
+        : 'border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);';
       return `
-        <label style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border,#f3f3f3);">
-          <span style="flex:0 0 140px;font-size:10.5px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.04em;">${escH(c.label)}</span>
-          <input data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}" type="${inputType}" value="${escH(val)}"
-            style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--border,#ddd);border-radius:5px;
-            font-size:11.5px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+        <label style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border,#f3f3f3);${labelBg}">
+          <span style="flex:0 0 150px;font-size:10.5px;font-weight:${c.highlight?'800':'600'};color:${c.highlight?'#B01A18':'var(--text-muted,#888)'};text-transform:uppercase;letter-spacing:0.04em;">${escH(c.label)}${c.highlight?' ★':''}</span>
+          <input ${inputId ? `id="${inputId}" ` : ''}data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}" type="${inputType}" value="${escH(val)}"
+            style="flex:1;min-width:0;padding:5px 8px;border-radius:5px;font-size:11.5px;font-family:inherit;${inputCss}">
         </label>`;
     }).join('');
+
     const body = `
       <div style="padding:8px 12px;background:var(--bg-page,#fafafa);font-size:10.5px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
         <strong style="color:var(--text);">${escH(row.fullName || '—')}</strong>
         ${row.candidateId ? ` · ${escH(row.candidateId)}` : ''}
       </div>
       <form id="mistralEditForm">${formHtml}</form>
-      <div style="padding:10px 12px;display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
-        <span id="mistralEditStatus" style="margin-right:auto;font-size:11px;color:var(--text-muted,#888);align-self:center;"></span>
+      <div style="padding:10px 12px;display:flex;gap:8px;align-items:center;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
+        <button id="mistralEditFocusId" type="button"
+          style="padding:6px 12px;font-size:11.5px;font-weight:700;border:1px solid #B01A18;background:#fff;color:#B01A18;border-radius:5px;cursor:pointer;font-family:inherit;">
+          ★ Edit ID
+        </button>
+        <span id="mistralEditStatus" style="margin-left:auto;margin-right:6px;font-size:11px;color:var(--text-muted,#888);"></span>
         <button id="mistralEditCancel" style="padding:6px 14px;font-size:11.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;cursor:pointer;font-family:inherit;">Close</button>
         <button id="mistralEditSave" style="padding:6px 16px;font-size:11.5px;font-weight:600;border:none;background:#B01A18;color:#fff;border-radius:5px;cursor:pointer;font-family:inherit;">Save to Zoho</button>
       </div>`;
-    openReqModal(`Seafarer Detail`, body, { x: window.innerWidth/2 - 240, y: 80 });
+    openReqModal(`Seafarer Detail`, body, { x: window.innerWidth/2 - 250, y: 80 });
+
+    // Edit ID button: scroll the Seafarer ID Number field into view and focus
+    document.getElementById('mistralEditFocusId')?.addEventListener('click', () => {
+      const input = document.getElementById('mistralEditIdInput');
+      if (!input) return;
+      input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      input.focus();
+      input.select();
+      // Pulse the field briefly
+      const orig = input.style.boxShadow;
+      input.style.boxShadow = '0 0 0 3px rgba(176,26,24,0.3)';
+      setTimeout(() => { input.style.boxShadow = orig; }, 900);
+    });
 
     document.getElementById('mistralEditCancel').addEventListener('click', () => {
       m.style.display = 'none';
@@ -1401,7 +1448,7 @@ pageEvents.reports = function () {
   });
   document.getElementById('mistralApply')?.addEventListener('click', reloadMistral);
   document.getElementById('mistralDownload')?.addEventListener('click', () => {
-    downloadMistralCSV(mistralCurrent());
+    downloadMistralExcel(mistralCurrent());
   });
 
   // Render the Mistral table the first time its tab is opened
