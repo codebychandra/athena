@@ -2175,7 +2175,7 @@ pageEvents.visa = function () {
         background:${c}20;color:${c};border:1.5px solid ${c}60;">${escH(v||'—')}</span>`;
     };
     const body = `
-      <div style="padding:14px 16px 6px;overflow-y:auto;max-height:calc(80vh - 80px);">
+      <div style="padding:14px 16px 6px;">
         ${sec('Seafarer')}
         ${row('Name',          `<span style="font-weight:700;">${escH(r.fullName||'—')}</span>`)}
         ${row('Email',         escH(r.email||'—'))}
