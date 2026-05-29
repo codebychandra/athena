@@ -3115,8 +3115,9 @@ pages.deployment = async function () {
       ${kpiCard('all',      'Total Deployment',                    `${kpiTotal}`,                            '#1B3A6B', 'all records · click to reset')}
       ${kpiCard('yoy',      `vs ${curYear-1}`,                     `${kpiThisYear}${pctBadge(yoyPct)}`,     '#2D7A55', `last year: ${kpiLastYear} · year-over-year`)}
       ${kpiCard('mom',      `vs ${DEP_MONTH_NAMES[prevMonth]}`,    `${kpiThisMonth}${pctBadge(momPct)}`,    '#0891B2', `last month: ${kpiLastMonth} · month-over-month`)}
-      ${kpiCard('repeater', 'Repeater',                            `${kpiRepeater}`,                        '#D97706', 'employment status: repeater')}
-      ${kpiCard('newhire',  'New Hire',                            `${kpiNewHire}`,                         '#7C3AED', 'new hire + re hire')}
+      ${kpiCard('emptype',  'Repeater / New Hire',
+        `<span style="font-size:13px;">${kpiRepeater}</span><span style="font-size:11px;color:var(--text-muted,#888);margin:0 4px;">/</span><span style="font-size:13px;color:#7C3AED;">${kpiNewHire}</span>`,
+        '#D97706', 'repeater · new hire + re hire')}
     </div>
 
     <div class="req-chart-row">
@@ -3232,8 +3233,7 @@ pageEvents.deployment = function () {
     if (depActiveKpi && depActiveKpi !== 'all') {
       if      (depActiveKpi==='yoy')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; });
       else if (depActiveKpi==='mom')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; });
-      else if (depActiveKpi==='repeater') out=out.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater');
-      else if (depActiveKpi==='newhire')  out=out.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; });
+      else if (depActiveKpi==='emptype')  out=out.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='repeater'||s==='new hire'||s==='re hire'; });
     }
     return out;
   }
@@ -3253,8 +3253,9 @@ pageEvents.deployment = function () {
     setH('depKpi_all',      `${rows.length}`);
     setH('depKpi_yoy',      `${thisYr}${pctBadgeLive(yoy)}`);
     setH('depKpi_mom',      `${thisMo}${pctBadgeLive(mom)}`);
-    setH('depKpi_repeater', `${rows.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length}`);
-    setH('depKpi_newhire',  `${rows.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; }).length}`);
+    const rCount = rows.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length;
+    const nCount = rows.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; }).length;
+    setH('depKpi_emptype', `<span style="font-size:13px;">${rCount}</span><span style="font-size:11px;color:var(--text-muted,#888);margin:0 4px;">/</span><span style="font-size:13px;color:#7C3AED;">${nCount}</span>`);
 
     // KPI card highlight
     document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card => {
