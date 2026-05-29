@@ -2120,13 +2120,7 @@ pageEvents.reports = function () {
         ${row.candidateId ? ` · ${escH(row.candidateId)}` : ''}
       </div>
       <form id="mistralEditForm">${formHtml}</form>
-      <div id="mistralAttachSection" style="border-top:1px solid var(--border,#eee);padding:10px 12px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">
-          📎 Attachments <span id="mistralAttachStatus" style="font-weight:400;font-size:10px;"></span>
-        </div>
-        <div id="mistralAttachList" style="font-size:11.5px;color:var(--text-muted,#aaa);font-style:italic;">Loading…</div>
-      </div>
-      <div style="padding:10px 12px;display:flex;gap:8px;align-items:center;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
+<div style="padding:10px 12px;display:flex;gap:8px;align-items:center;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
         <button id="mistralEditFocusId" type="button"
           style="padding:6px 12px;font-size:11.5px;font-weight:700;border:1px solid #B01A18;background:#fff;color:#B01A18;border-radius:5px;cursor:pointer;font-family:inherit;">
           ★ Edit ID
@@ -2137,37 +2131,7 @@ pageEvents.reports = function () {
       </div>`;
     openReqModal(`Seafarer Detail`, body, { x: window.innerWidth/2 - 250, y: 80 });
 
-    // Load attachments for this Candidate record
-    (async () => {
-      const listEl   = document.getElementById('mistralAttachList');
-      const statusEl = document.getElementById('mistralAttachStatus');
-      if (!listEl) return;
-      try {
-        const res  = await safeJson(`${WORKER_URL}/api/recruit/candidates/${row.id}/attachments`);
-        const atts = res.data || [];
-        if (statusEl) statusEl.textContent = `(${atts.length})`;
-        if (!atts.length) {
-          listEl.textContent = 'No attachments found.';
-          return;
-        }
-        listEl.innerHTML = atts.map(a => {
-          const name = escH(a.File_Name || a.fileName || a.name || 'Attachment');
-          const dlUrl = `${WORKER_URL}/api/recruit/candidates/${row.id}/attachments/${a.id}`;
-          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border,#f3f3f3);">
-            <span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${name}">${name}</span>
-            <a href="${escH(dlUrl)}" target="_blank" rel="noopener"
-              style="font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:5px;
-                border:1px solid #1B3A6B;color:#1B3A6B;text-decoration:none;white-space:nowrap;">
-              View / Download
-            </a>
-          </div>`;
-        }).join('');
-      } catch (e) {
-        if (listEl) listEl.textContent = `Failed to load attachments: ${e.message}`;
-      }
-    })();
-
-    // Edit ID button: scroll the Seafarer ID Number field into view and focus
+// Edit ID button: scroll the Seafarer ID Number field into view and focus
     document.getElementById('mistralEditFocusId')?.addEventListener('click', () => {
       const input = document.getElementById('mistralEditIdInput');
       if (!input) return;
