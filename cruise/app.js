@@ -1267,6 +1267,18 @@ pages.seafarerAttachment = async function () {
         ${buildMS('saCruiseFilter','Cruise Line',cruiseOpts)}
         ${buildMS('saOnbFilter','Onboarding Status',onbOpts)}
         ${buildMS('saDocStatusFilter','Document Status',DOC_STATUS_OPTS)}
+        <!-- Sign On Date operator + date -->
+        <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
+          <span style="padding:0 7px;font-size:11px;color:var(--text-muted,#888);border-right:1px solid var(--border,#ddd);white-space:nowrap;line-height:32px;">Sign On</span>
+          <select id="saSignOnOp" style="height:32px;border:none;outline:none;padding:0 4px;font-size:12px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;cursor:pointer;">
+            <option value="=">=</option>
+            <option value=">=">&gt;=</option>
+            <option value=">">&gt;</option>
+            <option value="<=">&lt;=</option>
+            <option value="<">&lt;</option>
+          </select>
+          <input id="saSignOnDate" type="date" style="height:32px;border:none;outline:none;padding:0 6px;font-size:12px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+        </span>
         <input id="saGlobalSearch" type="text" placeholder="🔍 Search…"
           style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
             border:1px solid var(--border,#ddd);border-radius:8px;
@@ -1471,6 +1483,8 @@ pageEvents.seafarerAttachment = function () {
     const gOnb       = msGetVals('saOnbFilter');
     const gDocStatus = msGetVals('saDocStatusFilter');
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
+    const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
+    const soDate     = document.getElementById('saSignOnDate')?.value || '';
     const today      = new Date(); today.setHours(0,0,0,0);
     let out = _sfRows.filter(r => {
       if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
@@ -1480,6 +1494,7 @@ pageEvents.seafarerAttachment = function () {
         const hasMatch = SA_STATUS_COLS.some(c => gDocStatus.includes(r[c.field]));
         if (!hasMatch) return false;
       }
+      if (soDate && !sfDateOp(r.signOnDate, soOp, soDate)) return false;
       if (search) {
         const hay = [r.fullName,r.email,r.cruiseLine,r.onboardingStatus,r.seafarerIdNumber,
           ...SA_STATUS_COLS.map(c=>r[c.field])].map(v=>String(v??'').toLowerCase()).join(' ');
@@ -1540,9 +1555,13 @@ pageEvents.seafarerAttachment = function () {
   initMS();
   ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(id=>msOnChange(id,saApply));
   document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
+  document.getElementById('saSignOnOp')?.addEventListener('change',saApply);
+  document.getElementById('saSignOnDate')?.addEventListener('change',saApply);
   document.getElementById('saClearBtn')?.addEventListener('click',()=>{
     ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(msClear);
     const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
+    const soOp=document.getElementById('saSignOnOp'); if(soOp) soOp.value='=';
+    const soD=document.getElementById('saSignOnDate'); if(soD) soD.value='';
     saActiveKpi=null; saSortF=null; saSortD=1;
     document.querySelectorAll('#saSortRow .sa-sort-icon').forEach(s=>s.textContent='⇅');
     saApply();
