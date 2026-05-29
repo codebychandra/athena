@@ -1335,7 +1335,7 @@ pages.seafarerAttachment = async function () {
         <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:14px;">
           Open the Zoho form to collect documents from a seafarer, or select a seafarer from the table in Report tab and use the "Send Form" button to open a prefilled link.
         </div>
-        <a href="https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection"
+        <a href="https://zfrmz.com/bhzD0iB9g82fARBm1ybA"
           target="_blank" rel="noopener"
           style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;
             background:#1B3A6B;color:#fff;font-size:12px;font-weight:600;text-decoration:none;
@@ -1344,7 +1344,7 @@ pages.seafarerAttachment = async function () {
           🔗 Open Document Collection Form
         </a>
         <div style="margin-top:20px;border-radius:10px;overflow:hidden;border:1px solid var(--border,#e5e7eb);">
-          <iframe src="https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection"
+          <iframe src="https://zfrmz.com/bhzD0iB9g82fARBm1ybA"
             style="width:100%;height:680px;border:none;display:block;"
             title="Document Collection Form"></iframe>
         </div>
@@ -1663,7 +1663,7 @@ pageEvents.seafarerAttachment = function () {
   });
 
   // Send Form button delegation — POST to worker, sends via Microsoft Graph
-  const SA_FORM_URL = 'https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection';
+  const SA_FORM_URL = 'https://zfrmz.com/bhzD0iB9g82fARBm1ybA';
   document.getElementById('saTableBody')?.addEventListener('click', async e=>{
     const btn = e.target.closest('.sa-send-btn');
     if (!btn || btn.disabled) return;
