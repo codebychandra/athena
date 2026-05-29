@@ -3116,7 +3116,7 @@ pages.deployment = async function () {
       ${kpiCard('yoy',      `vs ${curYear-1}`,                     `${kpiThisYear}${pctBadge(yoyPct)}`,     '#2D7A55', `last year: ${kpiLastYear} · year-over-year`)}
       ${kpiCard('mom',      `vs ${DEP_MONTH_NAMES[prevMonth]}`,    `${kpiThisMonth}${pctBadge(momPct)}`,    '#0891B2', `last month: ${kpiLastMonth} · month-over-month`)}
       ${kpiCard('emptype',  'Repeater / New Hire',
-        `<span style="font-size:13px;">${kpiRepeater}</span><span style="font-size:11px;color:var(--text-muted,#888);margin:0 4px;">/</span><span style="font-size:13px;color:#7C3AED;">${kpiNewHire}</span>`,
+        `${kpiRepeater}<span style="font-size:14px;color:var(--text-muted,#888);margin:0 5px;">/</span><span style="color:#7C3AED;">${kpiNewHire}</span>`,
         '#D97706', 'repeater · new hire + re hire')}
     </div>
 
