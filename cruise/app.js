@@ -709,7 +709,7 @@ pageEvents.task = function () {
 // ═════════════════════════════════════════════════════════════════════════════
 let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-use
 let _saRows = [];   // Attachment page subset: CTI Indonesia only (resigned excluded)
-let _saSentIds = new Set(); // seafarer IDs where Send Form was successfully sent this session
+let _saSentIds = new Map(); // seafarerId → ISO timestamp of last successful Send Form this session
 
 // ── Module-level badge helpers shared by seafarer page ───────────────────────
 function sfCruiseBadge(c) {
@@ -1156,7 +1156,7 @@ const SA_DOC_FIELDS = [
   { group:'Medical',     label:'Medical Examination Date',  field:'medicalExamDate',      zoho:'Medical_Examination_Date',    type:'date'  }, // TODO
   { group:'Medical',     label:'Medical Issuance Date',     field:'medicalIssuanceDate',  zoho:'Medical_Issuance_Date',       type:'date'  }, // TODO
   { group:'Medical',     label:'Medical Expiration Date',   field:'medicalExpiry',        zoho:'Medical_Expiry_Date',         type:'date'  }, // TODO
-  { group:'Medical',     label:'Completed Vaccination',     field:'completedVaccination', zoho:'Completed_Vaccination'        }, // TODO
+  { group:'Medical',     label:'Completed Vaccination',     field:'completedVaccination', zoho:'Vaccines_Status', type:'multicheck', opts:VACC_OPTS },
   { group:'Medical',     label:'Date MMR 1 Completed',      field:'dateMmr1',             zoho:'Date_MMR_1_Completed',        type:'date'  }, // TODO
 ];
 
@@ -1212,17 +1212,22 @@ pages.seafarerAttachment = async function () {
   const noAsgnNotReady = rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length;
 
   // Build table header
-  const fixedCols = ['Countdown','Onboarding Status','CTI Office','Name','Email','Seafarer ID','Cruise Line','Sign On Date'];
+  // NOTE: thSort intentionally starts with 'Last Sent' (not 'Actions') so its column count
+  // aligns with thFilter (which prepends an Actions cell) and with each data row.
+  const fixedCols = ['Last Sent','Countdown','Onboarding Status','CTI Office','Name','Email','Seafarer ID','Cruise Line','Sign On Date'];
   const allCols   = [...fixedCols, ...SA_STATUS_COLS.map(c=>c.label)];
+  // i===0 = Last Sent (no sort), i===3 = CTI Office (no sort), rest sortable
+  const noSortIdx = new Set([0,3]);
   const thSort = allCols.map((lbl,i) => {
-    const field = i<8 ? ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'][i]
-                      : SA_STATUS_COLS[i-8].field;
-    return `<th data-field="${field}" class="${i===2?'':'sa-sortable'}"
+    const field = i<9 ? ['_lastSent','_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'][i]
+                      : SA_STATUS_COLS[i-9].field;
+    const ns = noSortIdx.has(i);
+    return `<th data-field="${field}" class="${ns?'':'sa-sortable'}"
       style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
         text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
         border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;
-        ${i===2?'':'cursor:pointer;user-select:none;'}">
-      ${escH(lbl)}${i===2?'':' <span class="sa-sort-icon">⇅</span>'}
+        ${ns?'':'cursor:pointer;user-select:none;'}">
+      ${escH(lbl)}${ns?'':' <span class="sa-sort-icon">⇅</span>'}
     </th>`;
   }).join('');
 
@@ -1251,6 +1256,7 @@ pages.seafarerAttachment = async function () {
                      : DOC_STATUS_OPTS;
   const thFilter = [
     thfCell(),                                                     // Actions
+    thfCell(),                                                     // Last Sent
     thfCell(),                                                     // Countdown
     thfCell(buildColMS('saCF_onboardingStatus', onbSts)),          // Onboarding Status
     thfCell(buildColMS('saCF_ctiOffice', ctiOfficeOpts)),          // CTI Office
@@ -1382,6 +1388,15 @@ function renderSATableBody(rows) {
   };
   const fixedFields = ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'];
   const allFields = [...fixedFields, ...SA_STATUS_COLS.map(c=>c.field)];
+  const fmtLastSent = id => {
+    const ts = _saSentIds.get(id);
+    if (!ts) return _dash;
+    const d = new Date(ts);
+    return `<span style="font-size:10.5px;color:#15803D;white-space:nowrap;">
+      ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}<br>
+      <span style="font-size:10px;color:var(--text-muted,#888);">${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
+    </span>`;
+  };
   tb.innerHTML = rows.map(r => {
     const hasEmail = r.email && r.email !== '—';
     const cells = allFields.map(f =>
@@ -1409,6 +1424,7 @@ function renderSATableBody(rows) {
               cursor:${active?'pointer':'not-allowed'};font-family:inherit;">${label}</button>`;
         })()}
       </td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;min-width:70px;">${fmtLastSent(r.id)}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -1433,14 +1449,29 @@ function openSADetail(zohoId) {
         input = `<select data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}"
           style="flex:1;min-width:0;padding:4px 6px;border-radius:5px;font-size:11.5px;font-family:inherit;
             border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);">${opts}</select>`;
+      } else if (c.type === 'multicheck') {
+        const currentVals = val.split(/[;,]+/).map(s=>s.trim()).filter(Boolean);
+        const checks = (c.opts||[]).map(opt => `
+          <label style="display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer;">
+            <input type="checkbox" class="sa-vacc-cb" data-vacc-field="${escH(c.field)}" value="${escH(opt)}"
+              ${currentVals.includes(opt)?'checked':''}
+              style="width:13px;height:13px;cursor:pointer;accent-color:#B01A18;">
+            <span style="font-size:11.5px;color:var(--text);">${escH(opt)}</span>
+          </label>`).join('');
+        // Hidden input carries the joined value so the generic save handler picks it up
+        input = `<div style="flex:1;">
+          <input type="hidden" id="saVacc_${escH(c.field)}"
+            data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}" value="${escH(val)}">
+          <div style="padding:2px 0;">${checks}</div>
+        </div>`;
       } else {
         input = `<input data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}"
           type="${c.type==='date'?'date':'text'}" value="${escH(val)}"
           style="flex:1;min-width:0;padding:4px 8px;border-radius:5px;font-size:11.5px;font-family:inherit;
             border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);">`;
       }
-      return `<label style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border,#f3f3f3);">
-        <span style="flex:0 0 160px;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--text-muted,#888);">${escH(c.label)}</span>
+      return `<label style="display:flex;align-items:${c.type==='multicheck'?'flex-start':'center'};gap:8px;padding:5px 12px;border-bottom:1px solid var(--border,#f3f3f3);">
+        <span style="flex:0 0 160px;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--text-muted,#888);padding-top:${c.type==='multicheck'?'4px':'0'};">${escH(c.label)}</span>
         ${input}
       </label>`;
     }).join('');
@@ -1465,6 +1496,17 @@ function openSADetail(zohoId) {
     </div>`;
   openReqModal(`Document Detail`, body, { x: window.innerWidth/2 - 260, y: 60 });
 
+  // Vaccination checkboxes — update hidden input whenever a checkbox changes
+  document.querySelectorAll('#saDetailForm .sa-vacc-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const fk = cb.dataset.vaccField;
+      const checked = [...document.querySelectorAll(`#saDetailForm .sa-vacc-cb[data-vacc-field="${fk}"]:checked`)]
+        .map(c => c.value);
+      const hidden = document.getElementById(`saVacc_${fk}`);
+      if (hidden) hidden.value = checked.join('; ');
+    });
+  });
+
   document.getElementById('saDetailCancel')?.addEventListener('click', () => {
     document.getElementById('reqDrillModal').style.display = 'none';
   });
@@ -1478,6 +1520,11 @@ function openSADetail(zohoId) {
       const oldVal = row[fk] != null ? String(row[fk]).replace(/^—$/,'') : '';
       if (inp.value !== oldVal) changes[zk] = inp.value || null;
     });
+    // Zoho multiselect fields require an array — convert vaccination if changed
+    if ('Vaccines_Status' in changes) {
+      const v = changes['Vaccines_Status'];
+      changes['Vaccines_Status'] = v ? v.split(/[;,]+/).map(s=>s.trim()).filter(Boolean) : [];
+    }
     if (!Object.keys(changes).length) { if(statusEl) statusEl.textContent='No changes.'; return; }
     if(statusEl) { statusEl.textContent='Saving…'; statusEl.style.color='var(--text-muted,#888)'; }
     try {
@@ -1684,7 +1731,7 @@ pageEvents.seafarerAttachment = function () {
       const data = await res.json();
       if (data.ok) {
         // Mark as sent permanently — re-render table to lock button green
-        _saSentIds.add(id);
+        _saSentIds.set(id, new Date().toISOString());
         saApply();
       } else {
         // Failed — show error briefly then allow retry
