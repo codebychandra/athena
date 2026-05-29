@@ -1236,6 +1236,12 @@ pages.seafarerAttachment = async function () {
   const cruiseLines    = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
   const onbSts         = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
   const ctiOfficeOpts  = [...new Set(rows.map(r=>r.ctiOffice).filter(Boolean))].sort();
+  const signOnYears    = (() => {
+    const yrs = [...new Set(rows.filter(r=>r.signOnDate).map(r=>r.signOnDate.slice(0,4)))];
+    ['2025','2026','2027','2028'].forEach(y=>{ if(!yrs.includes(y)) yrs.push(y); });
+    return yrs.sort();
+  })();
+  const SA_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const today = new Date(); today.setHours(0,0,0,0);
   const total          = rows.length;
   const readyNoAsgn    = rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length;
@@ -1309,7 +1315,9 @@ pages.seafarerAttachment = async function () {
     <!-- REPORT TAB -->
     <div id="saTabReport">
       <div class="card req-filter-bar">
-        ${buildMS('saDocFilter','Document',SA_STATUS_COLS.map(c=>c.label))}
+        ${buildMS('saSignOnMonth','Sign On Month',SA_MONTHS)}
+        ${buildMS('saSignOnYear','Sign On Year',signOnYears)}
+        ${buildMS('saDocFilter','Document Name',SA_STATUS_COLS.map(c=>c.label))}
         ${buildMS('saDocStatusFilter','Document Status',DOC_STATUS_OPTS)}
         <input id="saGlobalSearch" type="text" placeholder="🔍 Search…"
           style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
@@ -1549,11 +1557,14 @@ pageEvents.seafarerAttachment = function () {
   let saActiveKpi = null, saSortF = null, saSortD = 1;
 
   function saFiltered() {
-    const gCruise    = msGetVals('saCF_cruiseLine');
-    const gOnb       = msGetVals('saCF_onboardingStatus');
-    const gCtiOffice = msGetVals('saCF_ctiOffice');
-    const gDoc       = msGetVals('saDocFilter');
-    const gDocStatus = msGetVals('saDocStatusFilter');
+    const gCruise       = msGetVals('saCF_cruiseLine');
+    const gOnb          = msGetVals('saCF_onboardingStatus');
+    const gCtiOffice    = msGetVals('saCF_ctiOffice');
+    const gSignOnMonth  = msGetVals('saSignOnMonth');
+    const gSignOnYear   = msGetVals('saSignOnYear');
+    const gDoc          = msGetVals('saDocFilter');
+    const gDocStatus    = msGetVals('saDocStatusFilter');
+    const SA_MONTHS_ARR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
     const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
     const soDate     = document.getElementById('saSignOnDate')?.value || '';
@@ -1574,6 +1585,15 @@ pageEvents.seafarerAttachment = function () {
       if (gCruise.length    && !gCruise.includes(r.cruiseLine)) return false;
       if (gOnb.length       && !gOnb.includes(r.onboardingStatus)) return false;
       if (gCtiOffice.length && !gCtiOffice.includes(r.ctiOffice)) return false;
+      if (gSignOnMonth.length) {
+        if (!r.signOnDate) return false;
+        const m = SA_MONTHS_ARR[new Date(r.signOnDate+'T00:00:00').getMonth()];
+        if (!gSignOnMonth.includes(m)) return false;
+      }
+      if (gSignOnYear.length) {
+        if (!r.signOnDate) return false;
+        if (!gSignOnYear.includes(r.signOnDate.slice(0,4))) return false;
+      }
       // Document + Document Status global filters
       // gDoc scopes which columns to check; gDocStatus filters by status value
       if (gDocStatus.length) {
@@ -1656,7 +1676,8 @@ pageEvents.seafarerAttachment = function () {
   });
 
   initMS();
-  ['saDocFilter','saDocStatusFilter','saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(id=>msOnChange(id,saApply));
+  ['saDocFilter','saDocStatusFilter','saSignOnMonth','saSignOnYear',
+   'saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(id=>msOnChange(id,saApply));
   document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
   document.getElementById('saSignOnOp')?.addEventListener('change',saApply);
   document.getElementById('saSignOnDate')?.addEventListener('change',saApply);
@@ -1665,7 +1686,8 @@ pageEvents.seafarerAttachment = function () {
   // Column status MS filters
   SA_STATUS_COLS.forEach(c=>msOnChange('saCF_'+c.field,saApply));
   document.getElementById('saClearBtn')?.addEventListener('click',()=>{
-    ['saDocFilter','saDocStatusFilter','saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(msClear);
+    ['saDocFilter','saDocStatusFilter','saSignOnMonth','saSignOnYear',
+     'saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(msClear);
     const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
     const soOp=document.getElementById('saSignOnOp'); if(soOp) soOp.value='=';
     const soD=document.getElementById('saSignOnDate'); if(soD) soD.value='';

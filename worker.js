@@ -415,44 +415,44 @@ const SF = {
   // ── Document status fields (verify via /api/cruise/debug/fields?module=Candidates) ──
   passportStatus:      'Passport_Status',          // confirmed (shared with RF map)
   passportIssuedPlace: 'Passport_Issued_Place',    // TODO: verify
-  bstStatus:           'BST_Status',               // TODO: verify
-  bstNumber:           'BST_Number',               // TODO: verify
-  bstExpiry:           'BST_Expiry_Date',          // TODO: verify
-  satStatus:           'SAT_Status',               // TODO: verify
-  satNumber:           'SAT_Number',               // TODO: verify
-  satExpiry:           'SAT_Expiry_Date',          // TODO: verify
+  bstStatus:           'BST_Status',               // confirmed
+  bstNumber:           'BST_Certificate_Number',   // confirmed
+  bstExpiry:           'BST_Expiration_Date',      // confirmed
+  satStatus:           'SAT_Status',               // confirmed
+  satNumber:           'SAT_Certificate_Number',   // confirmed
+  satExpiry:           'SAT_Expiration_Date',      // confirmed
   crowdMgtStatus:      'Crowd_Mgt_Status',              // confirmed
   crowdMgtNumber:      'Crowd_Mgt_Number',              // confirmed
   crowdMgtExpiry:      'Crowd_Mgt_Expiration_Date',     // confirmed
   crisisMgtStatus:     'Crisis_Mgt_Status',             // confirmed
   crisisMgtNumber:     'Crisis_Mgt_Number',             // confirmed
   crisisMgtExpiry:     'Crisis_Mgt_Expiration_Date',    // confirmed
-  pscrbStatus:         'PSCRB_Status',             // TODO: verify
-  pscrbNumber:         'PSCRB_Number',             // TODO: verify
-  pscrbExpiry:         'PSCRB_Expiry_Date',        // TODO: verify
-  seamanBookStatus:    'Seaman_Book_Status',        // TODO: verify
-  seamanBookNumber:    'Seaman_Book_Number',        // TODO: verify
-  seamanBookExpiry:    'Seaman_Book_Expiry_Date',   // TODO: verify
-  sdbStatus:           'Bermuda_Seaman_Status',      // confirmed (SDB = Bermuda Seaman's Discharge Book)
-  sdbExpiry:           'SDB_Expiry_Date',          // TODO: verify
-  bidStatus:           'BID_Status',               // TODO: verify
-  bidExpiry:           'BID_Expiry_Date',          // TODO: verify
-  c1dStatus:           'C1_D_Visa_Status',           // confirmed
-  c1dNumber:           'C1D_Visa_Number',          // TODO: verify
-  c1dAppointment:      'C1D_Appointment_Date',     // TODO: verify
-  c1dExpiry:           'C1D_Visa_Expiry_Date',     // TODO: verify
-  mcvStatus:           'MCV_Status',               // TODO: verify
-  mcvNumber:           'MCV_Number',               // TODO: verify
-  mcvPassportNumber:   'MCV_Passport_Number',      // TODO: verify
-  mcvExpiry:           'MCV_Expiry_Date',          // TODO: verify
-  oktbStatus:          'OKTB_Status',              // TODO: verify
+  pscrbStatus:         'PSCRB_Status',             // confirmed
+  pscrbNumber:         'PSCRB_Number',             // confirmed
+  pscrbExpiry:         'PSCRB_Expiration_Date',    // confirmed
+  seamanBookStatus:    'Seaman_Book_Status',        // confirmed
+  seamanBookNumber:    'Seaman_Book_Number',        // confirmed
+  seamanBookExpiry:    'Seaman_Book_Expiration_Date', // confirmed
+  sdbStatus:           'Bermuda_Seaman_Status',    // confirmed
+  sdbExpiry:           'SDB_Expiration_Date',      // confirmed
+  bidStatus:           'BID_Status',               // confirmed
+  bidExpiry:           'BID_Expiration_Date',      // confirmed
+  c1dStatus:           'C1_D_Visa_Status',         // confirmed
+  c1dNumber:           'C1_D_Visa_Number',         // confirmed
+  c1dAppointment:      'C1_D_Visa_Appointment_Date', // confirmed
+  c1dExpiry:           'C1_D_Visa_Expiration_Date', // confirmed
+  mcvStatus:           'MCV_Status',               // confirmed
+  mcvNumber:           'MCV_Number',               // confirmed
+  mcvPassportNumber:   'MCV_s_Passport_Number',    // confirmed
+  mcvExpiry:           'MCV_Expiration_Date',      // confirmed
+  oktbStatus:          'OKTB',                     // confirmed (field API name is just OKTB)
   nzetaStatus:         'NZeTA_Visa_Status',          // confirmed
   nzetaNumber:         'NZeTA_Visa_Number',         // confirmed
   nzetaExpiry:         'NZeTA_Expiration_Date',     // confirmed
   atvStatus:           'Australian_Transit_Visa_Status', // confirmed
-  atvAppointment:      'ATV_Appointment_Date',     // TODO: verify
-  atvNumber:           'ATV_Number',               // TODO: verify
-  atvExpiry:           'ATV_Expiry_Date',          // TODO: verify
+  atvAppointment:      'ATV_Appointment_Date',      // confirmed
+  atvNumber:           'Australian_Transit_Visa_Number', // confirmed
+  atvExpiry:           'ATV_Expiration_Date',      // confirmed
   otherVisaName:       'Other_Visa_Name',          // TODO: verify
   otherVisaStatus:     'Other_Visa_Status',        // TODO: verify
   medicalStatus:       'Medical_Status',           // TODO: verify
