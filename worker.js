@@ -1153,37 +1153,80 @@ export default {
         if (!to || !name || !formLink) return json({ error: 'Missing to, name or formLink' }, 400, ch);
 
         const token = await getMSToken(env);
-        const html  = `
-<div style="font-family:Arial,sans-serif;max-width:560px;color:#1A1A1A;">
-  <div style="background:#B01A18;padding:18px 24px;border-radius:8px 8px 0 0;">
-    <img src="https://cti-usa.com/img/cti-logo-white.png" alt="CTI Group" height="32"
-         onerror="this.style.display='none'">
-    <span style="display:inline-block;color:#fff;font-size:16px;font-weight:700;vertical-align:middle;margin-left:8px;">CTI Group</span>
-  </div>
-  <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:28px 24px;border-radius:0 0 8px 8px;">
-    <p style="margin:0 0 14px;">Dear <strong>${escHTML(name)}</strong>,</p>
-    <p style="margin:0 0 14px;">We hope this message finds you well.</p>
-    <p style="margin:0 0 14px;">As part of your onboarding process with <strong>CTI Group</strong>, we kindly request that you complete and submit the required document collection form at your earliest convenience.</p>
-    <p style="margin:0 0 20px;">Please click the button below to access your personalized form:</p>
-    <p style="margin:0 0 24px;text-align:center;">
-      <a href="${escHTML(formLink)}"
-         style="display:inline-block;background:#B01A18;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-        Submit Documents
-      </a>
+        const html  = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;">
+  <tr><td>
+    <!-- Header -->
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#B01A18;border-radius:8px 8px 0 0;overflow:hidden;">
+      <tr>
+        <td style="padding:22px 28px;">
+          <table cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <!-- Logo mark -->
+                <div style="width:38px;height:38px;background:#fff;border-radius:6px;
+                     display:inline-block;text-align:center;line-height:38px;
+                     font-size:13px;font-weight:900;color:#B01A18;font-style:italic;
+                     vertical-align:middle;">CTI</div>
+              </td>
+              <td style="padding-left:12px;vertical-align:middle;">
+                <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.3px;line-height:1.1;">CTI Group</div>
+                <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;">Worldwide Services, Inc.</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <!-- Red accent strip -->
+      <tr><td style="height:4px;background:#8B1210;"></td></tr>
+    </table>
+    <!-- Body -->
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#ffffff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
+      <tr><td style="padding:32px 28px;">
+        <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear <strong>${escHTML(name)}</strong>,</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#333;line-height:1.6;">We hope this message finds you well.</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#333;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly request that you complete and submit the required document collection form at your earliest convenience.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#333;line-height:1.6;">Please click the button below to access your personalized form:</p>
+        <!-- CTA Button -->
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+          <tr>
+            <td style="background:#B01A18;border-radius:6px;text-align:center;">
+              <a href="${escHTML(formLink)}"
+                 style="display:inline-block;padding:13px 32px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.3px;">
+                Submit Documents
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 20px;font-size:12px;color:#888;line-height:1.5;">
+          If the button does not work, copy and paste this link into your browser:<br>
+          <a href="${escHTML(formLink)}" style="color:#B01A18;word-break:break-all;">${escHTML(formLink)}</a>
+        </p>
+        <p style="margin:0 0 10px;font-size:14px;color:#333;line-height:1.6;">If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#333;">Thank you for your cooperation.</p>
+        <!-- Divider -->
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="border-top:1px solid #eeeeee;padding-top:20px;">
+            <p style="margin:0;font-size:12px;color:#999;line-height:1.6;">
+              <strong style="color:#555;">CTI Group Worldwide Services, Inc.</strong><br>
+              Cruise Line Division &nbsp;·&nbsp;
+              <a href="https://www.cti-usa.com" style="color:#B01A18;text-decoration:none;">www.cti-usa.com</a>
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <!-- Footer -->
+    <p style="text-align:center;font-size:11px;color:#aaa;margin:14px 0 0;padding:0 10px;">
+      This is an automated message from CTI Group Worldwide Services, Inc. Please do not reply to this email.
     </p>
-    <p style="margin:0 0 14px;font-size:12px;color:#666;">
-      If the button does not work, copy and paste this link into your browser:<br>
-      <a href="${escHTML(formLink)}" style="color:#B01A18;">${escHTML(formLink)}</a>
-    </p>
-    <p style="margin:0 0 8px;">If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.</p>
-    <p style="margin:0;">Thank you for your cooperation.</p>
-    <hr style="margin:20px 0;border:none;border-top:1px solid #e5e7eb;">
-    <p style="margin:0;font-size:12px;color:#888;">
-      <strong>CTI Group Worldwide Services, Inc.</strong><br>
-      Cruise Line Division · <a href="https://www.cti-usa.com" style="color:#B01A18;">www.cti-usa.com</a>
-    </p>
-  </div>
-</div>`;
+  </td></tr>
+</table>
+</body></html>`;
 
         const mail = {
           message: {
