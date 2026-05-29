@@ -409,6 +409,7 @@ const SF = {
   street:             'Street',
   postalCode:         'Zip_Code',
   gatewayAirport:     'Gateway_Airport',
+  ctiOffice:          'CTI_Office',              // TODO: verify exact Zoho field name
   // ── Document status fields (verify via /api/cruise/debug/fields?module=Candidates) ──
   passportStatus:      'Passport_Status',          // confirmed (shared with RF map)
   passportIssuedPlace: 'Passport_Issued_Place',    // TODO: verify
@@ -676,6 +677,7 @@ function mapSeafarer(r) {
     street:              r[SF.street]              || '',
     postalCode:          r[SF.postalCode]          || '',
     gatewayAirport:      r[SF.gatewayAirport]      || '',
+    ctiOffice:           r[SF.ctiOffice]           || '',
     // ── Document status fields (values depend on Zoho field names above being correct) ──
     passportStatus:      r[SF.passportStatus]      || '',
     passportIssuedPlace: r[SF.passportIssuedPlace] || '',

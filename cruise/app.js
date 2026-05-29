@@ -7,14 +7,15 @@
 const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
 
 const CRUISE_PAGE_TITLES = {
-  requisition:    'Requisition',
-  candidate:      'Candidate',
-  finalinterview: 'Final Interview',
-  seafarer:       'Seafarer',
-  visa:           'Visa',
-  deployment:     'Deployment',
-  reports:        'Report',
-  task:           'Task',
+  requisition:         'Requisition',
+  candidate:           'Candidate',
+  finalinterview:      'Final Interview',
+  seafarer:            'Seafarer',
+  seafarerAttachment:  'Attachment',
+  visa:                'Visa',
+  deployment:          'Deployment',
+  reports:             'Report',
+  task:                'Task',
 };
 
 const CRUISE_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
@@ -701,6 +702,7 @@ pageEvents.task = function () {
 // SEAFARER PAGE — active seafarers dashboard
 // ═════════════════════════════════════════════════════════════════════════════
 let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-use
+let _saRows = [];   // Attachment page subset: CTI Indonesia only (resigned excluded)
 
 // ── Module-level badge helpers shared by seafarer page ───────────────────────
 function sfCruiseBadge(c) {
@@ -1221,7 +1223,13 @@ pages.seafarerAttachment = async function () {
       _sfRows = (seafarers||[]).filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
     } catch (_) {}
   }
-  const rows = _sfRows;
+  // Narrow to CTI Indonesia only.
+  // Graceful fallback: if ctiOffice isn't mapped yet (all empty), show all non-resigned rows.
+  const hasCtiData = _sfRows.some(r => !!r.ctiOffice);
+  _saRows = hasCtiData
+    ? _sfRows.filter(r => (r.ctiOffice||'').toLowerCase().includes('indonesia'))
+    : _sfRows;
+  const rows = _saRows;
   const cruiseLines = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
   const onbSts      = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1251,9 +1259,9 @@ pages.seafarerAttachment = async function () {
 
   return `
     <div class="req-page-header">
-      <h1>Seafarer Attachment</h1>
+      <h1>Attachment <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:#FFF3CD;color:#856404;vertical-align:middle;margin-left:6px;">Beta</span></h1>
       <span class="req-live-badge">● Live · Zoho Recruit</span>
-      <span class="req-page-sub">Document collection &amp; tracking</span>
+      <span class="req-page-sub">Document collection &amp; tracking · CTI Indonesia seafarers only</span>
     </div>
 
     <nav class="task-tabbar" id="saTabbar">
@@ -1486,7 +1494,7 @@ pageEvents.seafarerAttachment = function () {
     const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
     const soDate     = document.getElementById('saSignOnDate')?.value || '';
     const today      = new Date(); today.setHours(0,0,0,0);
-    let out = _sfRows.filter(r => {
+    let out = _saRows.filter(r => {
       if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
       if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
       // Document status filter: include if ANY doc status field matches one of selected values
