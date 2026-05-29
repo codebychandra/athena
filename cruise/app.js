@@ -1125,14 +1125,35 @@ pages.seafarer = async function () {
 
     <div class="req-chart-row">
       <div class="card req-chart-card">
-        <div class="req-card-title">Active Seafarers by Cruise Line</div>
+        <div class="req-card-title">Active Seafarers by Cruise Line
+          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
+        </div>
         <div class="req-card-sub">Count per cruise line</div>
         <canvas id="sfLineChart"></canvas>
       </div>
       <div class="card req-chart-card">
-        <div class="req-card-title">Ready To Go · No Assignment by Cruise Line</div>
+        <div class="req-card-title">Ready To Go · No Assignment by Cruise Line
+          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
+        </div>
         <div class="req-card-sub">Ready seafarers awaiting deployment</div>
         <canvas id="sfReadyChart"></canvas>
+      </div>
+    </div>
+
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Have Assignment · Not Ready by Cruise Line
+          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
+        </div>
+        <div class="req-card-sub">Rescheduled or Completing Documents · with sign-on date</div>
+        <canvas id="sfHasAsgnChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">No Assignment · Not Ready by Cruise Line
+          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
+        </div>
+        <div class="req-card-sub">Rescheduled or Completing Documents · no sign-on date</div>
+        <canvas id="sfNoAsgnNotRdyChart"></canvas>
       </div>
     </div>
 
@@ -1176,24 +1197,81 @@ pageEvents.seafarer = function () {
       y: { display:false, beginAtZero:true },
     },
   };
-  const mkSFBar = (id, entries, color) => {
+  const NOT_RDY_STS = new Set(['completing documents','rescheduled']);
+  const isNotRdy = r => NOT_RDY_STS.has((r.onboardingStatus||'').trim().toLowerCase());
+
+  const mkSFBar = (id, entries, color, onContext) => {
     const el = document.getElementById(id); if (!el) return;
     if (window._sfCharts[id]) window._sfCharts[id].destroy();
-    window._sfCharts[id] = new Chart(el, {
+    const chart = new Chart(el, {
       type:'bar',
       data:{ labels:entries.map(e=>e[0]),
         datasets:[{data:entries.map(e=>e[1]),backgroundColor:color,borderRadius:0,maxBarThickness:46}] },
       options:sfBaseOpts,
     });
+    if (onContext) {
+      el.oncontextmenu = ev => {
+        const pts = chart.getElementsAtEventForMode(ev,'nearest',{intersect:true},true);
+        if (pts.length) {
+          ev.preventDefault();
+          onContext(chart.data.labels[pts[0].index], { x:ev.clientX, y:ev.clientY });
+        }
+      };
+    }
+    window._sfCharts[id] = chart;
   };
+
+  // ── Drill-down helpers ────────────────────────────────────────────────────
+  const sfDrillTable = (title, drillRows, at) => {
+    if (!drillRows.length) return;
+    const body = `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="${DRILL_TH}">Name</th>
+            <th style="${DRILL_TH}">Status</th>
+            <th style="${DRILL_TH}">Sign On Date</th>
+            <th style="${DRILL_TH}">Position</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${drillRows.map(r=>`<tr>
+            <td style="${DRILL_TD}font-weight:600;">${escH(r.fullName||'—')}</td>
+            <td style="${DRILL_TD}">${sfOnbBadge(r.onboardingStatus)}</td>
+            <td style="${DRILL_TD}">${r.signOnDate?`<span style="font-size:10.5px;">${escH(r.signOnDate)}</span>`:_dash}</td>
+            <td style="${DRILL_TD}font-size:10px;">${escH(r.positionHired||'—')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    openReqModal(title, body, at);
+  };
+
   const renderSFCharts = rows => {
-    const byLine={}, byReady={};
-    rows.forEach(r => { const k=r.cruiseLine||'—'; if(k!=='—') byLine[k]=(byLine[k]||0)+1; });
-    rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).forEach(r => {
-      const k=r.cruiseLine||'—'; if(k!=='—') byReady[k]=(byReady[k]||0)+1;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const byLine={}, byReady={}, byHasAsgn={}, byNoAsgnNotRdy={};
+    rows.forEach(r => {
+      const k = r.cruiseLine||'—'; if (k==='—') return;
+      byLine[k] = (byLine[k]||0)+1;
+      if (!r.signOnDate && sfIsReadyToGo(r))                byReady[k]       = (byReady[k]||0)+1;
+      if (r.signOnDate && new Date(r.signOnDate)>today && isNotRdy(r))
+                                                             byHasAsgn[k]     = (byHasAsgn[k]||0)+1;
+      if (!r.signOnDate && isNotRdy(r))                     byNoAsgnNotRdy[k] = (byNoAsgnNotRdy[k]||0)+1;
     });
-    mkSFBar('sfLineChart',  Object.entries(byLine).sort((a,b)=>b[1]-a[1]),  '#1B3A6B');
-    mkSFBar('sfReadyChart', Object.entries(byReady).sort((a,b)=>b[1]-a[1]), '#2D7A55');
+
+    mkSFBar('sfLineChart',  Object.entries(byLine).sort((a,b)=>b[1]-a[1]),  '#1B3A6B',
+      (line, at) => sfDrillTable(`${escH(line)} — All Active`, rows.filter(r=>r.cruiseLine===line), at));
+
+    mkSFBar('sfReadyChart', Object.entries(byReady).sort((a,b)=>b[1]-a[1]), '#2D7A55',
+      (line, at) => sfDrillTable(`${escH(line)} — Ready · No Assignment`,
+        rows.filter(r=>r.cruiseLine===line && !r.signOnDate && sfIsReadyToGo(r)), at));
+
+    mkSFBar('sfHasAsgnChart', Object.entries(byHasAsgn).sort((a,b)=>b[1]-a[1]), '#B87A14',
+      (line, at) => sfDrillTable(`${escH(line)} — Have Assignment · Not Ready`,
+        rows.filter(r=>r.cruiseLine===line && r.signOnDate && new Date(r.signOnDate)>today && isNotRdy(r)), at));
+
+    mkSFBar('sfNoAsgnNotRdyChart', Object.entries(byNoAsgnNotRdy).sort((a,b)=>b[1]-a[1]), '#B01A18',
+      (line, at) => sfDrillTable(`${escH(line)} — No Assignment · Not Ready`,
+        rows.filter(r=>r.cruiseLine===line && !r.signOnDate && isNotRdy(r)), at));
   };
 
   let sfSortF = null, sfSortD = 1;
