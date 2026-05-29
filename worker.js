@@ -92,33 +92,20 @@ async function zPatch(url, token, body) {
 }
 
 async function fetchAll(token, base, module, fields) {
-  // Fetch page 1 to learn if there are more records.
-  const buildParams = (page) => {
-    const p = { page, per_page: 200 };
+  let all = [], page = 1, more = true;
+  while (more) {
+    const params = { page, per_page: 200 };
     // Empty/null fields => let Zoho return every field on the layout.
     // (Some modules silently drop fields from the response when a long fields
     // list is requested.)
-    if (fields) p.fields = fields;
-    return p;
-  };
-
-  const first = await zGet(`${base}/${module}`, token, buildParams(1));
-  const firstRecords = first.data || [];
-  if (!first.info?.more_records) return firstRecords;
-
-  // We have more pages — calculate how many and fetch them all in parallel.
-  const totalCount = first.info.count || firstRecords.length;
-  const perPage    = first.info.per_page || 200;
-  const totalPages = Math.ceil(totalCount / perPage);
-
-  const remaining = [];
-  for (let p = 2; p <= totalPages; p++) remaining.push(p);
-
-  const rest = await Promise.all(
-    remaining.map(p => zGet(`${base}/${module}`, token, buildParams(p)).then(d => d.data || []))
-  );
-
-  return firstRecords.concat(...rest);
+    if (fields) params.fields = fields;
+    const data = await zGet(`${base}/${module}`, token, params);
+    const records = data.data || [];
+    all = all.concat(records);
+    more = data.info?.more_records === true;
+    page++;
+  }
+  return all;
 }
 
 // ── Zoho Sheet: read "CUK Final Interview" workbook ───────────────────────
