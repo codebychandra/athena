@@ -3024,7 +3024,7 @@ const DEP_SEL = `height:30px;border:1px solid var(--border,#ddd);border-radius:6
 pages.deployment = async function () {
   // ── Fetch from Zoho Sheet ──────────────────────────────────────────────────
   try {
-    const r = await safeJson(WORKER_URL + '/api/cruise/deployment');
+    const r = await safeJson(WORKER_URL + '/api/cruise/deployment?_v=2');
     _depRows = r.data || [];
   } catch (_) { _depRows = []; }
 
