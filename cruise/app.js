@@ -1117,15 +1117,17 @@ pageEvents.seafarer = function () {
 // SEAFARER ATTACHMENT PAGE — document collection & tracking
 // ═════════════════════════════════════════════════════════════════════════════
 
-// Document status colour map (Unfit only valid for Medical)
+// Document status colour map
 const DOC_STATUS_COLORS = {
-  'Valid':           '#2D7A55',
-  'In Process':      '#1B3A6B',
-  'Need To Process': '#B87A14',
-  'Not Required':    '#6B7280',
-  'Unfit':           '#B01A18',
+  'Valid':           '#2D7A55',  // green
+  'In Process':      '#D97706',  // orange
+  'Need To Process': '#DC2626',  // red
+  'Not Required':    '#6B7280',  // gray
+  'Unfit':           '#7F1D1D',  // dark red (Medical only)
 };
-const DOC_STATUS_OPTS = Object.keys(DOC_STATUS_COLORS);
+// Standard opts — Unfit excluded; medical column uses DOC_STATUS_OPTS_MEDICAL
+const DOC_STATUS_OPTS         = ['Valid','In Process','Need To Process','Not Required'];
+const DOC_STATUS_OPTS_MEDICAL = ['Valid','In Process','Need To Process','Not Required','Unfit'];
 function docStatusBadge(s) {
   if (!s) return _dash;
   const col = DOC_STATUS_COLORS[s] || '#6B7280';
@@ -1223,12 +1225,12 @@ pages.seafarerAttachment = async function () {
       _sfRows = (seafarers||[]).filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
     } catch (_) {}
   }
-  // Narrow to CTI Indonesia only.
-  // Graceful fallback: if ctiOffice isn't mapped yet (all empty), show all non-resigned rows.
+  // Narrow to CTI Indonesia only; also exclude "Report to Ship".
+  // Graceful fallback: if ctiOffice isn't mapped yet (all empty), show all eligible rows.
+  const SA_EXCLUDE_ONB = new Set(['resign','resigned','report to ship']);
   const hasCtiData = _sfRows.some(r => !!r.ctiOffice);
-  _saRows = hasCtiData
-    ? _sfRows.filter(r => (r.ctiOffice||'').toLowerCase().includes('indonesia'))
-    : _sfRows;
+  _saRows = (hasCtiData ? _sfRows.filter(r => (r.ctiOffice||'').toLowerCase().includes('indonesia')) : _sfRows)
+    .filter(r => !SA_EXCLUDE_ONB.has((r.onboardingStatus||'').trim().toLowerCase()));
   const rows = _saRows;
   const cruiseLines = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
   const onbSts      = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
@@ -1274,7 +1276,7 @@ pages.seafarerAttachment = async function () {
     thfCell(textInput('seafarerIdNumber')),  // Seafarer ID
     thfCell(),                              // Cruise Line (global filter)
     thfCell(),                              // Sign On Date (global filter)
-    ...SA_STATUS_COLS.map(c => thfCell(buildColMS('saCF_'+c.field, DOC_STATUS_OPTS))),
+    ...SA_STATUS_COLS.map(c => thfCell(buildColMS('saCF_'+c.field, c.field==='medicalStatus' ? DOC_STATUS_OPTS_MEDICAL : DOC_STATUS_OPTS))),
   ].join('');
 
   return `
@@ -1294,6 +1296,7 @@ pages.seafarerAttachment = async function () {
       <div class="card req-filter-bar">
         ${buildMS('saCruiseFilter','Cruise Line',cruiseOpts)}
         ${buildMS('saOnbFilter','Onboarding Status',onbOpts)}
+        ${buildMS('saDocFilter','Document',SA_STATUS_COLS.map(c=>c.label))}
         ${buildMS('saDocStatusFilter','Document Status',DOC_STATUS_OPTS)}
         <!-- Sign On Date operator + date -->
         <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
@@ -1390,7 +1393,7 @@ function renderSATableBody(rows) {
     switch (field) {
       case '_countdown': return sfCountdownBadge(r);
       case 'onboardingStatus': return sfOnbBadge(r.onboardingStatus);
-      case '_ctiOffice': return _dash;
+      case '_ctiOffice': return r.ctiOffice ? `<span style="font-size:11px;color:var(--text-muted,#888);">${escH(r.ctiOffice)}</span>` : _dash;
       case 'fullName': return `<span style="font-weight:600;">${escH(r.fullName||'—')}</span>`;
       case 'email': return r.email&&r.email!=='—'?`<a href="mailto:${escH(r.email)}" style="color:var(--text-muted,#888);font-size:11px;">${escH(r.email)}</a>`:_dash;
       case 'seafarerIdNumber': return r.seafarerIdNumber?`<code style="font-size:11px;">${escH(String(r.seafarerIdNumber))}</code>`:_dash;
@@ -1402,8 +1405,36 @@ function renderSATableBody(rows) {
   const fixedFields = ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'];
   const allFields = [...fixedFields, ...SA_STATUS_COLS.map(c=>c.field)];
   const FORM_URL = 'https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection';
+  const buildSendFormMailto = r => {
+    const to      = (r.email && r.email !== '—') ? r.email : '';
+    const name    = r.fullName || 'Seafarer';
+    const formLink= `${FORM_URL}?Name=${encodeURIComponent(name)}&Email=${encodeURIComponent(to)}`;
+    const subject = encodeURIComponent(`Document Collection Request – ${name}`);
+    const body    = encodeURIComponent(
+`Dear ${name},
+
+We hope this message finds you well.
+
+As part of your onboarding process with CTI Group, we kindly request that you complete and submit the required document collection form at your earliest convenience.
+
+Please click the link below to access your personalized form:
+
+${formLink}
+
+If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.
+
+Thank you for your cooperation.
+
+Best regards,
+CTI Group Worldwide Services, Inc.
+Cruise Line Division
+https://www.cti-usa.com`
+    );
+    return to ? `mailto:${to}?subject=${subject}&body=${body}` : '#';
+  };
   tb.innerHTML = rows.map(r => {
-    const formUrl = `${FORM_URL}?Name=${encodeURIComponent(r.fullName||'')}&Email=${encodeURIComponent(r.email&&r.email!=='—'?r.email:'')}`;
+    const mailtoHref = buildSendFormMailto(r);
+    const hasEmail   = r.email && r.email !== '—';
     const cells = allFields.map(f =>
       `<td style="padding:9px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${fmtField(r,f)}</td>`
     ).join('');
@@ -1412,9 +1443,11 @@ function renderSATableBody(rows) {
         <button class="sa-detail-btn" data-id="${escH(r.id)}"
           style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;
             color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
-        <a href="${escH(formUrl)}" target="_blank" rel="noopener"
-          style="font-size:10.5px;font-weight:600;border:1px solid #1B3A6B;background:transparent;
-            color:#1B3A6B;border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;text-decoration:none;">
+        <a href="${hasEmail ? escH(mailtoHref) : '#'}"
+          ${hasEmail ? '' : 'onclick="return false;" title="No email address on record"'}
+          style="font-size:10.5px;font-weight:600;border:1px solid ${hasEmail?'#B01A18':'#ccc'};background:transparent;
+            color:${hasEmail?'#B01A18':'#aaa'};border-radius:5px;padding:3px 9px;cursor:${hasEmail?'pointer':'not-allowed'};
+            font-family:inherit;text-decoration:none;">
           Send Form</a>
       </td>
       ${cells}
@@ -1510,6 +1543,7 @@ pageEvents.seafarerAttachment = function () {
   function saFiltered() {
     const gCruise    = msGetVals('saCruiseFilter');
     const gOnb       = msGetVals('saOnbFilter');
+    const gDoc       = msGetVals('saDocFilter');
     const gDocStatus = msGetVals('saDocStatusFilter');
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
     const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
@@ -1530,9 +1564,13 @@ pageEvents.seafarerAttachment = function () {
     let out = _saRows.filter(r => {
       if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
       if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
-      // Global document status filter: include if ANY doc status field matches
+      // Document + Document Status global filters
+      // gDoc scopes which columns to check; gDocStatus filters by status value
       if (gDocStatus.length) {
-        const hasMatch = SA_STATUS_COLS.some(c => gDocStatus.includes(r[c.field]));
+        const docCols = gDoc.length
+          ? SA_STATUS_COLS.filter(c => gDoc.includes(c.label))
+          : SA_STATUS_COLS;
+        const hasMatch = docCols.some(c => gDocStatus.includes(r[c.field]));
         if (!hasMatch) return false;
       }
       if (soDate && !sfDateOp(r.signOnDate, soOp, soDate)) return false;
@@ -1602,7 +1640,7 @@ pageEvents.seafarerAttachment = function () {
   });
 
   initMS();
-  ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(id=>msOnChange(id,saApply));
+  ['saCruiseFilter','saOnbFilter','saDocFilter','saDocStatusFilter'].forEach(id=>msOnChange(id,saApply));
   document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
   document.getElementById('saSignOnOp')?.addEventListener('change',saApply);
   document.getElementById('saSignOnDate')?.addEventListener('change',saApply);
@@ -1611,7 +1649,7 @@ pageEvents.seafarerAttachment = function () {
   // Column status MS filters
   SA_STATUS_COLS.forEach(c=>msOnChange('saCF_'+c.field,saApply));
   document.getElementById('saClearBtn')?.addEventListener('click',()=>{
-    ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(msClear);
+    ['saCruiseFilter','saOnbFilter','saDocFilter','saDocStatusFilter'].forEach(msClear);
     const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
     const soOp=document.getElementById('saSignOnOp'); if(soOp) soOp.value='=';
     const soD=document.getElementById('saSignOnDate'); if(soD) soD.value='';
