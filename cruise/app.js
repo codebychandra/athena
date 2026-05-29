@@ -1399,8 +1399,10 @@ function renderSATableBody(rows) {
   const fixedFields = ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'];
   const allFields = [...fixedFields, ...SA_STATUS_COLS.map(c=>c.field)];
   const fmtLastSent = id => {
-    const ts = _saSentIds.get(id);
-    if (!ts) return _dash;
+    const entry = _saSentIds.get(id);
+    if (!entry) return _dash;
+    const { ok, ts } = (typeof entry === 'object') ? entry : { ok: true, ts: entry };
+    if (!ok) return `<span style="font-size:10.5px;font-weight:600;color:#DC2626;">Failed</span>`;
     const d = new Date(ts);
     return `<span style="font-size:10.5px;color:#15803D;white-space:nowrap;">
       ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}<br>
@@ -1418,12 +1420,10 @@ function renderSATableBody(rows) {
           style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;
             color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
         ${(() => {
-          const sent = _saSentIds.has(r.id);
-          const active = hasEmail && !sent;
-          const label = sent ? '✓ Sent' : 'Send Form';
-          const col   = sent ? '#15803D' : hasEmail ? '#B01A18' : '#ccc';
-          const txtCol= sent ? '#15803D' : hasEmail ? '#B01A18' : '#aaa';
-          const tip   = sent ? 'Form already sent this session' : hasEmail ? '' : 'No email address on record';
+          const active = hasEmail;
+          const col    = hasEmail ? '#B01A18' : '#ccc';
+          const txtCol = hasEmail ? '#B01A18' : '#aaa';
+          const tip    = hasEmail ? '' : 'No email address on record';
           return `<button class="sa-send-btn"
             data-id="${escH(r.id)}"
             data-email="${escH(hasEmail ? r.email : '')}"
@@ -1431,7 +1431,7 @@ function renderSATableBody(rows) {
             ${!active ? 'disabled' : ''} ${tip ? `title="${escH(tip)}"` : ''}
             style="font-size:10.5px;font-weight:600;border:1px solid ${col};background:transparent;
               color:${txtCol};border-radius:5px;padding:3px 9px;
-              cursor:${active?'pointer':'not-allowed'};font-family:inherit;">${label}</button>`;
+              cursor:${active?'pointer':'not-allowed'};font-family:inherit;">Send Form</button>`;
         })()}
       </td>
       <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;min-width:70px;">${fmtLastSent(r.id)}</td>
@@ -1740,34 +1740,21 @@ pageEvents.seafarerAttachment = function () {
       });
       const data = await res.json();
       if (data.ok) {
-        // Mark as sent — persist to localStorage so it survives hard refresh
-        _saSentIds.set(id, new Date().toISOString());
-        _saveSaSentIds();
-        saApply();
+        // Record success — persist date/time to Last Sent column
+        _saSentIds.set(id, { ok: true, ts: new Date().toISOString() });
       } else {
-        // Failed — show error briefly then allow retry
-        btn.textContent = '✗ Failed';
-        btn.style.color = '#B01A18';
-        btn.style.borderColor = '#B01A18';
+        // Record failure — show "Failed" in Last Sent column
+        _saSentIds.set(id, { ok: false, ts: new Date().toISOString() });
         console.error('Send Form error:', data.error);
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.textContent = 'Send Form';
-          btn.style.color = '#B01A18';
-          btn.style.borderColor = '#B01A18';
-        }, 3000);
       }
+      _saveSaSentIds();
+      saApply();   // re-render table with updated Last Sent; button stays "Send Form"
     } catch (err) {
-      btn.textContent = '✗ Error';
-      btn.style.color = '#B01A18';
-      btn.style.borderColor = '#B01A18';
+      // Network/parse error — record failed
+      _saSentIds.set(id, { ok: false, ts: new Date().toISOString() });
+      _saveSaSentIds();
       console.error('Send Form network error:', err);
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = 'Send Form';
-        btn.style.color = '#B01A18';
-        btn.style.borderColor = '#B01A18';
-      }, 3000);
+      saApply();
     }
   });
 
