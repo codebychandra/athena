@@ -1997,16 +1997,11 @@ pageEvents.visa = function () {
     const items = [];
     const badge = (label, status) => {
       if (status === 'Required') {
-        items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;
+        items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;
           border-radius:8px;background:#DC262620;color:#DC2626;border:1px solid #DC262660;
           white-space:nowrap;margin:1px;">${label}</span>`);
-      } else if (status === 'Not Required') {
-        // silent — don't clutter the cell
-      } else {
-        items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:600;padding:1px 5px;
-          border-radius:8px;background:#D9770620;color:#D97706;border:1px solid #D9770660;
-          white-space:nowrap;margin:1px;">${label}?</span>`);
       }
+      // Review / Not Required → silent (only confirmed rules shown)
     };
     badge('C1/D', vr.c1d);
     badge('MCV',  vr.mcv);
@@ -2014,8 +2009,8 @@ pageEvents.visa = function () {
     badge('ATV',  vr.atv);
     badge('Sch',  vr.schengen);
     return items.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:80px;max-width:160px;">${items.join('')}</div>`
-      : `<span style="font-size:10.5px;color:var(--text-muted,#888);font-style:italic;">None</span>`;
+      ? `<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:160px;">${items.join('')}</div>`
+      : _dash;
   };
 
   function renderVisaTableBody(rows) {
@@ -2047,7 +2042,7 @@ pageEvents.visa = function () {
       </button>`;
       return `<tr>
         ${td(detailBtn)}
-        <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);">${visaReqCell(r)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);min-width:180px;">${visaReqCell(r)}</td>
         ${td(sfCountdownBadge(r))}
         ${td(sfOnbBadge(r.onboardingStatus))}
         ${td(r.ctiOffice?`<span style="font-size:11px;color:var(--text-muted,#888);">${escH(r.ctiOffice)}</span>`:_dash)}
