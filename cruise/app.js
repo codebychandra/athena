@@ -1065,7 +1065,7 @@ pages.seafarer = async function () {
       <!-- Sign On Date operator + date -->
       <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
         <span style="padding:0 8px;font-size:11px;color:var(--text-muted,#888);white-space:nowrap;border-right:1px solid var(--border,#ddd);height:100%;display:flex;align-items:center;">Sign On</span>
-        <select id="sfSignOnOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
+        <select id="sfSignOnOp" style="height:32px;border:none;background:transparent url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 4px center;background-size:8px;color:var(--text);font-size:11px;font-family:inherit;padding:0 18px 0 6px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;width:50px;">
           <option value="=">=</option>
           <option value=">=">&gt;=</option>
           <option value=">">&gt;</option>
@@ -1078,7 +1078,7 @@ pages.seafarer = async function () {
       <!-- Sign Off Date operator + date -->
       <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign Off Date filter">
         <span style="padding:0 8px;font-size:11px;color:var(--text-muted,#888);white-space:nowrap;border-right:1px solid var(--border,#ddd);height:100%;display:flex;align-items:center;">Sign Off</span>
-        <select id="sfSignOffOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
+        <select id="sfSignOffOp" style="height:32px;border:none;background:transparent url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 4px center;background-size:8px;color:var(--text);font-size:11px;font-family:inherit;padding:0 18px 0 6px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;width:50px;">
           <option value="=">=</option>
           <option value=">=">&gt;=</option>
           <option value=">">&gt;</option>
@@ -2161,7 +2161,7 @@ pages.visa = async function () {
       <span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">
         <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Sign On</label>
         <select id="viSignOnOp" style="height:30px;border:1px solid var(--border,#ddd);border-radius:5px;
-          padding:0 4px;font-size:11px;background:var(--card-bg,#fff);color:var(--text);cursor:pointer;">
+          padding:0 18px 0 6px;font-size:11px;background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 5px center;background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;width:54px;">
           <option value="=">=</option><option value=">=">&gt;=</option><option value=">">&gt;</option>
           <option value="<=">&lt;=</option><option value="<">&lt;</option>
         </select>
@@ -2171,7 +2171,7 @@ pages.visa = async function () {
       <span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">
         <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Sign Off</label>
         <select id="viSignOffOp" style="height:30px;border:1px solid var(--border,#ddd);border-radius:5px;
-          padding:0 4px;font-size:11px;background:var(--card-bg,#fff);color:var(--text);cursor:pointer;">
+          padding:0 18px 0 6px;font-size:11px;background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 5px center;background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;width:54px;">
           <option value="=">=</option><option value=">=">&gt;=</option><option value=">">&gt;</option>
           <option value="<=">&lt;=</option><option value="<">&lt;</option>
         </select>

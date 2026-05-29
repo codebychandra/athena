@@ -2478,3 +2478,16 @@ thead th.sortable:hover {
 .req-cf-ms .j1-ms-sel-count {
   font-size: 9px;
 }
+
+/* ── Date input — fix oversized calendar picker indicator ────────────────── */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.85;
+}
