@@ -39,7 +39,7 @@ function corsHeaders(origin) {
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...extra },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra },
   });
 }
 
@@ -159,18 +159,40 @@ async function fetchSheetTabAsCSV(token, resourceId, worksheetName) {
   });
   if (!r.ok) throw new Error(`Sheet API ${r.status}: ${await r.text()}`);
   const data = await r.json();
-  // Zoho Sheet returns records under data.records (array of arrays) with headers in data.header_row.
-  // Normalize to objects.
+
+  // Format 1a: { records: [{col:val,...}] }  ← actual Zoho Sheet v2 response
+  if (data.records && Array.isArray(data.records) && data.records.length &&
+      typeof data.records[0] === 'object' && !Array.isArray(data.records[0])) {
+    return data.records.map(row => {
+      const o = {};
+      Object.entries(row).forEach(([k, v]) => { if (k !== 'row_index') o[k] = v ?? ''; });
+      return o;
+    });
+  }
+  // Format 1b: { records: [[...]], header_row: [...] }
   if (data.records && data.header_row) {
     const headers = data.header_row;
     return data.records.map(row => {
       const o = {}; headers.forEach((h, i) => { o[h] = row[i] ?? ''; }); return o;
     });
   }
-  if (data.data?.records) {
+  // Format 2: { data: { records: [[...]], header_row: [...] } }
+  if (data.data?.records && Array.isArray(data.data.records)) {
     const headers = data.data.header_row || [];
     return data.data.records.map(row => {
       const o = {}; headers.forEach((h, i) => { o[h] = row[i] ?? ''; }); return o;
+    });
+  }
+  // Format 3: { data: { rows: [{col: val, ...}] } }  ← actual Zoho Sheet v2 format
+  if (data.data?.rows && Array.isArray(data.data.rows)) {
+    return data.data.rows.map(row => {
+      // Strip internal Zoho metadata fields (ROWNO, CREATEDTIME, etc.)
+      const o = {};
+      Object.entries(row).forEach(([k, v]) => {
+        if (!k.startsWith('_') && k !== 'ROWNO' && k !== 'CREATEDTIME' && k !== 'MODIFIEDTIME')
+          o[k] = v ?? '';
+      });
+      return o;
     });
   }
   return [];
@@ -819,6 +841,7 @@ export default {
           clearCached(env, 'j1-requisition'),
           clearCached(env, 'cruise-seafarers'),
           clearCached(env, 'cruise-final-interview'),
+          clearCached(env, 'cruise-deployment'),
         ]);
         return json({ success: true, message: 'Cache cleared' }, 200, ch);
       }
@@ -1052,14 +1075,40 @@ export default {
       // Resource ID: begbjf0b04d7026534b328e36baa0a9d82df7
       // Requires ZohoSheet.dataAPI.READ scope + ZOHO_DEPLOYMENT_SHEET_ID secret
       if (method === 'GET' && path === '/api/cruise/deployment') {
-        const cached = await getCached(env, 'cruise-deployment');
-        if (cached) return json(cached, 200, ch);
+        const debug = url.searchParams.get('debug');
+        if (!debug) {
+          const cached = await getCached(env, 'cruise-deployment');
+          if (cached) return json(cached, 200, ch);
+        }
         try {
           const resourceId = env.ZOHO_DEPLOYMENT_SHEET_ID || 'begbjf0b04d7026534b328e36baa0a9d82df7';
           const token = await getToken(env);
-          const rows  = await fetchSheetTabAsCSV(token, resourceId, 'Deployment');
+          const sheetBody = new URLSearchParams({ method:'worksheet.records.fetch', worksheet_name:'Deployment' });
+          const sheetRes  = await fetch(`${ZOHO_SHEET_API}/${resourceId}`, {
+            method:'POST',
+            headers:{ Authorization:`Zoho-oauthtoken ${token}`, 'Content-Type':'application/x-www-form-urlencoded' },
+            body: sheetBody,
+            cf: { cacheEverything: false },   // bypass Cloudflare edge cache
+          });
+          const sheetText = await sheetRes.text();
+          // debug=raw or debug=1 → return raw Zoho text (first 800 chars) for diagnosis
+          if (debug === 'raw' || debug === '1') {
+            return json({ httpStatus: sheetRes.status, preview: sheetText.slice(0, 800) }, 200, ch);
+          }
+          // debug=force → skip KV, run full parse, return result (for cache-busting)
+
+          const sheetData = JSON.parse(sheetText);
+          // Zoho Sheet v2: { method, records: [{col:val,...}, ...] }
+          let rows = [];
+          if (sheetData.records && Array.isArray(sheetData.records)) {
+            rows = sheetData.records.map(r => {
+              const o = {};
+              Object.entries(r).forEach(([k, v]) => { if (k !== 'row_index') o[k] = v ?? ''; });
+              return o;
+            });
+          }
           const payload = { source: 'zoho-sheet', count: rows.length, data: rows };
-          await setCached(env, 'cruise-deployment', payload);
+          if (!debug) await setCached(env, 'cruise-deployment', payload);
           return json(payload, 200, ch);
         } catch (err) {
           return json({ error: 'deployment_sheet_failed', message: err.message, data: [] }, 200, ch);
