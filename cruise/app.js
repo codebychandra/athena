@@ -1992,21 +1992,25 @@ pageEvents.visa = function () {
 
   // Compact badges for the combined Visa Required column
   const visaReqCell = r => {
-    const vr = getVisaReqs(r);
+    const vr  = getVisaReqs(r);
+    const ntp = s => (s||'').trim().toLowerCase() === 'need to process';
+    const seen = new Set();
     const items = [];
-    const badge = (label, status) => {
-      if (status === 'Required') {
+    const badge = (label, ruleRequired, zohoStatus) => {
+      if (seen.has(label)) return;
+      if (ruleRequired || ntp(zohoStatus)) {
+        seen.add(label);
         items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;
           border-radius:8px;background:#DC262620;color:#DC2626;border:1px solid #DC262660;
           white-space:nowrap;margin:1px;">${label}</span>`);
       }
-      // Review / Not Required → silent (only confirmed rules shown)
     };
-    badge('C1/D', vr.c1d);
-    badge('MCV',  vr.mcv);
-    badge('NZeTA',vr.nzeta);
-    badge('ATV',  vr.atv);
-    badge('Sch',  vr.schengen);
+    badge('C1/D',  vr.c1d  === 'Required', r.c1dStatus);
+    badge('MCV',   vr.mcv  === 'Required', r.mcvStatus);
+    badge('OKTB',  false,                  r.oktbStatus);   // rule-only from Zoho status
+    badge('NZeTA', vr.nzeta=== 'Required', r.nzetaStatus);
+    badge('ATV',   vr.atv  === 'Required', r.atvStatus);
+    badge('Sch',   vr.schengen==='Required', null);
     return items.length
       ? `<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:160px;">${items.join('')}</div>`
       : _dash;
