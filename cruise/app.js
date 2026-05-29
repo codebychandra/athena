@@ -1841,13 +1841,13 @@ pages.visa = async function () {
       _sfRows = (seafarers||[]).filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
     } catch (_) {}
   }
-  // Include ONLY: CTI Indonesia + Onboarding Status = "Report to Ship"
+  // Include ONLY: CTI Indonesia · exclude resigned + report to ship
   const hasCtiData = _sfRows.some(r => !!r.ctiOffice);
-  const VI_RESIGNED = new Set(['resign','resigned']);
+  const VI_EXCLUDE = new Set(['resign','resigned','report to ship']);
   _vRows = _sfRows.filter(r => {
     const onb = (r.onboardingStatus||'').trim().toLowerCase();
     const cti = (r.ctiOffice||'').toLowerCase();
-    return (hasCtiData ? cti.includes('indonesia') : true) && !VI_RESIGNED.has(onb);
+    return (hasCtiData ? cti.includes('indonesia') : true) && !VI_EXCLUDE.has(onb);
   });
 
   const rows        = _vRows;
@@ -1937,7 +1937,7 @@ pages.visa = async function () {
       <h1>Visa <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;
         background:#FFF3CD;color:#856404;vertical-align:middle;margin-left:6px;">Beta</span></h1>
       <span class="req-live-badge">● Live · Zoho Recruit</span>
-      <span class="req-page-sub">Visa requirement tracking · CTI Indonesia · all non-resigned seafarers</span>
+      <span class="req-page-sub">Visa requirement tracking · CTI Indonesia · excludes Resigned &amp; Report to Ship</span>
     </div>
 
     <div class="card req-filter-bar">
