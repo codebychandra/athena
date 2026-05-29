@@ -709,7 +709,17 @@ pageEvents.task = function () {
 // ═════════════════════════════════════════════════════════════════════════════
 let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-use
 let _saRows = [];   // Attachment page subset: CTI Indonesia only (resigned excluded)
-let _saSentIds = new Map(); // seafarerId → ISO timestamp of last successful Send Form this session
+// seafarerId → ISO timestamp of last successful Send Form (persisted to localStorage)
+const _SA_SENT_KEY = 'cti_cruise_sa_sent';
+function _loadSaSentIds() {
+  try { return new Map(Object.entries(JSON.parse(localStorage.getItem(_SA_SENT_KEY) || '{}'))); }
+  catch { return new Map(); }
+}
+function _saveSaSentIds() {
+  try { localStorage.setItem(_SA_SENT_KEY, JSON.stringify(Object.fromEntries(_saSentIds))); }
+  catch {}
+}
+let _saSentIds = _loadSaSentIds();
 
 // ── Module-level badge helpers shared by seafarer page ───────────────────────
 function sfCruiseBadge(c) {
@@ -1730,8 +1740,9 @@ pageEvents.seafarerAttachment = function () {
       });
       const data = await res.json();
       if (data.ok) {
-        // Mark as sent permanently — re-render table to lock button green
+        // Mark as sent — persist to localStorage so it survives hard refresh
         _saSentIds.set(id, new Date().toISOString());
+        _saveSaSentIds();
         saApply();
       } else {
         // Failed — show error briefly then allow retry
