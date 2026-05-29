@@ -3051,20 +3051,35 @@ pages.deployment = async function () {
   const years       = [...new Set(raw.map(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year; }).filter(Boolean))].sort((a,b)=>b-a);
 
   // ── KPI counts (full data) ─────────────────────────────────────────────────
-  const now     = new Date();
-  const curYear = now.getFullYear(), curMonth = now.getMonth();
-  const kpiTotal    = raw.length;
-  const kpiYear     = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
-  const kpiMonth    = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
-  const kpiIndo     = raw.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia')).length;
-  const kpiAbroad   = raw.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); }).length;
-  const kpiLines    = new Set(raw.map(r=>v(r,COL.cruiseLine)).filter(Boolean)).size;
+  const now      = new Date();
+  const curYear  = now.getFullYear(), curMonth = now.getMonth();
+  const prevMonth     = curMonth === 0 ? 11 : curMonth - 1;
+  const prevMonthYear = curMonth === 0 ? curYear - 1 : curYear;
 
-  const kpiCard = (id,label,val,color,sub) =>
+  const kpiTotal     = raw.length;
+  const kpiThisYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
+  const kpiLastYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1; }).length;
+  const kpiThisMonth = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
+  const kpiLastMonth = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===prevMonthYear&&d?.month===prevMonth; }).length;
+  const kpiRepeater  = raw.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length;
+  const kpiNewHire   = raw.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; }).length;
+
+  const yoyPct  = kpiLastYear  === 0 ? null : (kpiThisYear  - kpiLastYear)  / kpiLastYear  * 100;
+  const momPct  = kpiLastMonth === 0 ? null : (kpiThisMonth - kpiLastMonth) / kpiLastMonth * 100;
+
+  const pctBadge = (pct) => {
+    if (pct === null) return `<span style="font-size:11px;color:var(--text-muted,#888);">—</span>`;
+    const up = pct >= 0;
+    const col = up ? '#15803D' : '#DC2626';
+    const icon = up ? '▲' : '▼';
+    return `<span style="font-size:12px;font-weight:700;color:${col};margin-left:5px;">${icon} ${Math.abs(pct).toFixed(1)}%</span>`;
+  };
+
+  const kpiCard = (id, label, valHtml, color, sub) =>
     `<div class="req-kpi-card" data-kpi="${id}" data-color="${color}"
        style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
        <span class="req-kpi-label">${escH(label)}</span>
-       <span class="req-kpi-value" style="color:${color};" id="depKpi_${id}">${val}</span>
+       <span class="req-kpi-value" style="color:${color};display:flex;align-items:center;flex-wrap:wrap;gap:2px;" id="depKpi_${id}">${valHtml}</span>
        <span class="req-kpi-sub">${escH(sub)}</span>
      </div>`;
 
@@ -3097,12 +3112,11 @@ pages.deployment = async function () {
     </div>
 
     <div class="req-kpi-grid" id="depKpiGrid">
-      ${kpiCard('all',    'Total Deployments',   kpiTotal,  '#1B3A6B','all records · click to reset')}
-      ${kpiCard('year',   `${curYear}`,          kpiYear,   '#2D7A55','deployments this year')}
-      ${kpiCard('month',  DEP_MONTH_NAMES[curMonth], kpiMonth, '#0891B2','deployments this month')}
-      ${kpiCard('indo',   'CTI Indonesia',       kpiIndo,   '#B01A18','by CTI office')}
-      ${kpiCard('abroad', 'CTI Abroad',          kpiAbroad, '#7C3AED','by CTI office')}
-      ${kpiCard('lines',  'Cruise Lines',        kpiLines,  '#D97706','unique cruise lines')}
+      ${kpiCard('all',      'Total Deployment',                    `${kpiTotal}`,                            '#1B3A6B', 'all records · click to reset')}
+      ${kpiCard('yoy',      `vs ${curYear-1}`,                     `${kpiThisYear}${pctBadge(yoyPct)}`,     '#2D7A55', `last year: ${kpiLastYear} · year-over-year`)}
+      ${kpiCard('mom',      `vs ${DEP_MONTH_NAMES[prevMonth]}`,    `${kpiThisMonth}${pctBadge(momPct)}`,    '#0891B2', `last month: ${kpiLastMonth} · month-over-month`)}
+      ${kpiCard('repeater', 'Repeater',                            `${kpiRepeater}`,                        '#D97706', 'employment status: repeater')}
+      ${kpiCard('newhire',  'New Hire',                            `${kpiNewHire}`,                         '#7C3AED', 'new hire + re hire')}
     </div>
 
     <div class="req-chart-row">
@@ -3182,7 +3196,15 @@ pageEvents.deployment = function () {
   let depActiveKpi = null;
   const setT = (id,val) => { const e=document.getElementById(id); if(e) e.textContent=val; };
   const now = new Date();
-  const curYear = now.getFullYear(), curMonth = now.getMonth();
+  const curYear  = now.getFullYear(), curMonth = now.getMonth();
+  const prevMonth     = curMonth === 0 ? 11 : curMonth - 1;
+  const prevMonthYear = curMonth === 0 ? curYear - 1 : curYear;
+
+  const pctBadgeLive = (pct) => {
+    if (pct === null) return `<span style="font-size:11px;color:var(--text-muted,#888);">—</span>`;
+    const up = pct >= 0, col = up ? '#15803D' : '#DC2626';
+    return `<span style="font-size:12px;font-weight:700;color:${col};margin-left:5px;">${up?'▲':'▼'} ${Math.abs(pct).toFixed(1)}%</span>`;
+  };
 
   function depFiltered() {
     const gLine  = msGetVals('depCF_cruiseLine');
@@ -3208,10 +3230,10 @@ pageEvents.deployment = function () {
 
     // KPI sub-filter
     if (depActiveKpi && depActiveKpi !== 'all') {
-      if      (depActiveKpi==='year')   out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; });
-      else if (depActiveKpi==='month')  out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; });
-      else if (depActiveKpi==='indo')   out=out.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia'));
-      else if (depActiveKpi==='abroad') out=out.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); });
+      if      (depActiveKpi==='yoy')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; });
+      else if (depActiveKpi==='mom')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; });
+      else if (depActiveKpi==='repeater') out=out.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater');
+      else if (depActiveKpi==='newhire')  out=out.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; });
     }
     return out;
   }
@@ -3219,13 +3241,20 @@ pageEvents.deployment = function () {
   function depApply() {
     const rows = depFiltered();
 
-    // Update KPI values
-    setT('depKpi_all',    rows.length);
-    setT('depKpi_year',   rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length);
-    setT('depKpi_month',  rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length);
-    setT('depKpi_indo',   rows.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia')).length);
-    setT('depKpi_abroad', rows.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); }).length);
-    setT('depKpi_lines',  new Set(rows.map(r=>v(r,COL.cruiseLine)).filter(Boolean)).size);
+    // ── KPI value updates ───────────────────────────────────────────────────
+    const setH = (id, html) => { const e=document.getElementById(id); if(e) e.innerHTML=html; };
+    const thisYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
+    const lastYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1; }).length;
+    const thisMo  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
+    const lastMo  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===prevMonthYear&&d?.month===prevMonth; }).length;
+    const yoy = lastYr  === 0 ? null : (thisYr - lastYr) / lastYr * 100;
+    const mom = lastMo  === 0 ? null : (thisMo - lastMo) / lastMo * 100;
+
+    setH('depKpi_all',      `${rows.length}`);
+    setH('depKpi_yoy',      `${thisYr}${pctBadgeLive(yoy)}`);
+    setH('depKpi_mom',      `${thisMo}${pctBadgeLive(mom)}`);
+    setH('depKpi_repeater', `${rows.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length}`);
+    setH('depKpi_newhire',  `${rows.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; }).length}`);
 
     // KPI card highlight
     document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card => {
