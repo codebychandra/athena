@@ -929,6 +929,7 @@ pageEvents.task = function () {
 let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-use
 let _saRows = [];   // Attachment page subset: CTI Indonesia only (resigned excluded)
 let _vRows  = [];   // Visa page subset: CTI Indonesia, Report to Ship only
+let _depRows = [];  // Deployment page: raw rows from Zoho Sheet "Deployment" tab
 // seafarerId → ISO timestamp of last successful Send Form (persisted to localStorage)
 const _SA_SENT_KEY = 'cti_cruise_sa_sent';
 function _loadSaSentIds() {
@@ -2968,6 +2969,320 @@ function showCruiseLineDetail(line, _value, at) {
 
   openReqModal(`${escH(line)}`, tpBlock + demandBlocks, at);
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DEPLOYMENT PAGE — Zoho Sheet "Cruise Line Deployment Report"
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Flexible column name detection — tries each candidate, returns first found in row
+function depTryCol(row, ...opts) {
+  return opts.find(k => k in row) || opts[0];
+}
+
+// Parse a date string → { year, month(0-11), label:"Jan 2026", sortKey:"202601" }
+// Accepts: "DD/MM/YYYY", "YYYY-MM-DD", "Jan 2026", "January 2026"
+function depParseDate(str) {
+  if (!str) return null;
+  const ABBR  = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const FULL  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const s = str.toLowerCase().trim();
+  // "Jan 2026" / "January 2026"
+  for (let m = 0; m < 12; m++) {
+    if (s.startsWith(ABBR[m]) || s.startsWith(FULL[m])) {
+      const y = str.match(/\d{4}/);
+      if (y) {
+        const year = +y[0], mo = m;
+        const lbl  = ABBR[m][0].toUpperCase()+ABBR[m].slice(1)+' '+year;
+        return { year, month:mo, label:lbl, sortKey:`${year}${String(mo+1).padStart(2,'0')}` };
+      }
+    }
+  }
+  // DD/MM/YYYY or MM/DD/YYYY
+  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dmy) {
+    const mo = +dmy[2]-1, year = +dmy[3];
+    const lbl = ABBR[mo]?.[0].toUpperCase()+(ABBR[mo]?.slice(1)||'')+' '+year;
+    return { year, month:mo, label:lbl, sortKey:`${year}${String(mo+1).padStart(2,'0')}` };
+  }
+  // YYYY-MM-DD
+  const iso = str.match(/^(\d{4})[\/\-](\d{1,2})/);
+  if (iso) {
+    const year = +iso[1], mo = +iso[2]-1;
+    const lbl = ABBR[mo]?.[0].toUpperCase()+(ABBR[mo]?.slice(1)||'')+' '+year;
+    return { year, month:mo, label:lbl, sortKey:`${year}${String(mo+1).padStart(2,'0')}` };
+  }
+  return null;
+}
+
+const DEP_MONTH_NAMES = ['January','February','March','April','May','June',
+                         'July','August','September','October','November','December'];
+const DEP_SEL = `height:30px;border:1px solid var(--border,#ddd);border-radius:6px;
+  padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:110px;
+  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;`;
+
+pages.deployment = async function () {
+  // ── Fetch from Zoho Sheet ──────────────────────────────────────────────────
+  try {
+    const r = await safeJson(WORKER_URL + '/api/cruise/deployment');
+    _depRows = r.data || [];
+  } catch (_) { _depRows = []; }
+
+  const raw  = _depRows;
+  const first = raw[0] || {};
+
+  // ── Column mapping ─────────────────────────────────────────────────────────
+  const COL = {
+    cruiseLine:         depTryCol(first,'Cruise Line','Cruise_Line','Brand'),
+    empStatus:          depTryCol(first,'Employment Status','Employment_Status','Employment Type'),
+    ctiOffice:          depTryCol(first,'CTI Office','CTI_Office','Office'),
+    ctiOfficeAnalytics: depTryCol(first,'CTI Office Analytics','CTI_Office_Analytics','CTI Office'),
+    empReport:          depTryCol(first,'Employment Report','Employment_Report','Employment Status'),
+    date:               depTryCol(first,'Sign On Date','Sign-On Date','Sign_On_Date',
+                                  'Deployment Date','Date','Month Year','Month'),
+  };
+
+  const v = (r, col) => (r[col]||'').toString().trim();
+
+  // ── Filter options ─────────────────────────────────────────────────────────
+  const cruiseLines = [...new Set(raw.map(r=>v(r,COL.cruiseLine)).filter(Boolean))].sort();
+  const empStatuses = [...new Set(raw.map(r=>v(r,COL.empStatus)).filter(Boolean))].sort();
+  const ctiOffices  = [...new Set(raw.map(r=>v(r,COL.ctiOffice)).filter(Boolean))].sort();
+  const years       = [...new Set(raw.map(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year; }).filter(Boolean))].sort((a,b)=>b-a);
+
+  // ── KPI counts (full data) ─────────────────────────────────────────────────
+  const now     = new Date();
+  const curYear = now.getFullYear(), curMonth = now.getMonth();
+  const kpiTotal    = raw.length;
+  const kpiYear     = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
+  const kpiMonth    = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
+  const kpiIndo     = raw.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia')).length;
+  const kpiAbroad   = raw.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); }).length;
+  const kpiLines    = new Set(raw.map(r=>v(r,COL.cruiseLine)).filter(Boolean)).size;
+
+  const kpiCard = (id,label,val,color,sub) =>
+    `<div class="req-kpi-card" data-kpi="${id}" data-color="${color}"
+       style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
+       <span class="req-kpi-label">${escH(label)}</span>
+       <span class="req-kpi-value" style="color:${color};" id="depKpi_${id}">${val}</span>
+       <span class="req-kpi-sub">${escH(sub)}</span>
+     </div>`;
+
+  return `
+    <div class="req-page-header">
+      <h1>Deployment</h1>
+      <span class="req-live-badge">● Live · Zoho Sheet</span>
+      <span class="req-page-sub">Cruise Line Deployment Report</span>
+    </div>
+
+    <div class="card req-filter-bar">
+      ${buildMS('depCF_cruiseLine','Cruise Line',cruiseLines)}
+      ${buildMS('depCF_empStatus','Employment Status',empStatuses)}
+      ${buildMS('depCF_ctiOffice','CTI Office',ctiOffices)}
+      <span style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
+        <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Month</label>
+        <select id="depMonthFilter" style="${DEP_SEL}">
+          <option value="">All Months</option>
+          ${DEP_MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}
+        </select>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
+        <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Year</label>
+        <select id="depYearFilter" style="${DEP_SEL}min-width:80px;">
+          <option value="">All Years</option>
+          ${years.map(y=>`<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </span>
+      <button id="depClearBtn" class="req-clear-btn">Clear</button>
+    </div>
+
+    <div class="req-kpi-grid" id="depKpiGrid">
+      ${kpiCard('all',    'Total Deployments',   kpiTotal,  '#1B3A6B','all records · click to reset')}
+      ${kpiCard('year',   `${curYear}`,          kpiYear,   '#2D7A55','deployments this year')}
+      ${kpiCard('month',  DEP_MONTH_NAMES[curMonth], kpiMonth, '#0891B2','deployments this month')}
+      ${kpiCard('indo',   'CTI Indonesia',       kpiIndo,   '#B01A18','by CTI office')}
+      ${kpiCard('abroad', 'CTI Abroad',          kpiAbroad, '#7C3AED','by CTI office')}
+      ${kpiCard('lines',  'Cruise Lines',        kpiLines,  '#D97706','unique cruise lines')}
+    </div>
+
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Deployment by Cruise Line</div>
+        <div class="req-card-sub">Total deployments per cruise line</div>
+        <canvas id="depLineChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Deployment by Month</div>
+        <div class="req-card-sub">Monthly deployment trend (chronological)</div>
+        <canvas id="depMonthChart"></canvas>
+      </div>
+    </div>
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Deployment by CTI Office</div>
+        <div class="req-card-sub">Based on CTI Office Analytics column</div>
+        <canvas id="depOfficeChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Deployment by Employment Type</div>
+        <div class="req-card-sub">Based on Employment Report column</div>
+        <canvas id="depEmpChart"></canvas>
+      </div>
+    </div>`;
+};
+
+pageEvents.deployment = function () {
+  if (typeof Chart === 'undefined') return;
+  if (Chart && window.ChartDataLabels && !Chart._cruiseDLRegistered) {
+    Chart.register(window.ChartDataLabels);
+    Chart._cruiseDLRegistered = true;
+  }
+
+  const raw   = _depRows;
+  const first = raw[0] || {};
+  const COL = {
+    cruiseLine:         depTryCol(first,'Cruise Line','Cruise_Line','Brand'),
+    empStatus:          depTryCol(first,'Employment Status','Employment_Status','Employment Type'),
+    ctiOffice:          depTryCol(first,'CTI Office','CTI_Office','Office'),
+    ctiOfficeAnalytics: depTryCol(first,'CTI Office Analytics','CTI_Office_Analytics','CTI Office'),
+    empReport:          depTryCol(first,'Employment Report','Employment_Report','Employment Status'),
+    date:               depTryCol(first,'Sign On Date','Sign-On Date','Sign_On_Date',
+                                  'Deployment Date','Date','Month Year','Month'),
+  };
+  const v = (r, col) => (r[col]||'').toString().trim();
+
+  window._depCharts = window._depCharts || {};
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const depBaseOpts = {
+    responsive:true, maintainAspectRatio:false,
+    layout:{ padding:{ top:18 } },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ callbacks:{ label: c=>` ${c.parsed.y}` } },
+      datalabels:{ anchor:'end',align:'end',offset:2,
+        color:dark?'#eee':'#1A1A1A', font:{size:10,weight:700}, formatter:v=>v },
+    },
+    scales:{
+      x:{ grid:{display:false}, ticks:{color:dark?'#aaa':'#555',font:{size:10}} },
+      y:{ display:false, beginAtZero:true },
+    },
+  };
+
+  const mkDepBar = (id, entries, color) => {
+    const el = document.getElementById(id); if (!el) return;
+    if (window._depCharts[id]) window._depCharts[id].destroy();
+    window._depCharts[id] = new Chart(el, {
+      type:'bar',
+      data:{ labels:entries.map(e=>e[0]),
+             datasets:[{data:entries.map(e=>e[1]),backgroundColor:color,borderRadius:0,maxBarThickness:46}] },
+      options:depBaseOpts,
+    });
+  };
+
+  let depActiveKpi = null;
+  const setT = (id,val) => { const e=document.getElementById(id); if(e) e.textContent=val; };
+  const now = new Date();
+  const curYear = now.getFullYear(), curMonth = now.getMonth();
+
+  function depFiltered() {
+    const gLine  = msGetVals('depCF_cruiseLine');
+    const gEmp   = msGetVals('depCF_empStatus');
+    const gOff   = msGetVals('depCF_ctiOffice');
+    const mo     = document.getElementById('depMonthFilter')?.value;
+    const yr     = document.getElementById('depYearFilter')?.value;
+
+    let out = raw.filter(r => {
+      if (gLine.length && !gLine.includes(v(r,COL.cruiseLine)))  return false;
+      if (gEmp.length  && !gEmp.includes(v(r,COL.empStatus)))    return false;
+      if (gOff.length  && !gOff.includes(v(r,COL.ctiOffice)))    return false;
+      if (mo !== '' && mo !== undefined && mo !== null) {
+        const d = depParseDate(v(r,COL.date));
+        if (!d || d.month !== +mo) return false;
+      }
+      if (yr) {
+        const d = depParseDate(v(r,COL.date));
+        if (!d || d.year !== +yr) return false;
+      }
+      return true;
+    });
+
+    // KPI sub-filter
+    if (depActiveKpi && depActiveKpi !== 'all') {
+      if      (depActiveKpi==='year')   out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; });
+      else if (depActiveKpi==='month')  out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; });
+      else if (depActiveKpi==='indo')   out=out.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia'));
+      else if (depActiveKpi==='abroad') out=out.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); });
+    }
+    return out;
+  }
+
+  function depApply() {
+    const rows = depFiltered();
+
+    // Update KPI values
+    setT('depKpi_all',    rows.length);
+    setT('depKpi_year',   rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length);
+    setT('depKpi_month',  rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length);
+    setT('depKpi_indo',   rows.filter(r=>v(r,COL.ctiOffice).toLowerCase().includes('indonesia')).length);
+    setT('depKpi_abroad', rows.filter(r=>{ const o=v(r,COL.ctiOffice).toLowerCase(); return o&&!o.includes('indonesia'); }).length);
+    setT('depKpi_lines',  new Set(rows.map(r=>v(r,COL.cruiseLine)).filter(Boolean)).size);
+
+    // KPI card highlight
+    document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card => {
+      const isActive = card.dataset.kpi===(depActiveKpi||'all');
+      const col = card.dataset.color||'#1B3A6B';
+      card.style.outline   = isActive?`2px solid ${col}`:'';
+      card.style.boxShadow = isActive?`0 2px 12px ${col}30`:'';
+      card.style.transform = isActive?'translateY(-1px)':'';
+    });
+
+    // ── Chart 1: by Cruise Line ──────────────────────────────────────────
+    const byLine = {};
+    rows.forEach(r=>{ const k=v(r,COL.cruiseLine)||'—'; if(k!=='—') byLine[k]=(byLine[k]||0)+1; });
+    mkDepBar('depLineChart', Object.entries(byLine).sort((a,b)=>b[1]-a[1]), '#1B3A6B');
+
+    // ── Chart 2: by Month-Year (chronological) ───────────────────────────
+    const byMonth = {};
+    rows.forEach(r=>{
+      const d = depParseDate(v(r,COL.date));
+      if (d) byMonth[d.sortKey] = byMonth[d.sortKey] || { label:d.label, count:0 };
+      if (d) byMonth[d.sortKey].count++;
+    });
+    const monthEntries = Object.entries(byMonth)
+      .sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([,o])=>[o.label, o.count]);
+    mkDepBar('depMonthChart', monthEntries, '#2D7A55');
+
+    // ── Chart 3: by CTI Office Analytics ────────────────────────────────
+    const byOffice = {};
+    rows.forEach(r=>{ const k=v(r,COL.ctiOfficeAnalytics)||'—'; if(k!=='—') byOffice[k]=(byOffice[k]||0)+1; });
+    mkDepBar('depOfficeChart', Object.entries(byOffice).sort((a,b)=>b[1]-a[1]), '#B01A18');
+
+    // ── Chart 4: by Employment Report ───────────────────────────────────
+    const byEmp = {};
+    rows.forEach(r=>{ const k=v(r,COL.empReport)||'—'; if(k!=='—') byEmp[k]=(byEmp[k]||0)+1; });
+    mkDepBar('depEmpChart', Object.entries(byEmp).sort((a,b)=>b[1]-a[1]), '#7C3AED');
+  }
+
+  initMS();
+  ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice'].forEach(id=>msOnChange(id,depApply));
+  ['depMonthFilter','depYearFilter'].forEach(id=>document.getElementById(id)?.addEventListener('change',depApply));
+  document.getElementById('depClearBtn')?.addEventListener('click',()=>{
+    ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice'].forEach(msClear);
+    ['depMonthFilter','depYearFilter'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+    depActiveKpi=null;
+    depApply();
+  });
+  document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const kpi=card.dataset.kpi;
+      depActiveKpi=(depActiveKpi===kpi||kpi==='all')?null:kpi;
+      depApply();
+    });
+  });
+
+  depApply();
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // REPORT PAGE — Weekly cruise hiring report generator

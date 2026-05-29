@@ -1047,6 +1047,25 @@ export default {
         }
       }
 
+      // ── GET /api/cruise/deployment ────────────────────────────────────
+      // Reads Zoho Sheet "Cruise Line Deployment Report" — tab: Deployment
+      // Resource ID: begbjf0b04d7026534b328e36baa0a9d82df7
+      // Requires ZohoSheet.dataAPI.READ scope + ZOHO_DEPLOYMENT_SHEET_ID secret
+      if (method === 'GET' && path === '/api/cruise/deployment') {
+        const cached = await getCached(env, 'cruise-deployment');
+        if (cached) return json(cached, 200, ch);
+        try {
+          const resourceId = env.ZOHO_DEPLOYMENT_SHEET_ID || 'begbjf0b04d7026534b328e36baa0a9d82df7';
+          const token = await getToken(env);
+          const rows  = await fetchSheetTabAsCSV(token, resourceId, 'Deployment');
+          const payload = { source: 'zoho-sheet', count: rows.length, data: rows };
+          await setCached(env, 'cruise-deployment', payload);
+          return json(payload, 200, ch);
+        } catch (err) {
+          return json({ error: 'deployment_sheet_failed', message: err.message, data: [] }, 200, ch);
+        }
+      }
+
       // ── GET /api/recruit/job-openings ─────────────────────────────────
       if (method === 'GET' && path === '/api/recruit/job-openings') {
         const cached = await getCached(env, 'recruit-job-openings');
