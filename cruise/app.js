@@ -3255,7 +3255,7 @@ pageEvents.deployment = function () {
     setH('depKpi_mom',      `${thisMo}${pctBadgeLive(mom)}`);
     const rCount = rows.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length;
     const nCount = rows.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='new hire'||s==='re hire'; }).length;
-    setH('depKpi_emptype', `<span style="font-size:13px;">${rCount}</span><span style="font-size:11px;color:var(--text-muted,#888);margin:0 4px;">/</span><span style="font-size:13px;color:#7C3AED;">${nCount}</span>`);
+    setH('depKpi_emptype', `${rCount}<span style="font-size:14px;color:var(--text-muted,#888);margin:0 5px;">/</span><span style="color:#7C3AED;">${nCount}</span>`);
 
     // KPI card highlight
     document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card => {
