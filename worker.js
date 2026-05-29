@@ -421,23 +421,23 @@ const SF = {
   satStatus:           'SAT_Status',               // TODO: verify
   satNumber:           'SAT_Number',               // TODO: verify
   satExpiry:           'SAT_Expiry_Date',          // TODO: verify
-  crowdMgtStatus:      'Crowd_Management_Status',  // TODO: verify
-  crowdMgtNumber:      'Crowd_Management_Number',  // TODO: verify
-  crowdMgtExpiry:      'Crowd_Management_Expiry_Date', // TODO: verify
-  crisisMgtStatus:     'Crisis_Management_Status', // TODO: verify
-  crisisMgtNumber:     'Crisis_Management_Number', // TODO: verify
-  crisisMgtExpiry:     'Crisis_Management_Expiry_Date', // TODO: verify
+  crowdMgtStatus:      'Crowd_Mgt_Status',              // confirmed
+  crowdMgtNumber:      'Crowd_Mgt_Number',              // confirmed
+  crowdMgtExpiry:      'Crowd_Mgt_Expiration_Date',     // confirmed
+  crisisMgtStatus:     'Crisis_Mgt_Status',             // confirmed
+  crisisMgtNumber:     'Crisis_Mgt_Number',             // confirmed
+  crisisMgtExpiry:     'Crisis_Mgt_Expiration_Date',    // confirmed
   pscrbStatus:         'PSCRB_Status',             // TODO: verify
   pscrbNumber:         'PSCRB_Number',             // TODO: verify
   pscrbExpiry:         'PSCRB_Expiry_Date',        // TODO: verify
   seamanBookStatus:    'Seaman_Book_Status',        // TODO: verify
   seamanBookNumber:    'Seaman_Book_Number',        // TODO: verify
   seamanBookExpiry:    'Seaman_Book_Expiry_Date',   // TODO: verify
-  sdbStatus:           'SDB_Status',               // TODO: verify
+  sdbStatus:           'Bermuda_Seaman_Status',      // confirmed (SDB = Bermuda Seaman's Discharge Book)
   sdbExpiry:           'SDB_Expiry_Date',          // TODO: verify
   bidStatus:           'BID_Status',               // TODO: verify
   bidExpiry:           'BID_Expiry_Date',          // TODO: verify
-  c1dStatus:           'C1D_Visa_Status',          // TODO: verify
+  c1dStatus:           'C1_D_Visa_Status',           // confirmed
   c1dNumber:           'C1D_Visa_Number',          // TODO: verify
   c1dAppointment:      'C1D_Appointment_Date',     // TODO: verify
   c1dExpiry:           'C1D_Visa_Expiry_Date',     // TODO: verify
@@ -446,10 +446,10 @@ const SF = {
   mcvPassportNumber:   'MCV_Passport_Number',      // TODO: verify
   mcvExpiry:           'MCV_Expiry_Date',          // TODO: verify
   oktbStatus:          'OKTB_Status',              // TODO: verify
-  nzetaStatus:         'NZeTA_Status',             // TODO: verify
-  nzetaNumber:         'NZeTA_Number',             // TODO: verify
-  nzetaExpiry:         'NZeTA_Expiry_Date',        // TODO: verify
-  atvStatus:           'ATV_Status',               // TODO: verify
+  nzetaStatus:         'NZeTA_Visa_Status',          // confirmed
+  nzetaNumber:         'NZeTA_Visa_Number',         // confirmed
+  nzetaExpiry:         'NZeTA_Expiration_Date',     // confirmed
+  atvStatus:           'Australian_Transit_Visa_Status', // confirmed
   atvAppointment:      'ATV_Appointment_Date',     // TODO: verify
   atvNumber:           'ATV_Number',               // TODO: verify
   atvExpiry:           'ATV_Expiry_Date',          // TODO: verify
@@ -459,7 +459,7 @@ const SF = {
   medicalExamDate:     'Medical_Examination_Date', // TODO: verify
   medicalIssuanceDate: 'Medical_Issuance_Date',    // TODO: verify
   medicalExpiry:       'Medical_Expiry_Date',      // TODO: verify
-  completedVaccination:'Completed_Vaccination',    // TODO: verify
+  completedVaccination:'Vaccines_Status',           // confirmed (multi-select checklist)
   dateMmr1:            'Date_MMR_1_Completed',     // TODO: verify
 };
 
@@ -729,7 +729,9 @@ function mapSeafarer(r) {
     medicalExamDate:     r[SF.medicalExamDate]     || '',
     medicalIssuanceDate: r[SF.medicalIssuanceDate] || '',
     medicalExpiry:       r[SF.medicalExpiry]       || '',
-    completedVaccination:r[SF.completedVaccination]|| '',
+    completedVaccination: Array.isArray(r[SF.completedVaccination])
+      ? r[SF.completedVaccination].join('; ')
+      : (r[SF.completedVaccination] || ''),
     dateMmr1:            r[SF.dateMmr1]            || '',
   };
 }

@@ -1128,6 +1128,7 @@ const DOC_STATUS_COLORS = {
 // Standard opts — Unfit excluded; medical column uses DOC_STATUS_OPTS_MEDICAL
 const DOC_STATUS_OPTS         = ['Valid','In Process','Need To Process','Not Required'];
 const DOC_STATUS_OPTS_MEDICAL = ['Valid','In Process','Need To Process','Not Required','Unfit'];
+const VACC_OPTS = ['MMR 1','MMR 2','Yellow Fever','Hepatitis A','Tetanus','No Vaccine is Required'];
 function docStatusBadge(s) {
   if (!s) return _dash;
   const col = DOC_STATUS_COLORS[s] || '#6B7280';
@@ -1232,8 +1233,9 @@ pages.seafarerAttachment = async function () {
   _saRows = (hasCtiData ? _sfRows.filter(r => (r.ctiOffice||'').toLowerCase().includes('indonesia')) : _sfRows)
     .filter(r => !SA_EXCLUDE_ONB.has((r.onboardingStatus||'').trim().toLowerCase()));
   const rows = _saRows;
-  const cruiseLines = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
-  const onbSts      = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
+  const cruiseLines    = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
+  const onbSts         = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
+  const ctiOfficeOpts  = [...new Set(rows.map(r=>r.ctiOffice).filter(Boolean))].sort();
   const today = new Date(); today.setHours(0,0,0,0);
   const total          = rows.length;
   const readyNoAsgn    = rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length;
@@ -1266,17 +1268,30 @@ pages.seafarerAttachment = async function () {
     `<input id="saCF_${f}" class="sa-col-f" data-field="${f}" type="text" placeholder="—"
       style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
         border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+  const signOnDateCell = `<span style="display:inline-flex;align-items:center;width:100%;gap:2px;">
+    <select id="saSignOnOp" style="height:24px;border:1px solid var(--border,#ddd);border-radius:4px;
+      padding:0 2px;font-size:10px;background:var(--card-bg,#fff);color:var(--text);flex-shrink:0;cursor:pointer;">
+      <option value="=">=</option><option value=">=">&gt;=</option><option value=">">&gt;</option>
+      <option value="<=">&lt;=</option><option value="<">&lt;</option>
+    </select>
+    <input id="saSignOnDate" type="date"
+      style="height:24px;border:1px solid var(--border,#ddd);border-radius:4px;
+        padding:0 4px;font-size:10px;background:var(--card-bg,#fff);color:var(--text);flex:1;min-width:0;">
+  </span>`;
+  const colOpts = c => c.field==='medicalStatus' ? DOC_STATUS_OPTS_MEDICAL
+                     : c.field==='completedVaccination' ? VACC_OPTS
+                     : DOC_STATUS_OPTS;
   const thFilter = [
-    thfCell(),                              // Actions
-    thfCell(),                              // Countdown
-    thfCell(),                              // Onboarding Status (global filter)
-    thfCell(),                              // CTI Office (no filter)
-    thfCell(textInput('fullName')),          // Name
-    thfCell(textInput('email')),             // Email
-    thfCell(textInput('seafarerIdNumber')),  // Seafarer ID
-    thfCell(),                              // Cruise Line (global filter)
-    thfCell(),                              // Sign On Date (global filter)
-    ...SA_STATUS_COLS.map(c => thfCell(buildColMS('saCF_'+c.field, c.field==='medicalStatus' ? DOC_STATUS_OPTS_MEDICAL : DOC_STATUS_OPTS))),
+    thfCell(),                                                     // Actions
+    thfCell(),                                                     // Countdown
+    thfCell(buildColMS('saCF_onboardingStatus', onbSts)),          // Onboarding Status
+    thfCell(buildColMS('saCF_ctiOffice', ctiOfficeOpts)),          // CTI Office
+    thfCell(textInput('fullName')),                                // Name
+    thfCell(textInput('email')),                                   // Email
+    thfCell(textInput('seafarerIdNumber')),                        // Seafarer ID
+    thfCell(buildColMS('saCF_cruiseLine', cruiseLines)),           // Cruise Line
+    thfCell(signOnDateCell),                                       // Sign On Date
+    ...SA_STATUS_COLS.map(c => thfCell(buildColMS('saCF_'+c.field, colOpts(c)))),
   ].join('');
 
   return `
@@ -1294,22 +1309,8 @@ pages.seafarerAttachment = async function () {
     <!-- REPORT TAB -->
     <div id="saTabReport">
       <div class="card req-filter-bar">
-        ${buildMS('saCruiseFilter','Cruise Line',cruiseOpts)}
-        ${buildMS('saOnbFilter','Onboarding Status',onbOpts)}
         ${buildMS('saDocFilter','Document',SA_STATUS_COLS.map(c=>c.label))}
         ${buildMS('saDocStatusFilter','Document Status',DOC_STATUS_OPTS)}
-        <!-- Sign On Date operator + date -->
-        <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
-          <span style="padding:0 7px;font-size:11px;color:var(--text-muted,#888);border-right:1px solid var(--border,#ddd);white-space:nowrap;line-height:32px;">Sign On</span>
-          <select id="saSignOnOp" style="height:32px;border:none;outline:none;padding:0 4px;font-size:12px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;cursor:pointer;">
-            <option value="=">=</option>
-            <option value=">=">&gt;=</option>
-            <option value=">">&gt;</option>
-            <option value="<=">&lt;=</option>
-            <option value="<">&lt;</option>
-          </select>
-          <input id="saSignOnDate" type="date" style="height:32px;border:none;outline:none;padding:0 6px;font-size:12px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
-        </span>
         <input id="saGlobalSearch" type="text" placeholder="🔍 Search…"
           style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
             border:1px solid var(--border,#ddd);border-radius:8px;
@@ -1399,6 +1400,13 @@ function renderSATableBody(rows) {
       case 'seafarerIdNumber': return r.seafarerIdNumber?`<code style="font-size:11px;">${escH(String(r.seafarerIdNumber))}</code>`:_dash;
       case 'cruiseLine': return sfCruiseBadge(r.cruiseLine);
       case 'signOnDate': return r.signOnDate?`<span style="font-size:11.5px;">${escH(r.signOnDate)}</span>`:_dash;
+      case 'completedVaccination': {
+        if (!r.completedVaccination) return _dash;
+        return r.completedVaccination.split(/[;,]+/).map(v=>v.trim()).filter(Boolean)
+          .map(v=>`<span style="font-size:10px;padding:1px 5px;border-radius:8px;white-space:nowrap;
+            background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;">${escH(v)}</span>`)
+          .join(' ');
+      }
       default: return docStatusBadge(r[field]);
     }
   };
@@ -1541,8 +1549,9 @@ pageEvents.seafarerAttachment = function () {
   let saActiveKpi = null, saSortF = null, saSortD = 1;
 
   function saFiltered() {
-    const gCruise    = msGetVals('saCruiseFilter');
-    const gOnb       = msGetVals('saOnbFilter');
+    const gCruise    = msGetVals('saCF_cruiseLine');
+    const gOnb       = msGetVals('saCF_onboardingStatus');
+    const gCtiOffice = msGetVals('saCF_ctiOffice');
     const gDoc       = msGetVals('saDocFilter');
     const gDocStatus = msGetVals('saDocStatusFilter');
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
@@ -1562,8 +1571,9 @@ pageEvents.seafarerAttachment = function () {
     });
     const today      = new Date(); today.setHours(0,0,0,0);
     let out = _saRows.filter(r => {
-      if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
-      if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
+      if (gCruise.length    && !gCruise.includes(r.cruiseLine)) return false;
+      if (gOnb.length       && !gOnb.includes(r.onboardingStatus)) return false;
+      if (gCtiOffice.length && !gCtiOffice.includes(r.ctiOffice)) return false;
       // Document + Document Status global filters
       // gDoc scopes which columns to check; gDocStatus filters by status value
       if (gDocStatus.length) {
@@ -1580,7 +1590,13 @@ pageEvents.seafarerAttachment = function () {
       }
       // Column status MS filters (per-status-column)
       for (const [f,v] of Object.entries(colMS)) {
-        if (!v.includes(r[f])) return false;
+        if (f === 'completedVaccination') {
+          // Multi-value: row passes if it contains any of the selected vaccines
+          const rowVacc = (r[f]||'').split(/[;,]+/).map(s=>s.trim()).filter(Boolean);
+          if (!v.some(sel => rowVacc.includes(sel))) return false;
+        } else {
+          if (!v.includes(r[f])) return false;
+        }
       }
       if (search) {
         const hay = [r.fullName,r.email,r.cruiseLine,r.onboardingStatus,r.seafarerIdNumber,
@@ -1640,7 +1656,7 @@ pageEvents.seafarerAttachment = function () {
   });
 
   initMS();
-  ['saCruiseFilter','saOnbFilter','saDocFilter','saDocStatusFilter'].forEach(id=>msOnChange(id,saApply));
+  ['saDocFilter','saDocStatusFilter','saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(id=>msOnChange(id,saApply));
   document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
   document.getElementById('saSignOnOp')?.addEventListener('change',saApply);
   document.getElementById('saSignOnDate')?.addEventListener('change',saApply);
@@ -1649,7 +1665,7 @@ pageEvents.seafarerAttachment = function () {
   // Column status MS filters
   SA_STATUS_COLS.forEach(c=>msOnChange('saCF_'+c.field,saApply));
   document.getElementById('saClearBtn')?.addEventListener('click',()=>{
-    ['saCruiseFilter','saOnbFilter','saDocFilter','saDocStatusFilter'].forEach(msClear);
+    ['saDocFilter','saDocStatusFilter','saCF_cruiseLine','saCF_onboardingStatus','saCF_ctiOffice'].forEach(msClear);
     const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
     const soOp=document.getElementById('saSignOnOp'); if(soOp) soOp.value='=';
     const soD=document.getElementById('saSignOnDate'); if(soD) soD.value='';
