@@ -1160,17 +1160,16 @@ export default {
   <tr><td>
     <!-- Header -->
     <table width="100%" cellpadding="0" cellspacing="0"
-           style="background:#B01A18;border-radius:8px 8px 0 0;overflow:hidden;">
+           style="background:#B01A18 !important;border-radius:8px 8px 0 0;overflow:hidden;" bgcolor="#B01A18">
       <tr>
-        <td style="padding:22px 28px;">
+        <td style="padding:22px 28px;background:#B01A18 !important;" bgcolor="#B01A18">
           <table cellpadding="0" cellspacing="0">
             <tr>
-              <td>
-                <!-- Logo mark -->
-                <div style="width:38px;height:38px;background:#fff;border-radius:6px;
-                     display:inline-block;text-align:center;line-height:38px;
-                     font-size:13px;font-weight:900;color:#B01A18;font-style:italic;
-                     vertical-align:middle;">CTI</div>
+              <td style="vertical-align:middle;">
+                <!-- CTI Logo -->
+                <img src="https://codebychandra.github.io/athena/logo.png"
+                     width="48" height="48" alt="CTI Group"
+                     style="display:block;border:0;outline:none;">
               </td>
               <td style="padding-left:12px;vertical-align:middle;">
                 <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.3px;line-height:1.1;">CTI Group</div>
@@ -1181,20 +1180,20 @@ export default {
         </td>
       </tr>
       <!-- Red accent strip -->
-      <tr><td style="height:4px;background:#8B1210;"></td></tr>
+      <tr><td style="height:4px;background:#8B1210;" bgcolor="#8B1210"></td></tr>
     </table>
     <!-- Body -->
     <table width="100%" cellpadding="0" cellspacing="0"
            style="background:#ffffff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
       <tr><td style="padding:32px 28px;">
         <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear <strong>${escHTML(name)}</strong>,</p>
-        <p style="margin:0 0 14px;font-size:14px;color:#333;line-height:1.6;">We hope this message finds you well.</p>
-        <p style="margin:0 0 14px;font-size:14px;color:#333;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly request that you complete and submit the required document collection form at your earliest convenience.</p>
-        <p style="margin:0 0 24px;font-size:14px;color:#333;line-height:1.6;">Please click the button below to access your personalized form:</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">We hope this message finds you well.</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly request that you complete and submit the required document collection form at your earliest convenience.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;line-height:1.6;">Please click the button below to access your personalized form:</p>
         <!-- CTA Button -->
         <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
           <tr>
-            <td style="background:#B01A18;border-radius:6px;text-align:center;">
+            <td style="background:#B01A18 !important;border-radius:6px;text-align:center;" bgcolor="#B01A18">
               <a href="${escHTML(formLink)}"
                  style="display:inline-block;padding:13px 32px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.3px;">
                 Submit Documents
@@ -1206,8 +1205,8 @@ export default {
           If the button does not work, copy and paste this link into your browser:<br>
           <a href="${escHTML(formLink)}" style="color:#B01A18;word-break:break-all;">${escHTML(formLink)}</a>
         </p>
-        <p style="margin:0 0 10px;font-size:14px;color:#333;line-height:1.6;">If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.</p>
-        <p style="margin:0 0 24px;font-size:14px;color:#333;">Thank you for your cooperation.</p>
+        <p style="margin:0 0 10px;font-size:14px;color:#1A1A1A;line-height:1.6;">If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;">Thank you for your cooperation.</p>
         <!-- Divider -->
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="border-top:1px solid #eeeeee;padding-top:20px;">
