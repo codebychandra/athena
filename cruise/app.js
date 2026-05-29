@@ -909,6 +909,7 @@ pages.seafarer = async function () {
       ${buildMS('sfEmpFilter','Employment Status',empSts)}
       <!-- Sign On Date operator + date -->
       <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign On Date filter">
+        <span style="padding:0 8px;font-size:11px;color:var(--text-muted,#888);white-space:nowrap;border-right:1px solid var(--border,#ddd);height:100%;display:flex;align-items:center;">Sign On</span>
         <select id="sfSignOnOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
           <option value="=">=</option>
           <option value=">=">&gt;=</option>
@@ -921,6 +922,7 @@ pages.seafarer = async function () {
       </span>
       <!-- Sign Off Date operator + date -->
       <span style="display:inline-flex;align-items:center;border:1px solid var(--border,#ddd);border-radius:8px;overflow:hidden;height:32px;background:var(--card-bg,#fff);" title="Sign Off Date filter">
+        <span style="padding:0 8px;font-size:11px;color:var(--text-muted,#888);white-space:nowrap;border-right:1px solid var(--border,#ddd);height:100%;display:flex;align-items:center;">Sign Off</span>
         <select id="sfSignOffOp" style="height:32px;border:none;background:transparent;color:var(--text);font-size:11px;font-family:inherit;padding:0 2px 0 6px;cursor:pointer;outline:none;width:44px;">
           <option value="=">=</option>
           <option value=">=">&gt;=</option>
