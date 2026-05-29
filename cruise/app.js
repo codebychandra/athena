@@ -23,65 +23,219 @@ const CRUISE_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 // ── Visa rules config (isolated — modify here only) ───────────────────────────
 // Source: CTI internal policy. DO NOT modify rules without written confirmation.
 const VISA_RULES = {
-  // Joining Ship → C1/D Visa required
-  c1dRequired: new Set([
-    'Queen Anne','Queen Elizabeth','Queen Mary 2','Queen Victoria', // Cunard
-    'Ventura','Arcadia','Aurora',                                   // P&O
-  ]),
-  // Joining Ship → C1/D Visa NOT required
-  c1dNotRequired: new Set([
-    'Arvia','Azura','Britannia','Iona',                            // P&O
-  ]),
-  // Cruise Lines that require MCV
-  mcvLines: new Set(['Cunard Line','P&O Cruises','CUK Maritime']),
-  // ── Port-based rules ────────────────────────────────────────────────────────
-  // TODO: Port-based visa requirements (Schengen, ATV, NZeTA, etc.) MUST be
-  //       verified from trusted official sources (immigration authority, cruise
-  //       line HR policy document). DO NOT add entries without written confirmation.
-  // Structure when confirmed: { 'Port Name': { schengen: true, atv: true } }
-  portRules: {},
+  // ── C1/D ──────────────────────────────────────────────────────────────────
+  // Cruise lines where ALL crew require C1/D
+  c1dLines:       new Set(['Cunard Line', 'CUK Maritime']),
+  // Individual ships (other lines) that also require C1/D
+  c1dShips:       new Set(['Arcadia']),
+  // Ships where C1/D is NOT required
+  c1dNotRequired: new Set(['Ventura', 'Aurora', 'Arvia', 'Azura', 'Britannia', 'Iona']),
+
+  // ── MCV ───────────────────────────────────────────────────────────────────
+  mcvLines: new Set(['Cunard Line', 'P&O Cruises', 'CUK Maritime']),
+
+  // ── NZeTA ─────────────────────────────────────────────────────────────────
+  // Ships where NZeTA is NOT required
+  nzetaNotRequired: new Set(['Queen Mary 2', 'Arcadia']),
+  // Ports where NZeTA is handled by CUK Onboarding (not a crew action)
+  nzetaCukPorts:    new Set(['Auckland']),
+
+  // ── Port-based rules ──────────────────────────────────────────────────────
+  // Flags: oktb | schengen | atv | canada
+  // Malta/Valletta: OKTB can substitute for Schengen per CTI policy document.
+  portRules: {
+    // ── OKTB required ports ────────────────────────────────────────────────
+    'St. Lucia':    { oktb: true },
+    'Bridgetown':   { oktb: true },
+    'Montevideo':   { oktb: true },
+    'Singapore':    { oktb: true },
+    'Hong Kong':    { oktb: true },
+    'Yokohama':     { oktb: true },
+    'Kotor':        { oktb: true },
+    'Montego Bay':  { oktb: true },
+    'Callao':       { oktb: true },
+    'Cape Town':    { oktb: true },
+
+    // ── Malta / Valletta — OKTB + Schengen (OKTB may substitute) ──────────
+    'Malta':        { oktb: true, schengen: true },
+    'Valletta':     { oktb: true, schengen: true },
+
+    // ── Schengen ports ─────────────────────────────────────────────────────
+    // Portugal
+    'Lisbon':       { schengen: true },
+    'Porto':        { schengen: true },
+    'Funchal':      { schengen: true },
+    // Italy
+    'Ancona':       { schengen: true },
+    'Cagliari':     { schengen: true },
+    'Genoa':        { schengen: true },
+    'Livorno':      { schengen: true },
+    'Naples':       { schengen: true },
+    'Palermo':      { schengen: true },
+    'Rome':         { schengen: true },
+    'Civitavecchia':{ schengen: true },
+    // Spain
+    'Alicante':     { schengen: true },
+    'Algeciras':    { schengen: true },
+    'Barcelona':    { schengen: true },
+    'Bilbao':       { schengen: true },
+    'Cadiz':        { schengen: true },
+    'Gran Canaria': { schengen: true },
+    'Malaga':       { schengen: true },
+    'Marbella':     { schengen: true },
+    'Santa Cruz':   { schengen: true },
+    'Palma de Mallorca': { schengen: true },
+    'Palma':        { schengen: true },
+    'Tenerife':     { schengen: true },
+    'La Coruña':    { schengen: true },
+    'La Coruna':    { schengen: true },
+    // Norway
+    'Bergen':       { schengen: true },
+    'Oslo':         { schengen: true },
+    'Stavanger':    { schengen: true },
+    'Olden':        { schengen: true },
+    // Germany
+    'Bremen':       { schengen: true },
+    'Bremerhaven':  { schengen: true },
+    'Hamburg':      { schengen: true },
+    'Rostock':      { schengen: true },
+    'Kiel':         { schengen: true },
+    'Wilhelmshaven':{ schengen: true },
+    // Belgium
+    'Antwerp':      { schengen: true },
+    'Antwerpen':    { schengen: true },
+    'Zeebrugge':    { schengen: true },
+    'Ghent':        { schengen: true },
+    // Denmark
+    'Aarhus':       { schengen: true },
+    'Copenhagen':   { schengen: true },
+    'Esbjerg':      { schengen: true },
+    'Fredericia':   { schengen: true },
+    'Helsingør':    { schengen: true },
+    'Helsingor':    { schengen: true },
+    'Odense':       { schengen: true },
+    'Randers':      { schengen: true },
+    'Skagen':       { schengen: true },
+    // Estonia
+    'Tallinn':      { schengen: true },
+    'Paldiski':     { schengen: true },
+    // Finland
+    'Helsinki':     { schengen: true },
+    'Turku':        { schengen: true },
+    'Kotka':        { schengen: true },
+    'Rauma':        { schengen: true },
+    // Greece
+    'Athens':       { schengen: true },
+    'Piraeus':      { schengen: true },
+    'Thessaloniki': { schengen: true },
+    'Heraklion':    { schengen: true },
+    'Iraklion':     { schengen: true },
+    'Patras':       { schengen: true },
+    'Volos':        { schengen: true },
+    // Latvia
+    'Riga':         { schengen: true },
+    // Lithuania
+    'Klaipeda':     { schengen: true },
+    // Netherlands
+    'Amsterdam':    { schengen: true },
+    'Rotterdam':    { schengen: true },
+    'IJmuiden':     { schengen: true },
+    // France
+    'Ajaccio':      { schengen: true },
+    'Antibes':      { schengen: true },
+    'Brest':        { schengen: true },
+    'Cannes':       { schengen: true },
+    'Cherbourg':    { schengen: true },
+    'Le Havre':     { schengen: true },
+    'Marseille':    { schengen: true },
+    'Nice':         { schengen: true },
+    'Paris':        { schengen: true },
+    'Rouen':        { schengen: true },
+    // Poland
+    'Gdansk':       { schengen: true },
+    'Gdynia':       { schengen: true },
+    // Sweden
+    'Gothenburg':   { schengen: true },
+    'Helsingborg':  { schengen: true },
+    'Stockholm':    { schengen: true },
+    'Malmo':        { schengen: true },
+    'Malmö':        { schengen: true },
+    // Iceland (Schengen, not in PDF but confirmed zone)
+    'Reykjavik':    { schengen: true },
+
+    // ── Canada ─────────────────────────────────────────────────────────────
+    'Quebec':       { canada: true },
+    'Québec':       { canada: true },
+  },
 };
 
-// Returns { c1d, mcv, nzeta, atv, schengen, notes } for a seafarer row.
-// Values: 'Required' | 'Not Required' | 'Review' | 'Review Port Requirement'
+// Returns { c1d, mcv, nzeta, oktb, atv, schengen, notes } for a seafarer row.
+// Values: 'Required' | 'Not Required' | 'Review'
 function getVisaReqs(r) {
-  const ship  = (r.joiningShip || '').trim();
-  const line  = (r.cruiseLine  || '').trim();
-  const port  = (r.signOnPort  || '').trim();
+  const ship = (r.joiningShip || '').trim();
+  const line = (r.cruiseLine  || '').trim();
+  const port = (r.signOnPort  || '').trim();
   const notes = [];
   const isNtp = s => (s||'').trim().toLowerCase() === 'need to process';
 
-  // ── C1/D — ship rule first; Cunard fallback when ship not yet mapped ──────
+  // Case-insensitive port lookup
+  const portLo  = port.toLowerCase();
+  const portKey = Object.keys(VISA_RULES.portRules).find(k => k.toLowerCase() === portLo) || '';
+  const pr      = VISA_RULES.portRules[portKey] || {};
+
+  // ── C1/D ─────────────────────────────────────────────────────────────────
+  // Not Required overrides everything; then line rule; then ship rule
   let c1d;
-  if      (ship && VISA_RULES.c1dRequired.has(ship))        { c1d='Required';     notes.push('C1/D required by ship rule'); }
-  else if (ship && VISA_RULES.c1dNotRequired.has(ship))     { c1d='Not Required'; }
-  else if (!ship && line==='Cunard Line')                    { c1d='Required';     notes.push('C1/D required — Cunard (joining ship not yet mapped)'); }
-  else                                                        { c1d='Review';       notes.push('C1/D: joining ship unknown — review required'); }
+  if (ship && VISA_RULES.c1dNotRequired.has(ship)) {
+    c1d = 'Not Required';
+  } else if (VISA_RULES.c1dLines.has(line) || (ship && VISA_RULES.c1dShips.has(ship))) {
+    c1d = 'Required';
+    notes.push('C1/D required');
+  } else {
+    c1d = 'Review';
+  }
 
-  // ── MCV — cruise line rule ────────────────────────────────────────────────
+  // ── MCV ──────────────────────────────────────────────────────────────────
   const mcv = VISA_RULES.mcvLines.has(line) ? 'Required' : 'Review';
-  if (mcv==='Required') notes.push('MCV required by cruise line');
+  if (mcv === 'Required') notes.push('MCV required');
 
-  // ── NZeTA — no verified ship/port rule yet ────────────────────────────────
-  // TODO: Confirm which itineraries call NZ ports and require NZeTA.
-  const nzeta = 'Review';
+  // ── NZeTA ────────────────────────────────────────────────────────────────
+  let nzeta;
+  if (ship && VISA_RULES.nzetaNotRequired.has(ship)) {
+    nzeta = 'Not Required';
+  } else if (port && VISA_RULES.nzetaCukPorts.has(port)) {
+    nzeta = 'Not Required';
+    notes.push('NZeTA: handled by CUK Onboarding (Auckland) — no crew action');
+  } else {
+    nzeta = 'Review';
+  }
 
-  // ── ATV / Schengen — port-based ───────────────────────────────────────────
-  const pr       = VISA_RULES.portRules[port] || {};
-  const atv      = pr.atv      ? 'Required' : (port ? 'Review Port Requirement' : 'Review');
-  const schengen = pr.schengen ? 'Required' : (port ? 'Review Port Requirement' : 'Review');
-  if (pr.atv)                          notes.push('ATV required by port rule');
-  if (pr.schengen)                     notes.push('Schengen required by port rule');
-  if (port && !pr.atv && !pr.schengen) notes.push('Port visa rule needs review — port: '+port);
+  // ── OKTB ─────────────────────────────────────────────────────────────────
+  const oktb = pr.oktb ? 'Required' : 'Review';
+  if (pr.oktb) {
+    notes.push('OKTB required — ' + (portKey || port));
+    if (pr.schengen) notes.push('Malta: OKTB can substitute for Schengen per policy');
+  }
 
-  // ── Zoho status "Need to Process" flags ──────────────────────────────────
+  // ── ATV ──────────────────────────────────────────────────────────────────
+  const atv = pr.atv ? 'Required' : 'Review';
+  if (pr.atv) notes.push('ATV required — ' + (portKey || port));
+
+  // ── Schengen ─────────────────────────────────────────────────────────────
+  const schengen = pr.schengen ? 'Required' : 'Review';
+  if (pr.schengen && !pr.oktb) notes.push('Schengen required — ' + (portKey || port));
+
+  // ── Canada ───────────────────────────────────────────────────────────────
+  if (pr.canada) notes.push('Canada Visa required — ' + (portKey || port));
+
+  // ── Zoho "Need to Process" flags ─────────────────────────────────────────
   if (isNtp(r.c1dStatus))   notes.push('C1/D: Need to Process in Zoho');
   if (isNtp(r.mcvStatus))   notes.push('MCV: Need to Process in Zoho');
   if (isNtp(r.oktbStatus))  notes.push('OKTB: Need to Process in Zoho');
   if (isNtp(r.nzetaStatus)) notes.push('NZeTA: Need to Process in Zoho');
   if (isNtp(r.atvStatus))   notes.push('ATV: Need to Process in Zoho');
 
-  return { c1d, mcv, nzeta, atv, schengen, notes: notes.join(' · ') || '—' };
+  return { c1d, mcv, nzeta, oktb, atv, schengen, notes: notes.join(' · ') || '—' };
 }
 
 // Brand-specific layout selection
@@ -1858,7 +2012,7 @@ pages.visa = async function () {
   // ── KPI counts ─────────────────────────────────────────────────────────────
   const kpiC1d      = rows.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp(r.c1dStatus);}).length;
   const kpiMcv      = rows.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp(r.mcvStatus);}).length;
-  const kpiOktb     = rows.filter(r=>isNtp(r.oktbStatus)).length;
+  const kpiOktb     = rows.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||isNtp(r.oktbStatus);}).length;
   const kpiNzeta    = rows.filter(r=>isNtp(r.nzetaStatus)).length;
   const kpiAtv      = rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp(r.atvStatus);}).length;
   const isSchengenNtp = r => (r.otherVisaName||'').toLowerCase().includes('schengen') && isNtp(r.otherVisaStatus);
@@ -2008,7 +2162,7 @@ pageEvents.visa = function () {
     };
     badge('C1/D',  vr.c1d  === 'Required', r.c1dStatus);
     badge('MCV',   vr.mcv  === 'Required', r.mcvStatus);
-    badge('OKTB',  false,                  r.oktbStatus);   // rule-only from Zoho status
+    badge('OKTB',  vr.oktb === 'Required',  r.oktbStatus);
     badge('NZeTA', vr.nzeta=== 'Required', r.nzetaStatus);
     badge('ATV',   vr.atv  === 'Required', r.atvStatus);
     badge('Sch',   vr.schengen==='Required',
@@ -2095,7 +2249,7 @@ pageEvents.visa = function () {
       if      (viActiveKpi==='assigned') out=out.filter(r=>!!(r.signOnDate||'').trim());
       else if (viActiveKpi==='c1d')      out=out.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp2(r.c1dStatus);});
       else if (viActiveKpi==='mcv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp2(r.mcvStatus);});
-      else if (viActiveKpi==='oktb')     out=out.filter(r=>isNtp2(r.oktbStatus));
+      else if (viActiveKpi==='oktb')     out=out.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||isNtp2(r.oktbStatus);});
       else if (viActiveKpi==='nzeta')    out=out.filter(r=>isNtp2(r.nzetaStatus));
       else if (viActiveKpi==='atv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp2(r.atvStatus);});
       else if (viActiveKpi==='schengen') out=out.filter(r=>getVisaReqs(r).schengen==='Required'||((r.otherVisaName||'').toLowerCase().includes('schengen')&&isNtp2(r.otherVisaStatus)));
