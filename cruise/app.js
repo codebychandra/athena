@@ -1090,7 +1090,9 @@ const DOC_STATUS_OPTS_MEDICAL = ['Valid','In Process','Need To Process','Not Req
 const VACC_OPTS = ['MMR 1','MMR 2','Yellow Fever','Hepatitis A','Tetanus','No Vaccine is Required'];
 function docStatusBadge(s) {
   if (!s) return _dash;
-  const col = DOC_STATUS_COLORS[s] || '#6B7280';
+  // Case-insensitive lookup so Zoho casing variants ('Need to Process' vs 'Need To Process') all match
+  const key = Object.keys(DOC_STATUS_COLORS).find(k => k.toLowerCase() === s.toLowerCase()) || s;
+  const col = DOC_STATUS_COLORS[key] || '#6B7280';
   return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
     background:${col}30;color:${col};border:1.5px solid ${col}80;white-space:nowrap;">${escH(s)}</span>`;
 }
