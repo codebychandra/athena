@@ -443,6 +443,7 @@ const SF = {
   gatewayAirport:     'Gateway_Airport',
   signOffDate:        'Sign_Off_Date',            // confirmed
   signOnPort:         'Sign_On_Port',             // confirmed
+  joiningShip:        'Joining_Ship',            // TODO: confirm field name via /api/cruise/debug/fields
   ctiOffice:          'CTI_Office',              // confirmed picklist
   // ── Document status fields (verify via /api/cruise/debug/fields?module=Candidates) ──
   passportStatus:      'Passport_Status',          // confirmed (shared with RF map)
@@ -713,6 +714,7 @@ function mapSeafarer(r) {
     gatewayAirport:      r[SF.gatewayAirport]      || '',
     signOffDate:         r[SF.signOffDate]         || null,
     signOnPort:          r[SF.signOnPort]          || '',
+    joiningShip:         r[SF.joiningShip]         || '',
     ctiOffice:           r[SF.ctiOffice]           || '',
     // ── Document status fields (values depend on Zoho field names above being correct) ──
     passportStatus:      r[SF.passportStatus]      || '',

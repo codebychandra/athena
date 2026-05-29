@@ -1843,10 +1843,11 @@ pages.visa = async function () {
   }
   // Include ONLY: CTI Indonesia + Onboarding Status = "Report to Ship"
   const hasCtiData = _sfRows.some(r => !!r.ctiOffice);
+  const VI_RESIGNED = new Set(['resign','resigned']);
   _vRows = _sfRows.filter(r => {
     const onb = (r.onboardingStatus||'').trim().toLowerCase();
     const cti = (r.ctiOffice||'').toLowerCase();
-    return (hasCtiData ? cti.includes('indonesia') : true) && onb === 'report to ship';
+    return (hasCtiData ? cti.includes('indonesia') : true) && !VI_RESIGNED.has(onb);
   });
 
   const rows        = _vRows;
@@ -1861,6 +1862,14 @@ pages.visa = async function () {
   const kpiNzeta    = rows.filter(r=>isNtp(r.nzetaStatus)).length;
   const kpiAtv      = rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp(r.atvStatus);}).length;
   const kpiSchengen = rows.filter(r=>getVisaReqs(r).schengen==='Required').length;
+  const kpiAny      = new Set([
+    ...rows.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp(r.c1dStatus);}).map(r=>r.id),
+    ...rows.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp(r.mcvStatus);}).map(r=>r.id),
+    ...rows.filter(r=>isNtp(r.oktbStatus)).map(r=>r.id),
+    ...rows.filter(r=>isNtp(r.nzetaStatus)).map(r=>r.id),
+    ...rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp(r.atvStatus);}).map(r=>r.id),
+    ...rows.filter(r=>getVisaReqs(r).schengen==='Required').map(r=>r.id),
+  ]).size;
 
   // ── Column definitions ─────────────────────────────────────────────────────
   const VI_COLS = [
@@ -1871,19 +1880,16 @@ pages.visa = async function () {
     { label:'Email',             field:'email',            sort:true  },
     { label:'Seafarer ID',       field:'seafarerIdNumber', sort:true  },
     { label:'Cruise Line',       field:'cruiseLine',       sort:true  },
+    { label:'Joining Ship',      field:'joiningShip',      sort:true  },
     { label:'Sign On Port',      field:'signOnPort',       sort:true  },
     { label:'Sign On Date',      field:'signOnDate',       sort:true  },
     { label:'Sign Off Date',     field:'signOffDate',      sort:true  },
-    { label:'C1/D Required',     field:'_c1dReq',          sort:true  },
+    { label:'Visa Required',     field:'_visaReq',         sort:false },
     { label:'C1/D Status',       field:'c1dStatus',        sort:true  },
-    { label:'MCV Required',      field:'_mcvReq',          sort:true  },
     { label:'MCV Status',        field:'mcvStatus',        sort:true  },
     { label:'OKTB Status',       field:'oktbStatus',       sort:true  },
-    { label:'NZeTA Required',    field:'_nzetaReq',        sort:false },
     { label:'NZeTA Status',      field:'nzetaStatus',      sort:true  },
-    { label:'ATV Required',      field:'_atvReq',          sort:true  },
     { label:'ATV Status',        field:'atvStatus',        sort:true  },
-    { label:'Schengen Required', field:'_schengenReq',     sort:true  },
     { label:'Visa Notes',        field:'_visaNotes',       sort:false },
   ];
 
@@ -1894,7 +1900,8 @@ pages.visa = async function () {
        style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
          border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
 
-  const thSort = VI_COLS.map(c =>
+  const thSortLeader = `<th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);width:44px;"></th>`;
+  const thSort = thSortLeader + VI_COLS.map(c =>
     `<th data-field="${escH(c.field)}" class="${c.sort?'vi-sortable':''}"
        style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
          text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
@@ -1904,11 +1911,11 @@ pages.visa = async function () {
      </th>`
   ).join('');
 
-  const thFilter = VI_COLS.map(c => {
+  const thFilter = thFCell() + VI_COLS.map(c => {
     const f = c.field;
     if (f==='onboardingStatus') return thFCell(buildColMS('viCF_onboardingStatus', onbSts));
     if (f==='cruiseLine')       return thFCell(buildColMS('viCF_cruiseLine', cruiseLines));
-    if (f==='fullName'||f==='email'||f==='seafarerIdNumber'||f==='signOnPort') return thFCell(colTxt(f));
+    if (f==='fullName'||f==='email'||f==='seafarerIdNumber'||f==='signOnPort'||f==='joiningShip') return thFCell(colTxt(f));
     if (f==='c1dStatus')        return thFCell(buildColMS('viCF_c1dStatus',   DOC_STATUS_OPTS));
     if (f==='mcvStatus')        return thFCell(buildColMS('viCF_mcvStatus',   DOC_STATUS_OPTS));
     if (f==='oktbStatus')       return thFCell(buildColMS('viCF_oktbStatus',  DOC_STATUS_OPTS));
@@ -1930,7 +1937,7 @@ pages.visa = async function () {
       <h1>Visa <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;
         background:#FFF3CD;color:#856404;vertical-align:middle;margin-left:6px;">Beta</span></h1>
       <span class="req-live-badge">● Live · Zoho Recruit</span>
-      <span class="req-page-sub">Visa requirement tracking · CTI Indonesia · Report to Ship seafarers only</span>
+      <span class="req-page-sub">Visa requirement tracking · CTI Indonesia · all non-resigned seafarers</span>
     </div>
 
     <div class="card req-filter-bar">
@@ -1960,13 +1967,14 @@ pages.visa = async function () {
     </div>
 
     <div class="req-kpi-grid" id="viKpiGrid">
-      ${kpiCard('all',      'Total (Report to Ship)', rows.length,  '#1B3A6B','CTI Indonesia only · click to reset')}
-      ${kpiCard('c1d',      'C1/D Needed',            kpiC1d,      '#B01A18','rule required or Need to Process')}
-      ${kpiCard('mcv',      'MCV Needed',             kpiMcv,      '#7C3AED','rule required or Need to Process')}
-      ${kpiCard('oktb',     'OKTB Needed',            kpiOktb,     '#D97706','Need to Process in Zoho')}
-      ${kpiCard('nzeta',    'NZeTA Needed',           kpiNzeta,    '#0891B2','Need to Process in Zoho')}
-      ${kpiCard('atv',      'ATV Needed',             kpiAtv,      '#DC2626','rule required or Need to Process')}
-      ${kpiCard('schengen', 'Schengen Needed',        kpiSchengen, '#1D4ED8','port rule required')}
+      ${kpiCard('all',      'Total Shown',      rows.length,  '#1B3A6B','CTI Indonesia · non-resigned · click to reset')}
+      ${kpiCard('any',      'Any Visa Action',  kpiAny,      '#374151','requires at least one visa action')}
+      ${kpiCard('c1d',      'C1/D Needed',      kpiC1d,      '#B01A18','rule required or Need to Process')}
+      ${kpiCard('mcv',      'MCV Needed',       kpiMcv,      '#7C3AED','rule required or Need to Process')}
+      ${kpiCard('oktb',     'OKTB Needed',      kpiOktb,     '#D97706','Need to Process in Zoho')}
+      ${kpiCard('nzeta',    'NZeTA Needed',     kpiNzeta,    '#0891B2','Need to Process in Zoho')}
+      ${kpiCard('atv',      'ATV Needed',       kpiAtv,      '#DC2626','rule required or Need to Process')}
+      ${kpiCard('schengen', 'Schengen Needed',  kpiSchengen, '#1D4ED8','port rule required')}
     </div>
 
     <div class="card" style="padding:0;overflow:hidden;">
@@ -2002,11 +2010,38 @@ pageEvents.visa = function () {
       background:${c}20;color:${c};border:1.5px solid ${c}60;white-space:nowrap;">${escH(v)}</span>`;
   };
 
+  // Compact badges for the combined Visa Required column
+  const visaReqCell = r => {
+    const vr = getVisaReqs(r);
+    const items = [];
+    const badge = (label, status) => {
+      if (status === 'Required') {
+        items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:700;padding:1px 5px;
+          border-radius:8px;background:#DC262620;color:#DC2626;border:1px solid #DC262660;
+          white-space:nowrap;margin:1px;">${label}</span>`);
+      } else if (status === 'Not Required') {
+        // silent — don't clutter the cell
+      } else {
+        items.push(`<span style="display:inline-block;font-size:9.5px;font-weight:600;padding:1px 5px;
+          border-radius:8px;background:#D9770620;color:#D97706;border:1px solid #D9770660;
+          white-space:nowrap;margin:1px;">${label}?</span>`);
+      }
+    };
+    badge('C1/D', vr.c1d);
+    badge('MCV',  vr.mcv);
+    badge('NZeTA',vr.nzeta);
+    badge('ATV',  vr.atv);
+    badge('Sch',  vr.schengen);
+    return items.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:80px;max-width:160px;">${items.join('')}</div>`
+      : `<span style="font-size:10.5px;color:var(--text-muted,#888);font-style:italic;">None</span>`;
+  };
+
   function renderVisaTableBody(rows) {
     const tbody = document.getElementById('viTableBody');
     if (!tbody) return;
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="21"
+      tbody.innerHTML = `<tr><td colspan="19"
         style="padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px;">
         No records found</td></tr>`;
       return;
@@ -2015,7 +2050,22 @@ pageEvents.visa = function () {
       `<td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);white-space:nowrap;${extra}">${content}</td>`;
     tbody.innerHTML = rows.map(r => {
       const vr = getVisaReqs(r);
+      const detailBtn = `<button class="vi-detail-btn"
+        data-id="${escH(r.id)}"
+        title="View detail"
+        style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+          border-radius:6px;border:1px solid var(--border,#ddd);background:transparent;
+          color:var(--text-muted,#888);cursor:pointer;font-family:inherit;
+          transition:background 0.15s,color 0.15s;"
+        onmouseover="this.style.background='var(--bg-hover,rgba(0,0,0,0.06))';this.style.color='var(--text,#1A1A1A)'"
+        onmouseout="this.style.background='transparent';this.style.color='var(--text-muted,#888)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>`;
       return `<tr>
+        ${td(detailBtn)}
         ${td(sfCountdownBadge(r))}
         ${td(sfOnbBadge(r.onboardingStatus))}
         ${td(r.ctiOffice?`<span style="font-size:11px;color:var(--text-muted,#888);">${escH(r.ctiOffice)}</span>`:_dash)}
@@ -2023,20 +2073,17 @@ pageEvents.visa = function () {
         ${td(`<span style="font-size:11.5px;">${escH(r.email||'—')}</span>`)}
         ${td(`<span style="font-size:11.5px;">${escH(r.seafarerIdNumber||'—')}</span>`)}
         ${td(sfCruiseBadge(r.cruiseLine))}
+        ${td(`<span style="font-size:11.5px;">${escH(r.joiningShip||'—')}</span>`)}
         ${td(`<span style="font-size:11.5px;">${escH(r.signOnPort||'—')}</span>`)}
         ${td(r.signOnDate?`<span style="font-size:11.5px;">${escH(r.signOnDate)}</span>`:_dash)}
         ${td(r.signOffDate?`<span style="font-size:11.5px;">${escH(r.signOffDate)}</span>`:_dash)}
-        ${td(vReqBadge(vr.c1d))}
+        <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);">${visaReqCell(r)}</td>
         ${td(docStatusBadge(r.c1dStatus))}
-        ${td(vReqBadge(vr.mcv))}
         ${td(docStatusBadge(r.mcvStatus))}
         ${td(docStatusBadge(r.oktbStatus))}
-        ${td(vReqBadge(vr.nzeta))}
         ${td(docStatusBadge(r.nzetaStatus))}
-        ${td(vReqBadge(vr.atv))}
         ${td(docStatusBadge(r.atvStatus))}
-        ${td(vReqBadge(vr.schengen))}
-        ${td(`<span style="font-size:10.5px;color:var(--text-muted,#888);white-space:normal;display:block;max-width:220px;">${escH(vr.notes)}</span>`,'white-space:normal;')}
+        ${td(`<span style="font-size:10.5px;color:var(--text-muted,#888);white-space:normal;display:block;max-width:200px;">${escH(vr.notes)}</span>`,'white-space:normal;')}
       </tr>`;
     }).join('');
   }
@@ -2068,7 +2115,7 @@ pageEvents.visa = function () {
       for (const [f,v] of Object.entries(statusMS)) { if (!v.includes(r[f])) return false; }
       for (const [f,v] of Object.entries(colText))  { if (!String(r[f]??'').toLowerCase().includes(v)) return false; }
       if (search) {
-        const hay=[r.fullName,r.email,r.seafarerIdNumber,r.signOnPort,r.cruiseLine].join(' ').toLowerCase();
+        const hay=[r.fullName,r.email,r.seafarerIdNumber,r.signOnPort,r.cruiseLine,r.joiningShip].join(' ').toLowerCase();
         if (!hay.includes(search)) return false;
       }
       return true;
@@ -2077,7 +2124,18 @@ pageEvents.visa = function () {
     // KPI filter
     if (viActiveKpi && viActiveKpi !== 'all') {
       const isNtp2 = s => (s||'').trim().toLowerCase() === 'need to process';
-      if      (viActiveKpi==='c1d')      out=out.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp2(r.c1dStatus);});
+      if (viActiveKpi==='any') {
+        out=out.filter(r=>{
+          const q=getVisaReqs(r);
+          return q.c1d==='Required'||isNtp2(r.c1dStatus)
+              || q.mcv==='Required'||isNtp2(r.mcvStatus)
+              || isNtp2(r.oktbStatus)
+              || isNtp2(r.nzetaStatus)
+              || q.atv==='Required'||isNtp2(r.atvStatus)
+              || q.schengen==='Required';
+        });
+      }
+      else if (viActiveKpi==='c1d')      out=out.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp2(r.c1dStatus);});
       else if (viActiveKpi==='mcv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp2(r.mcvStatus);});
       else if (viActiveKpi==='oktb')     out=out.filter(r=>isNtp2(r.oktbStatus));
       else if (viActiveKpi==='nzeta')    out=out.filter(r=>isNtp2(r.nzetaStatus));
@@ -2087,13 +2145,8 @@ pageEvents.visa = function () {
 
     // Sort
     if (viSortF) {
-      const VI_REQ_KEYS = {_c1dReq:'c1d',_mcvReq:'mcv',_atvReq:'atv',_schengenReq:'schengen',_nzetaReq:'nzeta'};
       out=out.slice().sort((a,b)=>{
         if (viSortF==='_countdown') return (sfCountdownSort(a)-sfCountdownSort(b))*viSortD;
-        if (VI_REQ_KEYS[viSortF]) {
-          const k=VI_REQ_KEYS[viSortF];
-          return getVisaReqs(a)[k].localeCompare(getVisaReqs(b)[k])*viSortD;
-        }
         return String(a[viSortF]??'').localeCompare(String(b[viSortF]??''),undefined,{numeric:true})*viSortD;
       });
     }
@@ -2149,6 +2202,81 @@ pageEvents.visa = function () {
       viApply();
     });
   });
+
+  // ── Detail panel ───────────────────────────────────────────────────────────
+  function openViDetail(zohoId) {
+    const r = _vRows.find(x => x.id === zohoId) || _sfRows.find(x => x.id === zohoId);
+    if (!r) return;
+    const m = ensureReqModal();
+    m.style.width = '500px';
+    const vr = getVisaReqs(r);
+    const row = (label, val) =>
+      `<div style="display:flex;justify-content:space-between;align-items:flex-start;
+         padding:5px 0;border-bottom:1px solid var(--border,#f0f0f0);gap:12px;">
+         <span style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;flex-shrink:0;">${label}</span>
+         <span style="font-size:11.5px;font-weight:500;text-align:right;">${val||_dash}</span>
+       </div>`;
+    const sec = title =>
+      `<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
+         color:var(--text-muted,#888);margin:14px 0 6px;">${title}</div>`;
+    const reqBadge = v => {
+      const c = {'Required':'#DC2626','Not Required':'#6B7280','Review':'#D97706',
+                 'Review Port Requirement':'#1D4ED8'}[v]||'#6B7280';
+      return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+        background:${c}20;color:${c};border:1.5px solid ${c}60;">${escH(v||'—')}</span>`;
+    };
+    const body = `
+      <div style="padding:14px 16px 6px;overflow-y:auto;max-height:calc(80vh - 80px);">
+        ${sec('Seafarer')}
+        ${row('Name',          `<span style="font-weight:700;">${escH(r.fullName||'—')}</span>`)}
+        ${row('Email',         escH(r.email||'—'))}
+        ${row('Seafarer ID',   escH(r.seafarerIdNumber||'—'))}
+        ${row('Onboarding',    sfOnbBadge(r.onboardingStatus))}
+        ${row('CTI Office',    escH(r.ctiOffice||'—'))}
+        ${sec('Deployment')}
+        ${row('Cruise Line',   sfCruiseBadge(r.cruiseLine))}
+        ${row('Joining Ship',  escH(r.joiningShip||'—'))}
+        ${row('Sign On Port',  escH(r.signOnPort||'—'))}
+        ${row('Sign On Date',  escH(r.signOnDate||'—'))}
+        ${row('Sign Off Date', escH(r.signOffDate||'—'))}
+        ${sec('Visa Requirements (System)')}
+        ${row('C1/D Required',      reqBadge(vr.c1d))}
+        ${row('MCV Required',       reqBadge(vr.mcv))}
+        ${row('NZeTA Required',     reqBadge(vr.nzeta))}
+        ${row('ATV Required',       reqBadge(vr.atv))}
+        ${row('Schengen Required',  reqBadge(vr.schengen))}
+        ${sec('Visa Status (Zoho)')}
+        ${row('C1/D Status',   docStatusBadge(r.c1dStatus))}
+        ${row('MCV Status',    docStatusBadge(r.mcvStatus))}
+        ${row('OKTB Status',   docStatusBadge(r.oktbStatus))}
+        ${row('NZeTA Status',  docStatusBadge(r.nzetaStatus))}
+        ${row('ATV Status',    docStatusBadge(r.atvStatus))}
+        ${sec('Notes')}
+        <div style="font-size:11px;color:var(--text-muted,#888);line-height:1.6;padding:4px 0;">
+          ${escH(vr.notes)}
+        </div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border,#e5e7eb);display:flex;justify-content:flex-end;">
+        <button id="viDetailClose"
+          style="padding:6px 16px;font-size:11.5px;font-weight:600;border:1px solid var(--border,#ddd);
+            background:transparent;color:var(--text);border-radius:5px;cursor:pointer;font-family:inherit;">
+          Close
+        </button>
+      </div>`;
+    openReqModal(`${escH(r.fullName||'Seafarer')} — Visa Detail`, body,
+      { x: Math.max(20, window.innerWidth/2 - 250), y: 60 });
+    document.getElementById('viDetailClose')?.addEventListener('click', () => {
+      document.getElementById('reqDrillModal').style.display = 'none';
+    });
+  }
+
+  // Detail button click — delegate from tbody
+  document.getElementById('viTableBody')?.addEventListener('click', e => {
+    const btn = e.target.closest('.vi-detail-btn');
+    if (!btn) return;
+    openViDetail(btn.dataset.id);
+  });
+
   viApply();
 };
 
