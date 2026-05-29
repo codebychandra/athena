@@ -1119,11 +1119,11 @@ pageEvents.seafarer = function () {
 
 // Document status colour map
 const DOC_STATUS_COLORS = {
-  'Valid':           '#2D7A55',  // green
-  'In Process':      '#D97706',  // orange
+  'Valid':           '#15803D',  // green
+  'In Process':      '#D97706',  // amber
   'Need To Process': '#DC2626',  // red
   'Not Required':    '#6B7280',  // gray
-  'Unfit':           '#7F1D1D',  // dark red (Medical only)
+  'Unfit':           '#7C3AED',  // purple (Medical only)
 };
 // Standard opts — Unfit excluded; medical column uses DOC_STATUS_OPTS_MEDICAL
 const DOC_STATUS_OPTS         = ['Valid','In Process','Need To Process','Not Required'];
