@@ -27,16 +27,16 @@ const VISA_RULES = {
   // Cruise lines where ALL crew require C1/D
   c1dLines:       new Set(['Cunard Line', 'CUK Maritime']),
   // Individual ships (other lines) that also require C1/D
-  c1dShips:       new Set(['Arcadia']),
+  c1dShips:       new Set(['Arcadia', 'Ventura', 'Aurora']),
   // Ships where C1/D is NOT required
-  c1dNotRequired: new Set(['Ventura', 'Aurora', 'Arvia', 'Azura', 'Britannia', 'Iona']),
+  c1dNotRequired: new Set(['Arvia', 'Azura', 'Britannia', 'Iona']),
 
   // ── MCV ───────────────────────────────────────────────────────────────────
   mcvLines: new Set(['Cunard Line', 'P&O Cruises', 'CUK Maritime']),
 
   // ── NZeTA ─────────────────────────────────────────────────────────────────
-  // Ships where NZeTA is NOT required
-  nzetaNotRequired: new Set(['Queen Mary 2', 'Arcadia']),
+  // Ships where NZeTA is Required
+  nzetaRequired:    new Set(['Queen Anne', 'Queen Mary 2', 'Queen Elizabeth', 'Arcadia']),
   // Ports where NZeTA is handled by CUK Onboarding (not a crew action)
   nzetaCukPorts:    new Set(['Auckland']),
 
@@ -201,11 +201,12 @@ function getVisaReqs(r) {
 
   // ── NZeTA ────────────────────────────────────────────────────────────────
   let nzeta;
-  if (ship && VISA_RULES.nzetaNotRequired.has(ship)) {
-    nzeta = 'Not Required';
-  } else if (port && VISA_RULES.nzetaCukPorts.has(port)) {
+  if (port && VISA_RULES.nzetaCukPorts.has(port)) {
     nzeta = 'Not Required';
     notes.push('NZeTA: handled by CUK Onboarding (Auckland) — no crew action');
+  } else if (ship && VISA_RULES.nzetaRequired.has(ship)) {
+    nzeta = 'Required';
+    notes.push('NZeTA required');
   } else {
     nzeta = 'Review';
   }
@@ -2013,7 +2014,7 @@ pages.visa = async function () {
   const kpiC1d      = rows.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp(r.c1dStatus);}).length;
   const kpiMcv      = rows.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp(r.mcvStatus);}).length;
   const kpiOktb     = rows.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||isNtp(r.oktbStatus);}).length;
-  const kpiNzeta    = rows.filter(r=>isNtp(r.nzetaStatus)).length;
+  const kpiNzeta    = rows.filter(r=>{const q=getVisaReqs(r);return q.nzeta==='Required'||isNtp(r.nzetaStatus);}).length;
   const kpiAtv      = rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp(r.atvStatus);}).length;
   const isSchengenNtp = r => (r.otherVisaName||'').toLowerCase().includes('schengen') && isNtp(r.otherVisaStatus);
   const kpiSchengen = rows.filter(r=>getVisaReqs(r).schengen==='Required'||isSchengenNtp(r)).length;
@@ -2163,7 +2164,7 @@ pageEvents.visa = function () {
     badge('C1/D',  vr.c1d  === 'Required', r.c1dStatus);
     badge('MCV',   vr.mcv  === 'Required', r.mcvStatus);
     badge('OKTB',  vr.oktb === 'Required',  r.oktbStatus);
-    badge('NZeTA', vr.nzeta=== 'Required', r.nzetaStatus);
+    badge('NZeTA', vr.nzeta === 'Required', r.nzetaStatus);
     badge('ATV',   vr.atv  === 'Required', r.atvStatus);
     badge('Sch',   vr.schengen==='Required',
                    (r.otherVisaName||'').toLowerCase().includes('schengen') ? r.otherVisaStatus : null);
@@ -2250,7 +2251,7 @@ pageEvents.visa = function () {
       else if (viActiveKpi==='c1d')      out=out.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp2(r.c1dStatus);});
       else if (viActiveKpi==='mcv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp2(r.mcvStatus);});
       else if (viActiveKpi==='oktb')     out=out.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||isNtp2(r.oktbStatus);});
-      else if (viActiveKpi==='nzeta')    out=out.filter(r=>isNtp2(r.nzetaStatus));
+      else if (viActiveKpi==='nzeta')    out=out.filter(r=>{const q=getVisaReqs(r);return q.nzeta==='Required'||isNtp2(r.nzetaStatus);});
       else if (viActiveKpi==='atv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp2(r.atvStatus);});
       else if (viActiveKpi==='schengen') out=out.filter(r=>getVisaReqs(r).schengen==='Required'||((r.otherVisaName||'').toLowerCase().includes('schengen')&&isNtp2(r.otherVisaStatus)));
     }
