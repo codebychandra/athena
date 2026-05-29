@@ -409,6 +409,55 @@ const SF = {
   street:             'Street',
   postalCode:         'Zip_Code',
   gatewayAirport:     'Gateway_Airport',
+  // ── Document status fields (verify via /api/cruise/debug/fields?module=Candidates) ──
+  passportStatus:      'Passport_Status',          // confirmed (shared with RF map)
+  passportIssuedPlace: 'Passport_Issued_Place',    // TODO: verify
+  bstStatus:           'BST_Status',               // TODO: verify
+  bstNumber:           'BST_Number',               // TODO: verify
+  bstExpiry:           'BST_Expiry_Date',          // TODO: verify
+  satStatus:           'SAT_Status',               // TODO: verify
+  satNumber:           'SAT_Number',               // TODO: verify
+  satExpiry:           'SAT_Expiry_Date',          // TODO: verify
+  crowdMgtStatus:      'Crowd_Management_Status',  // TODO: verify
+  crowdMgtNumber:      'Crowd_Management_Number',  // TODO: verify
+  crowdMgtExpiry:      'Crowd_Management_Expiry_Date', // TODO: verify
+  crisisMgtStatus:     'Crisis_Management_Status', // TODO: verify
+  crisisMgtNumber:     'Crisis_Management_Number', // TODO: verify
+  crisisMgtExpiry:     'Crisis_Management_Expiry_Date', // TODO: verify
+  pscrbStatus:         'PSCRB_Status',             // TODO: verify
+  pscrbNumber:         'PSCRB_Number',             // TODO: verify
+  pscrbExpiry:         'PSCRB_Expiry_Date',        // TODO: verify
+  seamanBookStatus:    'Seaman_Book_Status',        // TODO: verify
+  seamanBookNumber:    'Seaman_Book_Number',        // TODO: verify
+  seamanBookExpiry:    'Seaman_Book_Expiry_Date',   // TODO: verify
+  sdbStatus:           'SDB_Status',               // TODO: verify
+  sdbExpiry:           'SDB_Expiry_Date',          // TODO: verify
+  bidStatus:           'BID_Status',               // TODO: verify
+  bidExpiry:           'BID_Expiry_Date',          // TODO: verify
+  c1dStatus:           'C1D_Visa_Status',          // TODO: verify
+  c1dNumber:           'C1D_Visa_Number',          // TODO: verify
+  c1dAppointment:      'C1D_Appointment_Date',     // TODO: verify
+  c1dExpiry:           'C1D_Visa_Expiry_Date',     // TODO: verify
+  mcvStatus:           'MCV_Status',               // TODO: verify
+  mcvNumber:           'MCV_Number',               // TODO: verify
+  mcvPassportNumber:   'MCV_Passport_Number',      // TODO: verify
+  mcvExpiry:           'MCV_Expiry_Date',          // TODO: verify
+  oktbStatus:          'OKTB_Status',              // TODO: verify
+  nzetaStatus:         'NZeTA_Status',             // TODO: verify
+  nzetaNumber:         'NZeTA_Number',             // TODO: verify
+  nzetaExpiry:         'NZeTA_Expiry_Date',        // TODO: verify
+  atvStatus:           'ATV_Status',               // TODO: verify
+  atvAppointment:      'ATV_Appointment_Date',     // TODO: verify
+  atvNumber:           'ATV_Number',               // TODO: verify
+  atvExpiry:           'ATV_Expiry_Date',          // TODO: verify
+  otherVisaName:       'Other_Visa_Name',          // TODO: verify
+  otherVisaStatus:     'Other_Visa_Status',        // TODO: verify
+  medicalStatus:       'Medical_Status',           // TODO: verify
+  medicalExamDate:     'Medical_Examination_Date', // TODO: verify
+  medicalIssuanceDate: 'Medical_Issuance_Date',    // TODO: verify
+  medicalExpiry:       'Medical_Expiry_Date',      // TODO: verify
+  completedVaccination:'Completed_Vaccination',    // TODO: verify
+  dateMmr1:            'Date_MMR_1_Completed',     // TODO: verify
 };
 
 // ── Record mappers ────────────────────────────────────────────────────────
@@ -627,6 +676,55 @@ function mapSeafarer(r) {
     street:              r[SF.street]              || '',
     postalCode:          r[SF.postalCode]          || '',
     gatewayAirport:      r[SF.gatewayAirport]      || '',
+    // ── Document status fields (values depend on Zoho field names above being correct) ──
+    passportStatus:      r[SF.passportStatus]      || '',
+    passportIssuedPlace: r[SF.passportIssuedPlace] || '',
+    bstStatus:           r[SF.bstStatus]           || '',
+    bstNumber:           r[SF.bstNumber]           || '',
+    bstExpiry:           r[SF.bstExpiry]           || '',
+    satStatus:           r[SF.satStatus]           || '',
+    satNumber:           r[SF.satNumber]           || '',
+    satExpiry:           r[SF.satExpiry]           || '',
+    crowdMgtStatus:      r[SF.crowdMgtStatus]      || '',
+    crowdMgtNumber:      r[SF.crowdMgtNumber]      || '',
+    crowdMgtExpiry:      r[SF.crowdMgtExpiry]      || '',
+    crisisMgtStatus:     r[SF.crisisMgtStatus]     || '',
+    crisisMgtNumber:     r[SF.crisisMgtNumber]     || '',
+    crisisMgtExpiry:     r[SF.crisisMgtExpiry]     || '',
+    pscrbStatus:         r[SF.pscrbStatus]         || '',
+    pscrbNumber:         r[SF.pscrbNumber]         || '',
+    pscrbExpiry:         r[SF.pscrbExpiry]         || '',
+    seamanBookStatus:    r[SF.seamanBookStatus]    || '',
+    seamanBookNumber:    r[SF.seamanBookNumber]    || '',
+    seamanBookExpiry:    r[SF.seamanBookExpiry]    || '',
+    sdbStatus:           r[SF.sdbStatus]           || '',
+    sdbExpiry:           r[SF.sdbExpiry]           || '',
+    bidStatus:           r[SF.bidStatus]           || '',
+    bidExpiry:           r[SF.bidExpiry]           || '',
+    c1dStatus:           r[SF.c1dStatus]           || '',
+    c1dNumber:           r[SF.c1dNumber]           || '',
+    c1dAppointment:      r[SF.c1dAppointment]      || '',
+    c1dExpiry:           r[SF.c1dExpiry]           || '',
+    mcvStatus:           r[SF.mcvStatus]           || '',
+    mcvNumber:           r[SF.mcvNumber]           || '',
+    mcvPassportNumber:   r[SF.mcvPassportNumber]   || '',
+    mcvExpiry:           r[SF.mcvExpiry]           || '',
+    oktbStatus:          r[SF.oktbStatus]          || '',
+    nzetaStatus:         r[SF.nzetaStatus]         || '',
+    nzetaNumber:         r[SF.nzetaNumber]         || '',
+    nzetaExpiry:         r[SF.nzetaExpiry]         || '',
+    atvStatus:           r[SF.atvStatus]           || '',
+    atvAppointment:      r[SF.atvAppointment]      || '',
+    atvNumber:           r[SF.atvNumber]           || '',
+    atvExpiry:           r[SF.atvExpiry]           || '',
+    otherVisaName:       r[SF.otherVisaName]       || '',
+    otherVisaStatus:     r[SF.otherVisaStatus]     || '',
+    medicalStatus:       r[SF.medicalStatus]       || '',
+    medicalExamDate:     r[SF.medicalExamDate]     || '',
+    medicalIssuanceDate: r[SF.medicalIssuanceDate] || '',
+    medicalExpiry:       r[SF.medicalExpiry]       || '',
+    completedVaccination:r[SF.completedVaccination]|| '',
+    dateMmr1:            r[SF.dateMmr1]            || '',
   };
 }
 

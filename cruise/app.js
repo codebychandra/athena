@@ -1112,6 +1112,467 @@ pageEvents.seafarer = function () {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// SEAFARER ATTACHMENT PAGE — document collection & tracking
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Document status colour map (Unfit only valid for Medical)
+const DOC_STATUS_COLORS = {
+  'Valid':           '#2D7A55',
+  'In Process':      '#1B3A6B',
+  'Need To Process': '#B87A14',
+  'Not Required':    '#6B7280',
+  'Unfit':           '#B01A18',
+};
+const DOC_STATUS_OPTS = Object.keys(DOC_STATUS_COLORS);
+function docStatusBadge(s) {
+  if (!s) return _dash;
+  const col = DOC_STATUS_COLORS[s] || '#6B7280';
+  return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+    background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(s)}</span>`;
+}
+
+// Field definitions for the Detail modal — data-driven to keep code compact
+// zoho: Zoho Recruit API field name — verify unknown ones via /api/cruise/debug/fields?module=Candidates
+const SA_DOC_FIELDS = [
+  // Passport
+  { group:'Passport',    label:'Passport Status',          field:'passportStatus',      zoho:'Passport_Status',             type:'select', opts:DOC_STATUS_OPTS },
+  { group:'Passport',    label:'Passport Number',           field:'passportNumber',       zoho:'Passport_Number'              },
+  { group:'Passport',    label:'Passport Issued Date',      field:'passportIssuedDate',   zoho:'Passport_Issued_Date',        type:'date'  },
+  { group:'Passport',    label:'Passport Expired Date',     field:'passportExpiredDate',  zoho:'Passport_Expired_Date',       type:'date'  },
+  { group:'Passport',    label:'Passport Issued Place',     field:'passportIssuedPlace',  zoho:'Passport_Issued_Place'        },  // TODO: verify
+  { group:'Passport',    label:'Passport Issued Nation',    field:'passportIssuedNation', zoho:'Passport_Issued_Country'      },
+  // STCW
+  { group:'STCW',        label:'BST Status',                field:'bstStatus',            zoho:'BST_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'STCW',        label:'BST Number',                field:'bstNumber',            zoho:'BST_Number'                   }, // TODO
+  { group:'STCW',        label:'BST Expiration Date',       field:'bstExpiry',            zoho:'BST_Expiry_Date',             type:'date'  }, // TODO
+  { group:'STCW',        label:'SAT Status',                field:'satStatus',            zoho:'SAT_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'STCW',        label:'SAT Number',                field:'satNumber',            zoho:'SAT_Number'                   }, // TODO
+  { group:'STCW',        label:'SAT Expiration Date',       field:'satExpiry',            zoho:'SAT_Expiry_Date',             type:'date'  }, // TODO
+  { group:'STCW',        label:'Crowd Mgt. Status',         field:'crowdMgtStatus',       zoho:'Crowd_Management_Status',     type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'STCW',        label:'Crowd Mgt. Number',         field:'crowdMgtNumber',       zoho:'Crowd_Management_Number'      }, // TODO
+  { group:'STCW',        label:'Crowd Mgt. Expiration',     field:'crowdMgtExpiry',       zoho:'Crowd_Management_Expiry_Date',type:'date'  }, // TODO
+  { group:'STCW',        label:'Crisis Mgt. Status',        field:'crisisMgtStatus',      zoho:'Crisis_Management_Status',    type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'STCW',        label:'Crisis Mgt. Number',        field:'crisisMgtNumber',      zoho:'Crisis_Management_Number'     }, // TODO
+  { group:'STCW',        label:'Crisis Mgt. Expiration',    field:'crisisMgtExpiry',      zoho:'Crisis_Management_Expiry_Date',type:'date' }, // TODO
+  { group:'STCW',        label:'PSCRB Status',              field:'pscrbStatus',          zoho:'PSCRB_Status',                type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'STCW',        label:'PSCRB Number',              field:'pscrbNumber',          zoho:'PSCRB_Number'                 }, // TODO
+  { group:'STCW',        label:'PSCRB Expiration Date',     field:'pscrbExpiry',          zoho:'PSCRB_Expiry_Date',           type:'date'  }, // TODO
+  // Seaman Book
+  { group:'Seaman Book', label:'Seaman Book Status',        field:'seamanBookStatus',     zoho:'Seaman_Book_Status',          type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Seaman Book', label:'Seaman Book Number',        field:'seamanBookNumber',     zoho:'Seaman_Book_Number'           }, // TODO
+  { group:'Seaman Book', label:'Seaman Book Expiration',    field:'seamanBookExpiry',     zoho:'Seaman_Book_Expiry_Date',     type:'date'  }, // TODO
+  { group:'Seaman Book', label:'SDB Status',                field:'sdbStatus',            zoho:'SDB_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Seaman Book', label:'SDB Expiration Date',       field:'sdbExpiry',            zoho:'SDB_Expiry_Date',             type:'date'  }, // TODO
+  { group:'Seaman Book', label:'BID Status',                field:'bidStatus',            zoho:'BID_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Seaman Book', label:'BID Expiration Date',       field:'bidExpiry',            zoho:'BID_Expiry_Date',             type:'date'  }, // TODO
+  // Visa
+  { group:'Visa',        label:'C1/D Visa Status',          field:'c1dStatus',            zoho:'C1D_Visa_Status',             type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Visa',        label:'C1/D Visa Number',          field:'c1dNumber',            zoho:'C1D_Visa_Number'              }, // TODO
+  { group:'Visa',        label:'C1/D Appointment Date',     field:'c1dAppointment',       zoho:'C1D_Appointment_Date',        type:'date'  }, // TODO
+  { group:'Visa',        label:'C1/D Visa Expiration',      field:'c1dExpiry',            zoho:'C1D_Visa_Expiry_Date',        type:'date'  }, // TODO
+  { group:'Visa',        label:'MCV Status',                field:'mcvStatus',            zoho:'MCV_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Visa',        label:'MCV Number',                field:'mcvNumber',            zoho:'MCV_Number'                   }, // TODO
+  { group:'Visa',        label:"MCV's Passport Number",     field:'mcvPassportNumber',    zoho:'MCV_Passport_Number'          }, // TODO
+  { group:'Visa',        label:'MCV Expiration Date',       field:'mcvExpiry',            zoho:'MCV_Expiry_Date',             type:'date'  }, // TODO
+  { group:'Visa',        label:'OKTB Status',               field:'oktbStatus',           zoho:'OKTB_Status',                 type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Visa',        label:'NZeTA Status',              field:'nzetaStatus',          zoho:'NZeTA_Status',                type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Visa',        label:'NZeTA Number',              field:'nzetaNumber',          zoho:'NZeTA_Number'                 }, // TODO
+  { group:'Visa',        label:'NZeTA Expiration Date',     field:'nzetaExpiry',          zoho:'NZeTA_Expiry_Date',           type:'date'  }, // TODO
+  { group:'Visa',        label:'ATV Status',                field:'atvStatus',            zoho:'ATV_Status',                  type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  { group:'Visa',        label:'ATV Appointment Date',      field:'atvAppointment',       zoho:'ATV_Appointment_Date',        type:'date'  }, // TODO
+  { group:'Visa',        label:'ATV Number',                field:'atvNumber',            zoho:'ATV_Number'                   }, // TODO
+  { group:'Visa',        label:'ATV Expiration Date',       field:'atvExpiry',            zoho:'ATV_Expiry_Date',             type:'date'  }, // TODO
+  { group:'Visa',        label:'Other Visa Name',           field:'otherVisaName',        zoho:'Other_Visa_Name'              }, // TODO
+  { group:'Visa',        label:'Other Visa Status',         field:'otherVisaStatus',      zoho:'Other_Visa_Status',           type:'select', opts:DOC_STATUS_OPTS }, // TODO
+  // Medical
+  { group:'Medical',     label:'Medical Status',            field:'medicalStatus',        zoho:'Medical_Status',              type:'select', opts:['Valid','In Process','Need To Process','Not Required','Unfit'] }, // TODO
+  { group:'Medical',     label:'Medical Examination Date',  field:'medicalExamDate',      zoho:'Medical_Examination_Date',    type:'date'  }, // TODO
+  { group:'Medical',     label:'Medical Issuance Date',     field:'medicalIssuanceDate',  zoho:'Medical_Issuance_Date',       type:'date'  }, // TODO
+  { group:'Medical',     label:'Medical Expiration Date',   field:'medicalExpiry',        zoho:'Medical_Expiry_Date',         type:'date'  }, // TODO
+  { group:'Medical',     label:'Completed Vaccination',     field:'completedVaccination', zoho:'Completed_Vaccination'        }, // TODO
+  { group:'Medical',     label:'Date MMR 1 Completed',      field:'dateMmr1',             zoho:'Date_MMR_1_Completed',        type:'date'  }, // TODO
+];
+
+// Status columns shown in the attachment table
+const SA_STATUS_COLS = [
+  { label:'Passport',  field:'passportStatus'  },
+  { label:'BST',       field:'bstStatus'       },
+  { label:'SAT',       field:'satStatus'       },
+  { label:'Crowd Mgt.',field:'crowdMgtStatus'  },
+  { label:'Crisis Mgt.',field:'crisisMgtStatus'},
+  { label:'PSCRB',     field:'pscrbStatus'     },
+  { label:'Seaman Book',field:'seamanBookStatus'},
+  { label:'SDB',       field:'sdbStatus'       },
+  { label:'BID',       field:'bidStatus'       },
+  { label:'C1/D Visa', field:'c1dStatus'       },
+  { label:'MCV',       field:'mcvStatus'       },
+  { label:'NZeTA',     field:'nzetaStatus'     },
+  { label:'ATV',       field:'atvStatus'       },
+  { label:'Medical',   field:'medicalStatus'   },
+  { label:'Vaccination',field:'completedVaccination'},
+];
+
+pages.seafarerAttachment = async function () {
+  // Reuse cached seafarer data; fetch fresh if page loaded directly
+  if (!_sfRows.length) {
+    try {
+      const { seafarers } = await fetchCruiseData(false);
+      const RESIGNED = new Set(['resign','resigned']);
+      _sfRows = (seafarers||[]).filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
+    } catch (_) {}
+  }
+  const rows = _sfRows;
+  const cruiseLines = [...new Set(rows.map(r=>r.cruiseLine).filter(v=>v&&v!=='—'))].sort();
+  const onbSts      = [...new Set(rows.map(r=>r.onboardingStatus).filter(v=>v&&v!=='—'))].sort();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const total          = rows.length;
+  const readyNoAsgn    = rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length;
+  const hasAsgnNotRdy  = rows.filter(r=>r.signOnDate&&new Date(r.signOnDate)>today&&
+    ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length;
+  const noAsgnNotReady = rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length;
+
+  // Build table header
+  const fixedCols = ['Countdown','Onboarding Status','CTI Office','Name','Email','Seafarer ID','Cruise Line','Sign On Date'];
+  const allCols   = [...fixedCols, ...SA_STATUS_COLS.map(c=>c.label)];
+  const thSort = allCols.map((lbl,i) => {
+    const field = i<8 ? ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'][i]
+                      : SA_STATUS_COLS[i-8].field;
+    return `<th data-field="${field}" class="${i===2?'':'sa-sortable'}"
+      style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;
+        ${i===2?'':'cursor:pointer;user-select:none;'}">
+      ${escH(lbl)}${i===2?'':' <span class="sa-sort-icon">⇅</span>'}
+    </th>`;
+  }).join('');
+
+  const onbOpts = onbSts;
+  const cruiseOpts = cruiseLines;
+
+  return `
+    <div class="req-page-header">
+      <h1>Seafarer Attachment</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">Document collection &amp; tracking</span>
+    </div>
+
+    <nav class="task-tabbar" id="saTabbar">
+      <button class="task-sub-link active" data-tab="report">Report</button>
+      <button class="task-sub-link" data-tab="form">Form</button>
+    </nav>
+
+    <!-- REPORT TAB -->
+    <div id="saTabReport">
+      <div class="card req-filter-bar">
+        ${buildMS('saCruiseFilter','Cruise Line',cruiseOpts)}
+        ${buildMS('saOnbFilter','Onboarding Status',onbOpts)}
+        ${buildMS('saDocStatusFilter','Document Status',DOC_STATUS_OPTS)}
+        <input id="saGlobalSearch" type="text" placeholder="🔍 Search…"
+          style="flex:1;min-width:160px;height:32px;font-size:12px;padding:0 10px;
+            border:1px solid var(--border,#ddd);border-radius:8px;
+            background:var(--card-bg,#fff);color:var(--text);font-family:inherit;">
+        <button id="saClearBtn" class="req-clear-btn">✕ Clear</button>
+        <span id="saCount" class="req-count-badge">${rows.length} seafarers</span>
+      </div>
+
+      <div class="req-kpi-grid" id="saKpiGrid">
+        <div class="req-kpi-card" data-kpi="all" data-color="#1B3A6B" style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
+          <span class="req-kpi-label">Total Seafarer</span>
+          <span class="req-kpi-value" style="color:#1B3A6B;" id="saKpiTotal">${total}</span>
+          <span class="req-kpi-sub">resigned excluded · click to reset</span>
+        </div>
+        <div class="req-kpi-card" data-kpi="ready" data-color="#2D7A55" style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
+          <span class="req-kpi-label">Ready To Go · No Assignment</span>
+          <span class="req-kpi-value" style="color:#2D7A55;" id="saKpiReady">${readyNoAsgn}</span>
+          <span class="req-kpi-sub">no sign-on date set</span>
+        </div>
+        <div class="req-kpi-card" data-kpi="hasAsgn" data-color="#B87A14" style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
+          <span class="req-kpi-label">Have Assignment · Not Ready</span>
+          <span class="req-kpi-value" style="color:#B87A14;" id="saKpiHasAsgn">${hasAsgnNotRdy}</span>
+          <span class="req-kpi-sub">future sign-on, docs incomplete</span>
+        </div>
+        <div class="req-kpi-card" data-kpi="noAsgnNotReady" data-color="#B01A18" style="cursor:pointer;transition:outline 0.15s,box-shadow 0.15s,transform 0.15s;">
+          <span class="req-kpi-label">No Assignment · Not Ready</span>
+          <span class="req-kpi-value" style="color:#B01A18;" id="saKpiNoAsgnNotReady">${noAsgnNotReady}</span>
+          <span class="req-kpi-sub">no sign-on, not ready to go</span>
+        </div>
+      </div>
+
+      <div class="card req-table-card">
+        <div class="req-table-outer">
+          <table id="saMainTable">
+            <thead>
+              <tr id="saSortRow">
+                <th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);">Actions</th>
+                ${thSort}
+              </tr>
+            </thead>
+            <tbody id="saTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM TAB -->
+    <div id="saTabForm" style="display:none;">
+      <div class="card" style="padding:20px 24px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">Document Collection Form</div>
+        <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:14px;">
+          Open the Zoho form to collect documents from a seafarer, or select a seafarer from the table in Report tab and use the "Send Form" button to open a prefilled link.
+        </div>
+        <a href="https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection"
+          target="_blank" rel="noopener"
+          style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;
+            background:#1B3A6B;color:#fff;font-size:12px;font-weight:600;text-decoration:none;
+            transition:background 0.15s;"
+          onmouseover="this.style.background='#142c52'" onmouseout="this.style.background='#1B3A6B'">
+          🔗 Open Document Collection Form
+        </a>
+        <div style="margin-top:20px;border-radius:10px;overflow:hidden;border:1px solid var(--border,#e5e7eb);">
+          <iframe src="https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection"
+            style="width:100%;height:680px;border:none;display:block;"
+            title="Document Collection Form"></iframe>
+        </div>
+      </div>
+    </div>`;
+};
+
+function renderSATableBody(rows) {
+  const tb = document.getElementById('saTableBody');
+  if (!tb) return;
+  if (!rows.length) {
+    const span = 1 + 8 + SA_STATUS_COLS.length;
+    tb.innerHTML = `<tr><td colspan="${span}" style="padding:24px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No seafarers match the filters.</td></tr>`;
+    return;
+  }
+  const fmtField = (r, field) => {
+    switch (field) {
+      case '_countdown': return sfCountdownBadge(r);
+      case 'onboardingStatus': return sfOnbBadge(r.onboardingStatus);
+      case '_ctiOffice': return _dash;
+      case 'fullName': return `<span style="font-weight:600;">${escH(r.fullName||'—')}</span>`;
+      case 'email': return r.email&&r.email!=='—'?`<a href="mailto:${escH(r.email)}" style="color:var(--text-muted,#888);font-size:11px;">${escH(r.email)}</a>`:_dash;
+      case 'seafarerIdNumber': return r.seafarerIdNumber?`<code style="font-size:11px;">${escH(String(r.seafarerIdNumber))}</code>`:_dash;
+      case 'cruiseLine': return sfCruiseBadge(r.cruiseLine);
+      case 'signOnDate': return r.signOnDate?`<span style="font-size:11.5px;">${escH(r.signOnDate)}</span>`:_dash;
+      default: return docStatusBadge(r[field]);
+    }
+  };
+  const fixedFields = ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'];
+  const allFields = [...fixedFields, ...SA_STATUS_COLS.map(c=>c.field)];
+  const FORM_URL = 'https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection';
+  tb.innerHTML = rows.map(r => {
+    const formUrl = `${FORM_URL}?Name=${encodeURIComponent(r.fullName||'')}&Email=${encodeURIComponent(r.email&&r.email!=='—'?r.email:'')}`;
+    const cells = allFields.map(f =>
+      `<td style="padding:9px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${fmtField(r,f)}</td>`
+    ).join('');
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);white-space:nowrap;">
+        <button class="sa-detail-btn" data-id="${escH(r.id)}"
+          style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;
+            color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
+        <a href="${escH(formUrl)}" target="_blank" rel="noopener"
+          style="font-size:10.5px;font-weight:600;border:1px solid #1B3A6B;background:transparent;
+            color:#1B3A6B;border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;text-decoration:none;">
+          Send Form</a>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+}
+
+function openSADetail(zohoId) {
+  const row = _sfRows.find(r => r.id === zohoId);
+  if (!row) return;
+  const m = ensureReqModal();
+  m.style.width = '520px';
+
+  // Group fields
+  const groups = [...new Set(SA_DOC_FIELDS.map(f=>f.group))];
+  const formHtml = groups.map(g => {
+    const gFields = SA_DOC_FIELDS.filter(f=>f.group===g);
+    const rows = gFields.map(c => {
+      const val = row[c.field] != null ? String(row[c.field]).replace(/^—$/,'') : '';
+      let input;
+      if (c.type === 'select') {
+        const opts = ['', ...(c.opts||[])].map(o =>
+          `<option value="${escH(o)}" ${o===val?'selected':''}>${o||'—'}</option>`).join('');
+        input = `<select data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}"
+          style="flex:1;min-width:0;padding:4px 6px;border-radius:5px;font-size:11.5px;font-family:inherit;
+            border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);">${opts}</select>`;
+      } else {
+        input = `<input data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}"
+          type="${c.type==='date'?'date':'text'}" value="${escH(val)}"
+          style="flex:1;min-width:0;padding:4px 8px;border-radius:5px;font-size:11.5px;font-family:inherit;
+            border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);">`;
+      }
+      return `<label style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border,#f3f3f3);">
+        <span style="flex:0 0 160px;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--text-muted,#888);">${escH(c.label)}</span>
+        ${input}
+      </label>`;
+    }).join('');
+    return `<div style="padding:6px 0 0;">
+      <div style="padding:4px 12px;font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+        color:var(--text-muted,#888);background:var(--bg-page,#f7f7f7);border-bottom:1px solid var(--border,#eee);">${escH(g)}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  const body = `
+    <div style="padding:8px 12px;background:var(--bg-page,#fafafa);font-size:10.5px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
+      <strong style="color:var(--text);">${escH(row.fullName||'—')}</strong>
+      ${row.seafarerIdNumber?` · <code style="font-size:10px;">${escH(String(row.seafarerIdNumber))}</code>`:''}
+      · ${sfCruiseBadge(row.cruiseLine)}
+    </div>
+    <div style="overflow-y:auto;max-height:60vh;"><form id="saDetailForm">${formHtml}</form></div>
+    <div style="padding:10px 12px;display:flex;gap:8px;align-items:center;background:var(--bg-page,#fafafa);border-top:1px solid var(--border,#eee);">
+      <span id="saDetailStatus" style="margin-right:auto;font-size:11px;color:var(--text-muted,#888);"></span>
+      <button id="saDetailCancel" style="padding:6px 14px;font-size:11.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;cursor:pointer;font-family:inherit;">Close</button>
+      <button id="saDetailSave" style="padding:6px 16px;font-size:11.5px;font-weight:600;border:none;background:#1B3A6B;color:#fff;border-radius:5px;cursor:pointer;font-family:inherit;">Save to Zoho</button>
+    </div>`;
+  openReqModal(`Document Detail`, body, { x: window.innerWidth/2 - 260, y: 60 });
+
+  document.getElementById('saDetailCancel')?.addEventListener('click', () => {
+    document.getElementById('reqDrillModal').style.display = 'none';
+  });
+  document.getElementById('saDetailSave')?.addEventListener('click', async () => {
+    const statusEl = document.getElementById('saDetailStatus');
+    const inputs = document.querySelectorAll('#saDetailForm [data-zoho]');
+    const changes = {};
+    inputs.forEach(inp => {
+      const zk = inp.dataset.zoho;
+      const fk = inp.dataset.field;
+      const oldVal = row[fk] != null ? String(row[fk]).replace(/^—$/,'') : '';
+      if (inp.value !== oldVal) changes[zk] = inp.value || null;
+    });
+    if (!Object.keys(changes).length) { if(statusEl) statusEl.textContent='No changes.'; return; }
+    if(statusEl) { statusEl.textContent='Saving…'; statusEl.style.color='var(--text-muted,#888)'; }
+    try {
+      const res = await fetch(`${WORKER_URL}/api/recruit/Candidates/${zohoId}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(changes),
+      });
+      const data = await res.json();
+      const code = data?.data?.[0]?.code;
+      if (code && code !== 'SUCCESS') throw new Error(data.data[0].message || code);
+      inputs.forEach(inp => { row[inp.dataset.field] = inp.value; });
+      if(statusEl) { statusEl.textContent='✓ Saved'; statusEl.style.color='#2D7A55'; }
+      renderSATableBody(_sfRows);
+    } catch(e) {
+      if(statusEl) { statusEl.textContent='✗ '+e.message; statusEl.style.color='#B01A18'; }
+    }
+  });
+}
+
+pageEvents.seafarerAttachment = function () {
+  let saActiveKpi = null, saSortF = null, saSortD = 1;
+
+  function saFiltered() {
+    const gCruise    = msGetVals('saCruiseFilter');
+    const gOnb       = msGetVals('saOnbFilter');
+    const gDocStatus = msGetVals('saDocStatusFilter');
+    const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
+    const today      = new Date(); today.setHours(0,0,0,0);
+    let out = _sfRows.filter(r => {
+      if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
+      if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
+      // Document status filter: include if ANY doc status field matches one of selected values
+      if (gDocStatus.length) {
+        const hasMatch = SA_STATUS_COLS.some(c => gDocStatus.includes(r[c.field]));
+        if (!hasMatch) return false;
+      }
+      if (search) {
+        const hay = [r.fullName,r.email,r.cruiseLine,r.onboardingStatus,r.seafarerIdNumber,
+          ...SA_STATUS_COLS.map(c=>r[c.field])].map(v=>String(v??'').toLowerCase()).join(' ');
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+    // KPI filter
+    if (saActiveKpi && saActiveKpi !== 'all') {
+      if (saActiveKpi==='ready') {
+        out = out.filter(r=>!r.signOnDate&&sfIsReadyToGo(r));
+      } else if (saActiveKpi==='hasAsgn') {
+        out = out.filter(r=>r.signOnDate&&new Date(r.signOnDate)>today&&
+          ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase()));
+      } else if (saActiveKpi==='noAsgnNotReady') {
+        out = out.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r));
+      }
+    }
+    if (saSortF) {
+      out = out.slice().sort((a,b) => {
+        if (saSortF==='_countdown') return (sfCountdownSort(a)-sfCountdownSort(b))*saSortD;
+        return String(a[saSortF]??'').localeCompare(String(b[saSortF]??''),undefined,{numeric:true})*saSortD;
+      });
+    }
+    return out;
+  }
+
+  function saApply() {
+    const rows = saFiltered();
+    renderSATableBody(rows);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const setT = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    setT('saKpiTotal', rows.length);
+    setT('saKpiReady', rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length);
+    setT('saKpiHasAsgn', rows.filter(r=>r.signOnDate&&new Date(r.signOnDate)>today&&
+      ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length);
+    setT('saKpiNoAsgnNotReady', rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length);
+    setT('saCount', `${rows.length} seafarer${rows.length!==1?'s':''}`);
+    document.querySelectorAll('#saKpiGrid [data-kpi]').forEach(card => {
+      const isActive = card.dataset.kpi===(saActiveKpi||'all');
+      const col = card.dataset.color||'#1B3A6B';
+      card.style.outline   = isActive ? `2px solid ${col}` : '';
+      card.style.boxShadow = isActive ? `0 2px 12px ${col}33` : '';
+      card.style.transform = isActive ? 'translateY(-1px)' : '';
+    });
+  }
+
+  // Tabs
+  document.querySelectorAll('#saTabbar .task-sub-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#saTabbar .task-sub-link').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('saTabReport').style.display = btn.dataset.tab==='report'?'':'none';
+      document.getElementById('saTabForm').style.display   = btn.dataset.tab==='form'?'':'none';
+    });
+  });
+
+  initMS();
+  ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(id=>msOnChange(id,saApply));
+  document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
+  document.getElementById('saClearBtn')?.addEventListener('click',()=>{
+    ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(msClear);
+    const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
+    saActiveKpi=null; saSortF=null; saSortD=1;
+    document.querySelectorAll('#saSortRow .sa-sort-icon').forEach(s=>s.textContent='⇅');
+    saApply();
+  });
+  document.querySelectorAll('#saKpiGrid [data-kpi]').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const kpi=card.dataset.kpi;
+      saActiveKpi=(saActiveKpi===kpi||kpi==='all')?null:kpi;
+      saApply();
+    });
+  });
+  document.querySelectorAll('#saSortRow th.sa-sortable').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const f=th.dataset.field;
+      if(saSortF===f) saSortD*=-1; else{saSortF=f;saSortD=1;}
+      document.querySelectorAll('#saSortRow .sa-sort-icon').forEach(s=>s.textContent='⇅');
+      th.querySelector('.sa-sort-icon').textContent=saSortD>0?'↑':'↓';
+      saApply();
+    });
+  });
+  // Detail button delegation
+  document.getElementById('saTableBody')?.addEventListener('click', e=>{
+    const btn=e.target.closest('.sa-detail-btn');
+    if(btn) openSADetail(btn.dataset.id);
+  });
+
+  renderSATableBody(_sfRows);
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REQUISITION PAGE — cruise job openings (Sea Based + River)
 // ═════════════════════════════════════════════════════════════════════════════
 const CRUISE_REQ_CATEGORIES = ['Sea Based', 'River'];
