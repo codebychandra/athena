@@ -19,6 +19,10 @@ id      = "254fed78908e48b9bbebdc149bf6f75a"
 [triggers]
 crons = ["*/15 * * * *"]
 
+# ── Plain vars (non-sensitive) ────────────────────────────────────────────
+[vars]
+ZOHO_DEPLOYMENT_SHEET_ID = "begbjf0b04d7026534b328e36baa0a9d82df7"
+
 # ── Secrets ───────────────────────────────────────────────────────────────
 # Set these once via Cloudflare dashboard → Workers → cti-athena → Settings → Variables
 # OR via command line:
