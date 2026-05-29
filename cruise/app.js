@@ -1861,7 +1861,8 @@ pages.visa = async function () {
   const kpiOktb     = rows.filter(r=>isNtp(r.oktbStatus)).length;
   const kpiNzeta    = rows.filter(r=>isNtp(r.nzetaStatus)).length;
   const kpiAtv      = rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp(r.atvStatus);}).length;
-  const kpiSchengen = rows.filter(r=>getVisaReqs(r).schengen==='Required').length;
+  const isSchengenNtp = r => (r.otherVisaName||'').toLowerCase().includes('schengen') && isNtp(r.otherVisaStatus);
+  const kpiSchengen = rows.filter(r=>getVisaReqs(r).schengen==='Required'||isSchengenNtp(r)).length;
   const kpiAssigned = rows.filter(r => !!(r.signOnDate||'').trim()).length;
 
   // ── Column definitions ─────────────────────────────────────────────────────
@@ -1954,7 +1955,7 @@ pages.visa = async function () {
       ${kpiCard('oktb',     'OKTB Required',         kpiOktb,      '#D97706','Need to Process in Zoho')}
       ${kpiCard('nzeta',    'NZeTA Required',        kpiNzeta,     '#0891B2','Need to Process in Zoho')}
       ${kpiCard('atv',      'ATV Required',          kpiAtv,       '#DC2626','rule required or Need to Process')}
-      ${kpiCard('schengen', 'Schengen Required',     kpiSchengen,  '#1D4ED8','port rule required')}
+      ${kpiCard('schengen', 'Schengen Required',     kpiSchengen,  '#1D4ED8','port rule or Other Visa NTP')}
     </div>
 
     <div class="card" style="padding:0;overflow:hidden;">
@@ -2010,7 +2011,8 @@ pageEvents.visa = function () {
     badge('OKTB',  false,                  r.oktbStatus);   // rule-only from Zoho status
     badge('NZeTA', vr.nzeta=== 'Required', r.nzetaStatus);
     badge('ATV',   vr.atv  === 'Required', r.atvStatus);
-    badge('Sch',   vr.schengen==='Required', null);
+    badge('Sch',   vr.schengen==='Required',
+                   (r.otherVisaName||'').toLowerCase().includes('schengen') ? r.otherVisaStatus : null);
     return items.length
       ? `<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:160px;">${items.join('')}</div>`
       : _dash;
@@ -2096,7 +2098,7 @@ pageEvents.visa = function () {
       else if (viActiveKpi==='oktb')     out=out.filter(r=>isNtp2(r.oktbStatus));
       else if (viActiveKpi==='nzeta')    out=out.filter(r=>isNtp2(r.nzetaStatus));
       else if (viActiveKpi==='atv')      out=out.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||isNtp2(r.atvStatus);});
-      else if (viActiveKpi==='schengen') out=out.filter(r=>getVisaReqs(r).schengen==='Required');
+      else if (viActiveKpi==='schengen') out=out.filter(r=>getVisaReqs(r).schengen==='Required'||((r.otherVisaName||'').toLowerCase().includes('schengen')&&isNtp2(r.otherVisaStatus)));
     }
 
     // Sort
@@ -2199,11 +2201,13 @@ pageEvents.visa = function () {
         ${row('ATV Required',       reqBadge(vr.atv))}
         ${row('Schengen Required',  reqBadge(vr.schengen))}
         ${sec('Visa Status (Zoho)')}
-        ${row('C1/D Status',   docStatusBadge(r.c1dStatus))}
-        ${row('MCV Status',    docStatusBadge(r.mcvStatus))}
-        ${row('OKTB Status',   docStatusBadge(r.oktbStatus))}
-        ${row('NZeTA Status',  docStatusBadge(r.nzetaStatus))}
-        ${row('ATV Status',    docStatusBadge(r.atvStatus))}
+        ${row('C1/D Status',        docStatusBadge(r.c1dStatus))}
+        ${row('MCV Status',         docStatusBadge(r.mcvStatus))}
+        ${row('OKTB Status',        docStatusBadge(r.oktbStatus))}
+        ${row('NZeTA Status',       docStatusBadge(r.nzetaStatus))}
+        ${row('ATV Status',         docStatusBadge(r.atvStatus))}
+        ${r.otherVisaName ? row('Other Visa Name',   escH(r.otherVisaName)) : ''}
+        ${r.otherVisaName ? row('Other Visa Status', docStatusBadge(r.otherVisaStatus)) : ''}
         ${sec('Notes')}
         <div style="font-size:11px;color:var(--text-muted,#888);line-height:1.6;padding:4px 0;">
           ${escH(vr.notes)}
