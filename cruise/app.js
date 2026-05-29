@@ -1210,21 +1210,25 @@ pageEvents.seafarer = function () {
       options:sfBaseOpts,
     });
     if (onContext) {
-      el.oncontextmenu = ev => {
-        const pts = chart.getElementsAtEventForMode(ev,'nearest',{intersect:true},true);
+      // Track last mouse position — contextmenu event coords are unreliable in Chart.js
+      let mx = 0, my = 0;
+      el.addEventListener('mousemove', e => { mx = e.offsetX; my = e.offsetY; });
+      el.addEventListener('contextmenu', ev => {
+        ev.preventDefault(); // always suppress browser menu
+        const pts = chart.getElementsAtEventForMode(
+          { x: mx, y: my }, 'nearest', { intersect: false }, true
+        );
         if (pts.length) {
-          ev.preventDefault();
-          onContext(chart.data.labels[pts[0].index], { x:ev.clientX, y:ev.clientY });
+          onContext(chart.data.labels[pts[0].index], { x: ev.clientX, y: ev.clientY });
         }
-      };
+      });
     }
     window._sfCharts[id] = chart;
   };
 
   // ── Drill-down helpers ────────────────────────────────────────────────────
   const sfDrillTable = (title, drillRows, at) => {
-    if (!drillRows.length) return;
-    const body = `
+    const body = drillRows.length ? `
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr>
@@ -1242,7 +1246,8 @@ pageEvents.seafarer = function () {
             <td style="${DRILL_TD}font-size:10px;">${escH(r.positionHired||'—')}</td>
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>`
+      : `<div style="padding:20px;text-align:center;color:var(--text-muted,#888);font-size:11px;">No records found.</div>`;
     openReqModal(title, body, at);
   };
 
