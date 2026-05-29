@@ -218,6 +218,38 @@ async function fetchFinalInterviewSheet(env) {
   return all;
 }
 
+// ── Microsoft Graph — send email via cti-it-team@cti-usa.com ─────────────
+// Requires application permission Mail.Send granted to the Azure app for this mailbox.
+// Secrets: MS_CLIENT_ID, MS_CLIENT_SECRET, MS_TENANT_ID
+const MS_GRAPH_API  = 'https://graph.microsoft.com/v1.0';
+const MS_AUTH_URL   = 'https://login.microsoftonline.com';
+const SA_SEND_FROM  = 'cti-it-team@cti-usa.com';
+
+function escHTML(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function getMSToken(env) {
+  try {
+    const cached = await env.TOKEN_CACHE.get('ms_graph_token', { type: 'json' });
+    if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
+  } catch (_) {}
+
+  const body = new URLSearchParams({
+    client_id:     env.MS_CLIENT_ID,
+    client_secret: env.MS_CLIENT_SECRET,
+    scope:         'https://graph.microsoft.com/.default',
+    grant_type:    'client_credentials',
+  });
+  const res  = await fetch(`${MS_AUTH_URL}/${env.MS_TENANT_ID}/oauth2/v2.0/token`, { method: 'POST', body });
+  const data = await res.json();
+  if (data.error) throw new Error(`MS Graph auth: ${data.error_description || data.error}`);
+
+  const entry = { token: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
+  await env.TOKEN_CACHE.put('ms_graph_token', JSON.stringify(entry), { expirationTtl: 3540 });
+  return entry.token;
+}
+
 // ── KV data cache helpers ─────────────────────────────────────────────────
 async function getCached(env, key) {
   try { return await env.TOKEN_CACHE.get(key, { type: 'json' }); } catch (_) { return null; }
@@ -1109,6 +1141,66 @@ export default {
         const data    = await zPatch(`${ZOHO_CRM}/${module}/${id}`, token, body);
         await clearCached(env, 'crm-j1-participants');
         return json(data, 200, ch);
+      }
+
+      // ── POST /api/cruise/send-form ─────────────────────────────────────
+      // Sends the Zoho document collection form link to a seafarer's email via
+      // Microsoft Graph using cti-it-team@cti-usa.com (Mail.Send app permission).
+      // Required env secrets: MS_CLIENT_ID, MS_CLIENT_SECRET, MS_TENANT_ID
+      if (method === 'POST' && path === '/api/cruise/send-form') {
+        const body = await request.json().catch(() => ({}));
+        const { to, name, formLink } = body;
+        if (!to || !name || !formLink) return json({ error: 'Missing to, name or formLink' }, 400, ch);
+
+        const token = await getMSToken(env);
+        const html  = `
+<div style="font-family:Arial,sans-serif;max-width:560px;color:#1A1A1A;">
+  <div style="background:#B01A18;padding:18px 24px;border-radius:8px 8px 0 0;">
+    <img src="https://cti-usa.com/img/cti-logo-white.png" alt="CTI Group" height="32"
+         onerror="this.style.display='none'">
+    <span style="display:inline-block;color:#fff;font-size:16px;font-weight:700;vertical-align:middle;margin-left:8px;">CTI Group</span>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:28px 24px;border-radius:0 0 8px 8px;">
+    <p style="margin:0 0 14px;">Dear <strong>${escHTML(name)}</strong>,</p>
+    <p style="margin:0 0 14px;">We hope this message finds you well.</p>
+    <p style="margin:0 0 14px;">As part of your onboarding process with <strong>CTI Group</strong>, we kindly request that you complete and submit the required document collection form at your earliest convenience.</p>
+    <p style="margin:0 0 20px;">Please click the button below to access your personalized form:</p>
+    <p style="margin:0 0 24px;text-align:center;">
+      <a href="${escHTML(formLink)}"
+         style="display:inline-block;background:#B01A18;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+        Submit Documents
+      </a>
+    </p>
+    <p style="margin:0 0 14px;font-size:12px;color:#666;">
+      If the button does not work, copy and paste this link into your browser:<br>
+      <a href="${escHTML(formLink)}" style="color:#B01A18;">${escHTML(formLink)}</a>
+    </p>
+    <p style="margin:0 0 8px;">If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.</p>
+    <p style="margin:0;">Thank you for your cooperation.</p>
+    <hr style="margin:20px 0;border:none;border-top:1px solid #e5e7eb;">
+    <p style="margin:0;font-size:12px;color:#888;">
+      <strong>CTI Group Worldwide Services, Inc.</strong><br>
+      Cruise Line Division · <a href="https://www.cti-usa.com" style="color:#B01A18;">www.cti-usa.com</a>
+    </p>
+  </div>
+</div>`;
+
+        const mail = {
+          message: {
+            subject: `Document Collection Request – ${name}`,
+            body: { contentType: 'HTML', content: html },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        };
+        const sendRes = await fetch(`${MS_GRAPH_API}/users/${SA_SEND_FROM}/sendMail`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(mail),
+        });
+        if (sendRes.status === 202) return json({ ok: true }, 200, ch);
+        const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
+        return json({ ok: false, error: errText }, 200, ch);
       }
 
       // ── 404 ───────────────────────────────────────────────────────────

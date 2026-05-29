@@ -819,28 +819,6 @@ pages.seafarer = async function () {
     ['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length;
   const noAsgnNotReady = _sfRows.filter(r => !r.signOnDate && !sfIsReadyToGo(r)).length;
 
-  const sfCFOpts = { onboardingStatus:onbSts, employmentStatus:empSts, positionHired:positions, cruiseLine:cruiseLines };
-
-  const thSort = SF_TABLE_COLS.map(c =>
-    `<th data-field="${c.field}" class="${c.noFilter?'':'sf-sortable'}"
-      style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
-        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
-        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;
-        ${c.noFilter?'':'cursor:pointer;user-select:none;'}">
-      ${escH(c.label)}${c.noFilter?'':' <span class="sf-sort-icon">⇅</span>'}
-    </th>`).join('');
-
-  const thFilter = SF_TABLE_COLS.map(c => {
-    if (c.noFilter)
-      return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
-    const opts = sfCFOpts[c.field];
-    const cell = opts
-      ? buildColMS(`sfCF_${c.field}`, opts)
-      : `<input class="sf-col-f" data-field="${c.field}" type="text" placeholder="—"
-          style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
-            border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
-    return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${cell}</th>`;
-  }).join('');
 
   return `
     <div class="req-page-header">
@@ -925,17 +903,7 @@ pages.seafarer = async function () {
       </div>
     </div>
 
-    <div class="card req-table-card">
-      <div class="req-table-outer">
-        <table id="sfMainTable">
-          <thead>
-            <tr id="sfSortRow">${thSort}</tr>
-            <tr id="sfColFilterRow">${thFilter}</tr>
-          </thead>
-          <tbody id="sfTableBody"></tbody>
-        </table>
-      </div>
-    </div>`;
+`;
 };
 
 function renderSFTableBody(rows) {
@@ -1084,8 +1052,6 @@ pageEvents.seafarer = function () {
     });
   });
   ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(id => msOnChange(id, sfApply));
-  document.querySelectorAll('[id^="sfCF_"]').forEach(el => msOnChange(el.id, sfApply));
-  document.querySelectorAll('.sf-col-f').forEach(inp => inp.addEventListener('input', sfApply));
   document.getElementById('sfSignOnDate')?.addEventListener('change', sfApply);
   document.getElementById('sfSignOnOp')?.addEventListener('change', sfApply);
   document.getElementById('sfSignOffDate')?.addEventListener('change', sfApply);
@@ -1093,29 +1059,16 @@ pageEvents.seafarer = function () {
   document.getElementById('sfGlobalSearch')?.addEventListener('input', sfApply);
   document.getElementById('sfClearBtn')?.addEventListener('click', () => {
     ['sfCruiseFilter','sfOnbFilter','sfEmpFilter'].forEach(msClear);
-    document.querySelectorAll('[id^="sfCF_"]').forEach(el => msClear(el.id));
-    document.querySelectorAll('.sf-col-f').forEach(inp => inp.value='');
     ['sfGlobalSearch','sfSignOnDate','sfSignOffDate'].forEach(id => {
       const el=document.getElementById(id); if(el) el.value='';
     });
     ['sfSignOnOp','sfSignOffOp'].forEach(id => {
       const el=document.getElementById(id); if(el) el.value='=';
     });
-    sfSortF=null; sfSortD=1; sfActiveKpi=null;
-    document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
+    sfActiveKpi=null;
     sfApply();
   });
-  document.querySelectorAll('#sfSortRow th.sf-sortable').forEach(th => {
-    th.addEventListener('click', () => {
-      const f = th.dataset.field;
-      if (sfSortF===f) sfSortD*=-1; else { sfSortF=f; sfSortD=1; }
-      document.querySelectorAll('#sfSortRow .sf-sort-icon').forEach(s=>s.textContent='⇅');
-      th.querySelector('.sf-sort-icon').textContent = sfSortD>0?'↑':'↓';
-      sfApply();
-    });
-  });
 
-  renderSFTableBody(_sfRows);   // initial fill
   renderSFCharts(_sfRows);      // initial charts
 };
 
@@ -1247,7 +1200,7 @@ pages.seafarerAttachment = async function () {
     ['2025','2026','2027','2028'].forEach(y=>{ if(!yrs.includes(y)) yrs.push(y); });
     return yrs.sort();
   })();
-  const SA_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const SA_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const today = new Date(); today.setHours(0,0,0,0);
   const total          = rows.length;
   const readyNoAsgn    = rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length;
@@ -1426,37 +1379,8 @@ function renderSATableBody(rows) {
   };
   const fixedFields = ['_countdown','onboardingStatus','_ctiOffice','fullName','email','seafarerIdNumber','cruiseLine','signOnDate'];
   const allFields = [...fixedFields, ...SA_STATUS_COLS.map(c=>c.field)];
-  const FORM_URL = 'https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection';
-  const buildSendFormMailto = r => {
-    const to      = (r.email && r.email !== '—') ? r.email : '';
-    const name    = r.fullName || 'Seafarer';
-    const formLink= `${FORM_URL}?Name=${encodeURIComponent(name)}&Email=${encodeURIComponent(to)}`;
-    const subject = encodeURIComponent(`Document Collection Request – ${name}`);
-    const body    = encodeURIComponent(
-`Dear ${name},
-
-We hope this message finds you well.
-
-As part of your onboarding process with CTI Group, we kindly request that you complete and submit the required document collection form at your earliest convenience.
-
-Please click the link below to access your personalized form:
-
-${formLink}
-
-If you have any questions or require assistance, please do not hesitate to contact your assigned coordinator.
-
-Thank you for your cooperation.
-
-Best regards,
-CTI Group Worldwide Services, Inc.
-Cruise Line Division
-https://www.cti-usa.com`
-    );
-    return to ? `mailto:${to}?subject=${subject}&body=${body}` : '#';
-  };
   tb.innerHTML = rows.map(r => {
-    const mailtoHref = buildSendFormMailto(r);
-    const hasEmail   = r.email && r.email !== '—';
+    const hasEmail = r.email && r.email !== '—';
     const cells = allFields.map(f =>
       `<td style="padding:9px 14px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;">${fmtField(r,f)}</td>`
     ).join('');
@@ -1465,12 +1389,15 @@ https://www.cti-usa.com`
         <button class="sa-detail-btn" data-id="${escH(r.id)}"
           style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;
             color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
-        <a href="${hasEmail ? escH(mailtoHref) : '#'}"
-          ${hasEmail ? '' : 'onclick="return false;" title="No email address on record"'}
+        <button class="sa-send-btn"
+          data-id="${escH(r.id)}"
+          data-email="${escH(hasEmail ? r.email : '')}"
+          data-name="${escH(r.fullName || '')}"
+          ${hasEmail ? '' : 'disabled title="No email address on record"'}
           style="font-size:10.5px;font-weight:600;border:1px solid ${hasEmail?'#B01A18':'#ccc'};background:transparent;
-            color:${hasEmail?'#B01A18':'#aaa'};border-radius:5px;padding:3px 9px;cursor:${hasEmail?'pointer':'not-allowed'};
-            font-family:inherit;text-decoration:none;">
-          Send Form</a>
+            color:${hasEmail?'#B01A18':'#aaa'};border-radius:5px;padding:3px 9px;
+            cursor:${hasEmail?'pointer':'not-allowed'};font-family:inherit;">
+          Send Form</button>
       </td>
       ${cells}
     </tr>`;
@@ -1552,7 +1479,7 @@ function openSADetail(zohoId) {
       if (code && code !== 'SUCCESS') throw new Error(data.data[0].message || code);
       inputs.forEach(inp => { row[inp.dataset.field] = inp.value; });
       if(statusEl) { statusEl.textContent='✓ Saved'; statusEl.style.color='#2D7A55'; }
-      renderSATableBody(_sfRows);
+      renderSATableBody(_saRows);
     } catch(e) {
       if(statusEl) { statusEl.textContent='✗ '+e.message; statusEl.style.color='#B01A18'; }
     }
@@ -1570,7 +1497,7 @@ pageEvents.seafarerAttachment = function () {
     const gSignOnYear   = msGetVals('saSignOnYear');
     const gDoc          = msGetVals('saDocFilter');
     const gDocStatus    = msGetVals('saDocStatusFilter');
-    const SA_MONTHS_ARR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const SA_MONTHS_ARR = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
     const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
     const soDate     = document.getElementById('saSignOnDate')?.value || '';
@@ -1725,7 +1652,51 @@ pageEvents.seafarerAttachment = function () {
     if(btn) openSADetail(btn.dataset.id);
   });
 
-  renderSATableBody(_sfRows);
+  // Send Form button delegation — POST to worker, sends via Microsoft Graph
+  const SA_FORM_URL = 'https://forms.zoho.com/ctigroupworldwideservices1/form/DocumentsCollection';
+  document.getElementById('saTableBody')?.addEventListener('click', async e=>{
+    const btn = e.target.closest('.sa-send-btn');
+    if (!btn || btn.disabled) return;
+    const { email, name } = btn.dataset;
+    if (!email) return;
+    const origText = btn.textContent.trim();
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    btn.style.color = '#888';
+    btn.style.borderColor = '#ccc';
+    try {
+      const formLink = `${SA_FORM_URL}?Name=${encodeURIComponent(name)}&Email=${encodeURIComponent(email)}`;
+      const res = await fetch(`${WORKER_URL}/api/cruise/send-form`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: email, name, formLink }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        btn.textContent = '✓ Sent';
+        btn.style.color = '#15803D';
+        btn.style.borderColor = '#15803D';
+      } else {
+        btn.textContent = '✗ Failed';
+        btn.style.color = '#B01A18';
+        btn.style.borderColor = '#B01A18';
+        console.error('Send Form error:', data.error);
+      }
+    } catch (err) {
+      btn.textContent = '✗ Error';
+      btn.style.color = '#B01A18';
+      btn.style.borderColor = '#B01A18';
+      console.error('Send Form network error:', err);
+    }
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = origText;
+      btn.style.color = '#B01A18';
+      btn.style.borderColor = '#B01A18';
+    }, 3000);
+  });
+
+  saApply();
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
