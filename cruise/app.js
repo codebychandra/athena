@@ -1133,7 +1133,7 @@ function docStatusBadge(s) {
   if (!s) return _dash;
   const col = DOC_STATUS_COLORS[s] || '#6B7280';
   return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
-    background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${escH(s)}</span>`;
+    background:${col}30;color:${col};border:1.5px solid ${col}80;white-space:nowrap;">${escH(s)}</span>`;
 }
 
 // Field definitions for the Detail modal — data-driven to keep code compact
