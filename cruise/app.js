@@ -1867,16 +1867,15 @@ pages.visa = async function () {
   // ── Column definitions ─────────────────────────────────────────────────────
   const VI_COLS = [
     { label:'Visa Required',     field:'_visaReq',         sort:false },
-    { label:'Countdown',         field:'_countdown',       sort:true  },
     { label:'Onboarding Status', field:'onboardingStatus', sort:true  },
-    { label:'CTI Office',        field:'ctiOffice',        sort:false },
+    { label:'Countdown',         field:'_countdown',       sort:true  },
+    { label:'Sign On Date',      field:'signOnDate',       sort:true  },
+    { label:'Sign On Port',      field:'signOnPort',       sort:true  },
+    { label:'Joining Ship',      field:'joiningShip',      sort:true  },
+    { label:'Cruise Line',       field:'cruiseLine',       sort:true  },
+    { label:'Seafarer ID',       field:'seafarerIdNumber', sort:true  },
     { label:'Name',              field:'fullName',         sort:true  },
     { label:'Email',             field:'email',            sort:true  },
-    { label:'Seafarer ID',       field:'seafarerIdNumber', sort:true  },
-    { label:'Cruise Line',       field:'cruiseLine',       sort:true  },
-    { label:'Joining Ship',      field:'joiningShip',      sort:true  },
-    { label:'Sign On Port',      field:'signOnPort',       sort:true  },
-    { label:'Sign On Date',      field:'signOnDate',       sort:true  },
   ];
 
   const thFCell = (c='') =>
@@ -2017,7 +2016,7 @@ pageEvents.visa = function () {
     const tbody = document.getElementById('viTableBody');
     if (!tbody) return;
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="12"
+      tbody.innerHTML = `<tr><td colspan="11"
         style="padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px;">
         No records found</td></tr>`;
       return;
@@ -2043,16 +2042,15 @@ pageEvents.visa = function () {
       return `<tr>
         ${td(detailBtn)}
         <td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);min-width:180px;">${visaReqCell(r)}</td>
-        ${td(sfCountdownBadge(r))}
         ${td(sfOnbBadge(r.onboardingStatus))}
-        ${td(r.ctiOffice?`<span style="font-size:11px;color:var(--text-muted,#888);">${escH(r.ctiOffice)}</span>`:_dash)}
-        ${td(`<span style="font-weight:600;">${escH(r.fullName||'—')}</span>`)}
-        ${td(`<span style="font-size:11.5px;">${escH(r.email||'—')}</span>`)}
-        ${td(`<span style="font-size:11.5px;">${escH(r.seafarerIdNumber||'—')}</span>`)}
-        ${td(sfCruiseBadge(r.cruiseLine))}
-        ${td(`<span style="font-size:11.5px;">${escH(r.joiningShip||'—')}</span>`)}
-        ${td(`<span style="font-size:11.5px;">${escH(r.signOnPort||'—')}</span>`)}
+        ${td(sfCountdownBadge(r))}
         ${td(r.signOnDate?`<span style="font-size:11.5px;">${escH(r.signOnDate)}</span>`:_dash)}
+        ${td(`<span style="font-size:11.5px;">${escH(r.signOnPort||'—')}</span>`)}
+        ${td(`<span style="font-size:11.5px;">${escH(r.joiningShip||'—')}</span>`)}
+        ${td(sfCruiseBadge(r.cruiseLine))}
+        ${td(`<span style="font-size:11.5px;">${escH(r.seafarerIdNumber||'—')}</span>`)}
+        ${td(`<span style="font-size:11.5px;">${escH(r.fullName||'—')}</span>`)}
+        ${td(`<span style="font-size:11.5px;">${escH(r.email||'—')}</span>`)}
       </tr>`;
     }).join('');
   }
