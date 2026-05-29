@@ -941,6 +941,43 @@ export default {
         return json(payload, 200, ch);
       }
 
+      // ── GET /api/recruit/candidates/:id/attachments ───────────────────
+      //    List attachment metadata for a Candidates record.
+      //    Scope: ZohoRecruit.modules.ALL (READ covers attachments)
+      const candidateAttachList = path.match(/^\/api\/recruit\/candidates\/([^/]+)\/attachments$/);
+      if (method === 'GET' && candidateAttachList) {
+        const [, candidateId] = candidateAttachList;
+        const token = await getToken(env);
+        const data  = await zGet(`${ZOHO_RECRUIT}/Candidates/${candidateId}/Attachments`, token);
+        if (data.code && data.code !== 0) {
+          const msg = String(data.message || JSON.stringify(data));
+          const status = msg.toLowerCase().includes('permission') || String(data.code) === 'REQUIRED_PERMISSION_DENIED' ? 403 : 400;
+          return json({ error: msg, zohoCode: data.code }, status, ch);
+        }
+        return json({ data: data.data || [] }, 200, ch);
+      }
+
+      // ── GET /api/recruit/candidates/:id/attachments/:attachId ─────────
+      //    Stream the attachment file back with its original Content-Type.
+      //    Zoho returns the raw file bytes; we forward them transparently.
+      const candidateAttachDl = path.match(/^\/api\/recruit\/candidates\/([^/]+)\/attachments\/([^/]+)$/);
+      if (method === 'GET' && candidateAttachDl) {
+        const [, candidateId, attachmentId] = candidateAttachDl;
+        const token   = await getToken(env);
+        const zohoUrl = `${ZOHO_RECRUIT}/Candidates/${candidateId}/Attachments/${attachmentId}`;
+        const zohoRes = await fetch(zohoUrl, { headers: { Authorization: `Zoho-oauthtoken ${token}` } });
+        if (!zohoRes.ok) {
+          const errText = await zohoRes.text().catch(() => '');
+          return json({ error: `Zoho attachment download failed (${zohoRes.status})`, detail: errText }, zohoRes.status, ch);
+        }
+        const contentType  = zohoRes.headers.get('Content-Type')  || 'application/octet-stream';
+        const disposition  = zohoRes.headers.get('Content-Disposition') || 'inline';
+        return new Response(zohoRes.body, {
+          status: 200,
+          headers: { ...ch, 'Content-Type': contentType, 'Content-Disposition': disposition },
+        });
+      }
+
       // ── PATCH /api/recruit/:module/:id ────────────────────────────────
       //    (Zoho Recruit uses PUT for updates)
       const recruitPatch = path.match(/^\/api\/recruit\/([^/]+)\/([^/]+)$/);
