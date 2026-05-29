@@ -1126,15 +1126,13 @@ pages.seafarer = async function () {
     <div class="req-chart-row">
       <div class="card req-chart-card">
         <div class="req-card-title">Active Seafarers by Cruise Line
-          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
-        </div>
+</div>
         <div class="req-card-sub">Count per cruise line</div>
         <canvas id="sfLineChart"></canvas>
       </div>
       <div class="card req-chart-card">
         <div class="req-card-title">Ready To Go · No Assignment by Cruise Line
-          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
-        </div>
+</div>
         <div class="req-card-sub">Ready seafarers awaiting deployment</div>
         <canvas id="sfReadyChart"></canvas>
       </div>
@@ -1143,15 +1141,13 @@ pages.seafarer = async function () {
     <div class="req-chart-row">
       <div class="card req-chart-card">
         <div class="req-card-title">Have Assignment · Not Ready by Cruise Line
-          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
-        </div>
+</div>
         <div class="req-card-sub">Rescheduled or Completing Documents · with sign-on date</div>
         <canvas id="sfHasAsgnChart"></canvas>
       </div>
       <div class="card req-chart-card">
         <div class="req-card-title">No Assignment · Not Ready by Cruise Line
-          <span class="req-drill-hint">↘ right-click a bar for drill-down</span>
-        </div>
+</div>
         <div class="req-card-sub">Rescheduled or Completing Documents · no sign-on date</div>
         <canvas id="sfNoAsgnNotRdyChart"></canvas>
       </div>
