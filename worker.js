@@ -14,7 +14,7 @@
 const ZOHO_ACCOUNTS = 'https://accounts.zoho.com';
 const ZOHO_RECRUIT  = 'https://recruit.zoho.com/recruit/v2';
 const ZOHO_CRM      = 'https://www.zohoapis.com/crm/v2';
-const DATA_TTL      = 600;   // 10-minute data cache (seconds)
+const DATA_TTL      = 1800;  // 30-minute data cache (seconds)
 const TOKEN_TTL     = 3540;  // ~59-minute token cache (seconds)
 
 // ── Allowed origins (GitHub Pages + local dev) ────────────────────────────
@@ -92,20 +92,33 @@ async function zPatch(url, token, body) {
 }
 
 async function fetchAll(token, base, module, fields) {
-  let all = [], page = 1, more = true;
-  while (more) {
-    const params = { page, per_page: 200 };
+  // Fetch page 1 to learn if there are more records.
+  const buildParams = (page) => {
+    const p = { page, per_page: 200 };
     // Empty/null fields => let Zoho return every field on the layout.
     // (Some modules silently drop fields from the response when a long fields
     // list is requested.)
-    if (fields) params.fields = fields;
-    const data = await zGet(`${base}/${module}`, token, params);
-    const records = data.data || [];
-    all = all.concat(records);
-    more = data.info?.more_records === true;
-    page++;
-  }
-  return all;
+    if (fields) p.fields = fields;
+    return p;
+  };
+
+  const first = await zGet(`${base}/${module}`, token, buildParams(1));
+  const firstRecords = first.data || [];
+  if (!first.info?.more_records) return firstRecords;
+
+  // We have more pages — calculate how many and fetch them all in parallel.
+  const totalCount = first.info.count || firstRecords.length;
+  const perPage    = first.info.per_page || 200;
+  const totalPages = Math.ceil(totalCount / perPage);
+
+  const remaining = [];
+  for (let p = 2; p <= totalPages; p++) remaining.push(p);
+
+  const rest = await Promise.all(
+    remaining.map(p => zGet(`${base}/${module}`, token, buildParams(p)).then(d => d.data || []))
+  );
+
+  return firstRecords.concat(...rest);
 }
 
 // ── Zoho Sheet: read "CUK Final Interview" workbook ───────────────────────
@@ -1118,5 +1131,24 @@ export default {
       const status = (err.message === 'NOT_AUTHENTICATED' || err.message?.includes('invalid_code')) ? 401 : 500;
       return json({ error: err.message }, status, ch);
     }
+  },
+
+  // ── Cron Trigger: pre-warm cruise-seafarers cache every 15 min ────────────
+  // Keeps the KV cache hot so users almost never hit a cold Zoho fetch.
+  // Triggered by the schedule in wrangler.toml: "*/15 * * * *"
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      try {
+        const token = await getToken(env);
+        // Pre-warm seafarers (the heaviest fetch — all Zoho fields, multi-page)
+        const records = await fetchAll(token, ZOHO_RECRUIT, 'Candidates', null);
+        const data    = records.map(mapSeafarer);
+        const payload = { source: 'recruit-seafarers', count: data.length, data };
+        await setCached(env, 'cruise-seafarers', payload);
+        console.log(`[cron] cruise-seafarers refreshed: ${data.length} records`);
+      } catch (e) {
+        console.error('[cron] cruise-seafarers refresh failed:', e.message);
+      }
+    })());
   },
 };

@@ -250,18 +250,24 @@ let _seafarersCache = null;
 let _finalIntCache  = null;
 async function fetchCruiseData(forceRefresh) {
   if (forceRefresh) { _seafarersCache = null; _finalIntCache = null; }
-  if (!_seafarersCache) {
-    try {
-      const r = await safeJson(WORKER_URL + '/api/cruise/seafarers');
-      _seafarersCache = r.data || [];
-    } catch (e) { console.error('Seafarers fetch failed:', e); _seafarersCache = []; }
+
+  // Kick off both fetches in parallel — only fetch what is not yet cached.
+  const needSF = !_seafarersCache;
+  const needFI = !_finalIntCache;
+
+  if (needSF || needFI) {
+    const [sfRes, fiRes] = await Promise.all([
+      needSF
+        ? safeJson(WORKER_URL + '/api/cruise/seafarers').catch(e => { console.error('Seafarers fetch failed:', e); return {}; })
+        : Promise.resolve(null),
+      needFI
+        ? safeJson(WORKER_URL + '/api/cruise/final-interview').catch(e => { console.error('Final Interview fetch failed:', e); return {}; })
+        : Promise.resolve(null),
+    ]);
+    if (needSF) _seafarersCache = sfRes?.data || [];
+    if (needFI) _finalIntCache  = fiRes?.data || [];
   }
-  if (!_finalIntCache) {
-    try {
-      const r = await safeJson(WORKER_URL + '/api/cruise/final-interview');
-      _finalIntCache = r.data || [];
-    } catch (e) { console.error('Final Interview fetch failed:', e); _finalIntCache = []; }
-  }
+
   return { seafarers: _seafarersCache, finalInt: _finalIntCache };
 }
 

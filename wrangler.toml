@@ -13,6 +13,12 @@ compatibility_date = "2024-09-23"
 binding = "TOKEN_CACHE"
 id      = "254fed78908e48b9bbebdc149bf6f75a"
 
+# ── Cron Trigger: pre-warm cruise-seafarers cache ─────────────────────────
+# Runs every 15 minutes so the KV cache never goes cold between user visits.
+# DATA_TTL = 1800s (30 min) — each cron run refreshes well before expiry.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # ── Secrets ───────────────────────────────────────────────────────────────
 # Set these once via Cloudflare dashboard → Workers → cti-athena → Settings → Variables
 # OR via command line:
