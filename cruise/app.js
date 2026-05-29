@@ -1257,6 +1257,26 @@ pages.seafarerAttachment = async function () {
   const onbOpts = onbSts;
   const cruiseOpts = cruiseLines;
 
+  // ── Filter row: text inputs for Name/Email/SeafarerID; MS for each status col ──
+  const thfCell = (content='') =>
+    `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${content}</th>`;
+  const textInput = f =>
+    `<input id="saCF_${f}" class="sa-col-f" data-field="${f}" type="text" placeholder="—"
+      style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
+        border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+  const thFilter = [
+    thfCell(),                              // Actions
+    thfCell(),                              // Countdown
+    thfCell(),                              // Onboarding Status (global filter)
+    thfCell(),                              // CTI Office (no filter)
+    thfCell(textInput('fullName')),          // Name
+    thfCell(textInput('email')),             // Email
+    thfCell(textInput('seafarerIdNumber')),  // Seafarer ID
+    thfCell(),                              // Cruise Line (global filter)
+    thfCell(),                              // Sign On Date (global filter)
+    ...SA_STATUS_COLS.map(c => thfCell(buildColMS('saCF_'+c.field, DOC_STATUS_OPTS))),
+  ].join('');
+
   return `
     <div class="req-page-header">
       <h1>Attachment <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:#FFF3CD;color:#856404;vertical-align:middle;margin-left:6px;">Beta</span></h1>
@@ -1326,6 +1346,7 @@ pages.seafarerAttachment = async function () {
                 <th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);">Actions</th>
                 ${thSort}
               </tr>
+              <tr id="saFilterRow">${thFilter}</tr>
             </thead>
             <tbody id="saTableBody"></tbody>
           </table>
@@ -1493,16 +1514,36 @@ pageEvents.seafarerAttachment = function () {
     const search     = (document.getElementById('saGlobalSearch')?.value||'').trim().toLowerCase();
     const soOp       = document.getElementById('saSignOnOp')?.value  || '=';
     const soDate     = document.getElementById('saSignOnDate')?.value || '';
+    // Column text filters
+    const colText = {};
+    ['fullName','email','seafarerIdNumber'].forEach(f => {
+      const v = (document.getElementById('saCF_'+f)?.value||'').trim().toLowerCase();
+      if (v) colText[f] = v;
+    });
+    // Column status MS filters
+    const colMS = {};
+    SA_STATUS_COLS.forEach(c => {
+      const v = msGetVals('saCF_'+c.field);
+      if (v.length) colMS[c.field] = v;
+    });
     const today      = new Date(); today.setHours(0,0,0,0);
     let out = _saRows.filter(r => {
       if (gCruise.length && !gCruise.includes(r.cruiseLine)) return false;
       if (gOnb.length    && !gOnb.includes(r.onboardingStatus)) return false;
-      // Document status filter: include if ANY doc status field matches one of selected values
+      // Global document status filter: include if ANY doc status field matches
       if (gDocStatus.length) {
         const hasMatch = SA_STATUS_COLS.some(c => gDocStatus.includes(r[c.field]));
         if (!hasMatch) return false;
       }
       if (soDate && !sfDateOp(r.signOnDate, soOp, soDate)) return false;
+      // Column text filters (Name, Email, Seafarer ID)
+      for (const [f,v] of Object.entries(colText)) {
+        if (!String(r[f]??'').toLowerCase().includes(v)) return false;
+      }
+      // Column status MS filters (per-status-column)
+      for (const [f,v] of Object.entries(colMS)) {
+        if (!v.includes(r[f])) return false;
+      }
       if (search) {
         const hay = [r.fullName,r.email,r.cruiseLine,r.onboardingStatus,r.seafarerIdNumber,
           ...SA_STATUS_COLS.map(c=>r[c.field])].map(v=>String(v??'').toLowerCase()).join(' ');
@@ -1565,11 +1606,17 @@ pageEvents.seafarerAttachment = function () {
   document.getElementById('saGlobalSearch')?.addEventListener('input',saApply);
   document.getElementById('saSignOnOp')?.addEventListener('change',saApply);
   document.getElementById('saSignOnDate')?.addEventListener('change',saApply);
+  // Column text filters
+  document.querySelectorAll('.sa-col-f').forEach(inp=>inp.addEventListener('input',saApply));
+  // Column status MS filters
+  SA_STATUS_COLS.forEach(c=>msOnChange('saCF_'+c.field,saApply));
   document.getElementById('saClearBtn')?.addEventListener('click',()=>{
     ['saCruiseFilter','saOnbFilter','saDocStatusFilter'].forEach(msClear);
     const gs=document.getElementById('saGlobalSearch'); if(gs) gs.value='';
     const soOp=document.getElementById('saSignOnOp'); if(soOp) soOp.value='=';
     const soD=document.getElementById('saSignOnDate'); if(soD) soD.value='';
+    document.querySelectorAll('.sa-col-f').forEach(inp=>inp.value='');
+    SA_STATUS_COLS.forEach(c=>msClear('saCF_'+c.field));
     saActiveKpi=null; saSortF=null; saSortD=1;
     document.querySelectorAll('#saSortRow .sa-sort-icon').forEach(s=>s.textContent='⇅');
     saApply();
