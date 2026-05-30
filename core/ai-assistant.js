@@ -507,6 +507,7 @@
 
   // ── Voice input ───────────────────────────────────────────────────────────
   let _finalTranscript = '';   // accumulated confirmed words
+  let _sendTimer = null;       // debounce: auto-send after pause
 
   function setLiveText(interim) {
     const el = $id('cti-ai-live');
@@ -533,8 +534,16 @@
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) _finalTranscript += t + ' ';
-        else interim += t;
+        if (e.results[i].isFinal) {
+          _finalTranscript += t + ' ';
+          // Reset pause timer — send after 1.5s of silence
+          clearTimeout(_sendTimer);
+          _sendTimer = setTimeout(() => {
+            if (_listening && _finalTranscript.trim()) stopListening();
+          }, 1500);
+        } else {
+          interim += t;
+        }
       }
       setLiveText(interim);
     };
@@ -563,6 +572,7 @@
 
   function stopListening() {
     _listening = false;
+    clearTimeout(_sendTimer);
     const btn = $id('cti-ai-mic');
     if (btn) btn.classList.remove('cti-mic-active');
     const live = $id('cti-ai-live');
@@ -605,7 +615,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: _messages.slice(-MAX_HISTORY),
-          context:  window.CTI_PAGE_CONTEXT?.summary || '',
+          context:  window.CTI_FULL_CONTEXT || window.CTI_PAGE_CONTEXT?.summary || '',
         }),
       });
 

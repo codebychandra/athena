@@ -1034,6 +1034,7 @@ pages.seafarer = async function () {
 
   const RESIGNED = new Set(['resign','resigned']);
   _sfRows = allRows.filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
+  setTimeout(buildFullPortalContext, 0); // update AI context after data loads
 
   if (errorMsg) return `
     <div class="req-page-header"><h1>Seafarer</h1></div>
@@ -3073,6 +3074,7 @@ pages.deployment = async function () {
     const r = await safeJson(WORKER_URL + '/api/cruise/deployment?_v=2');
     _depRows = r.data || [];
   } catch (_) { _depRows = []; }
+  setTimeout(buildFullPortalContext, 0); // update AI context after deployment data loads
 
   const raw  = _depRows;
   const first = raw[0] || {};
@@ -4923,6 +4925,86 @@ async function downloadBrandPDF(brand, reportDate, seafarers, finalInt, notes) {
   await pdfFromHTML(html, reportFilename(brand, reportDate));
   logHistory(brand, fmtReportDate(reportDate));
   renderHistory();
+}
+
+// ── AI: full portal context builder ──────────────────────────────────────────
+// Called after any major data load so CTI AI knows everything in the portal.
+function buildFullPortalContext() {
+  const now = new Date();
+  const curYear = now.getFullYear(), curMonth = now.getMonth();
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const top = (obj, n) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,v])=>`${k}(${v})`).join(', ');
+  const sections = [];
+
+  // ── Seafarers ────────────────────────────────────────────────────────────
+  if (_sfRows.length) {
+    const byCL={}, byOnb={};
+    _sfRows.forEach(r=>{
+      const cl=r.cruiseLine||'—'; if(cl!=='—') byCL[cl]=(byCL[cl]||0)+1;
+      const ob=r.onboardingStatus||'—'; if(ob!=='—') byOnb[ob]=(byOnb[ob]||0)+1;
+    });
+    const ready = _sfRows.filter(r=>sfIsReadyToGo(r)&&!r.signOnDate).length;
+    sections.push([
+      `SEAFARERS (all active, resigned excluded):`,
+      `  Total: ${_sfRows.length} | Ready/No Assignment: ${ready}`,
+      `  Cruise Lines: ${top(byCL,5)}`,
+      `  Onboarding Status: ${top(byOnb,6)}`,
+    ].join('\n'));
+  }
+
+  // ── Visa ──────────────────────────────────────────────────────────────────
+  if (_vRows.length) {
+    const isNtp = s=>(s||'').trim().toLowerCase()==='need to process';
+    const c1d = _vRows.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||isNtp(r.c1dStatus);}).length;
+    const mcv = _vRows.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||isNtp(r.mcvStatus);}).length;
+    const oktb= _vRows.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||isNtp(r.oktbStatus);}).length;
+    sections.push([
+      `VISA TRACKING (CTI Indonesia, non-resigned):`,
+      `  Total: ${_vRows.length} | C1/D needed: ${c1d} | MCV needed: ${mcv} | OKTB needed: ${oktb}`,
+    ].join('\n'));
+  }
+
+  // ── Deployment ────────────────────────────────────────────────────────────
+  if (_depRows.length) {
+    const first = _depRows[0]||{};
+    const tryCol = (...opts) => opts.find(k=>k in first)||opts[0];
+    const COL = {
+      cruiseLine: tryCol('Cruise Line','Brand'),
+      empStatus:  tryCol('Employment Status'),
+      ctiOff:     tryCol('CTI Office Analytics','CTI Office'),
+      date:       tryCol('Sign On Date','Date','Deployment Date'),
+    };
+    const vv = (r,c) => (r[c]||'').toString().trim();
+    const byCL={}, byEmp={}, byOff={};
+    let thisYr=0, lastYr=0, thisMo=0;
+    _depRows.forEach(r=>{
+      const cl=vv(r,COL.cruiseLine); if(cl) byCL[cl]=(byCL[cl]||0)+1;
+      const es=vv(r,COL.empStatus);  if(es) byEmp[es]=(byEmp[es]||0)+1;
+      const co=vv(r,COL.ctiOff);     if(co) byOff[co]=(byOff[co]||0)+1;
+      const d=depParseDate(vv(r,COL.date));
+      if(d){
+        if(d.year===curYear&&d.month<=curMonth) thisYr++;
+        if(d.year===curYear-1&&d.month<=curMonth) lastYr++;
+        if(d.year===curYear&&d.month===curMonth) thisMo++;
+      }
+    });
+    const rep=_depRows.filter(r=>(vv(r,COL.empStatus)||'').toLowerCase()==='repeater').length;
+    const nh =_depRows.filter(r=>{const s=(vv(r,COL.empStatus)||'').toLowerCase();return s==='new hire'||s==='re hire';}).length;
+    sections.push([
+      `DEPLOYMENT (Zoho Sheet, all history):`,
+      `  Total records: ${_depRows.length.toLocaleString()}`,
+      `  ${curYear} YTD (Jan-${MONTH_NAMES[curMonth]}): ${thisYr} | ${curYear-1} same period: ${lastYr}`,
+      `  This month (${MONTH_NAMES[curMonth]} ${curYear}): ${thisMo}`,
+      `  Repeater: ${rep} | New/Re Hire: ${nh}`,
+      `  Top Cruise Lines: ${top(byCL,5)}`,
+      `  Top CTI Offices: ${top(byOff,4)}`,
+      `  Employment: ${top(byEmp,4)}`,
+    ].join('\n'));
+  }
+
+  if (!sections.length) return '';
+  window.CTI_FULL_CONTEXT = `Current page: ${window.CTI_PAGE_CONTEXT?.page||'—'}\n\n` + sections.join('\n\n');
+  return window.CTI_FULL_CONTEXT;
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
