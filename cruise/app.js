@@ -3057,8 +3057,8 @@ pages.deployment = async function () {
   const prevMonthYear = curMonth === 0 ? curYear - 1 : curYear;
 
   const kpiTotal     = raw.length;
-  const kpiThisYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
-  const kpiLastYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1; }).length;
+  const kpiThisYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear && d?.month<=curMonth; }).length;
+  const kpiLastYear  = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1 && d?.month<=curMonth; }).length;
   const kpiThisMonth = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
   const kpiLastMonth = raw.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===prevMonthYear&&d?.month===prevMonth; }).length;
   const kpiRepeater  = raw.filter(r=>(v(r,COL.empStatus)||'').toLowerCase()==='repeater').length;
@@ -3113,7 +3113,7 @@ pages.deployment = async function () {
 
     <div class="req-kpi-grid" id="depKpiGrid">
       ${kpiCard('all',      'Total Deployment',                    `${kpiTotal}`,                            '#1B3A6B', 'all records · click to reset')}
-      ${kpiCard('yoy',      `vs ${curYear-1}`,                     `${kpiThisYear}${pctBadge(yoyPct)}`,     '#2D7A55', `last year: ${kpiLastYear} · year-over-year`)}
+      ${kpiCard('yoy',      `vs ${curYear-1}`,                     `${kpiThisYear}${pctBadge(yoyPct)}`,     '#2D7A55', `Jan–${DEP_MONTH_NAMES[curMonth].slice(0,3)} ${curYear-1}: ${kpiLastYear}`)}
       ${kpiCard('mom',      `vs ${DEP_MONTH_NAMES[prevMonth]}`,    `${kpiThisMonth}${pctBadge(momPct)}`,    '#0891B2', `last month: ${kpiLastMonth} · month-over-month`)}
       ${kpiCard('emptype',  'Repeater / New Hire',
         `${kpiRepeater}<span style="font-size:14px;color:var(--text-muted,#888);margin:0 5px;">/</span><span style="color:#7C3AED;">${kpiNewHire}</span>`,
@@ -3243,8 +3243,8 @@ pageEvents.deployment = function () {
 
     // ── KPI value updates ───────────────────────────────────────────────────
     const setH = (id, html) => { const e=document.getElementById(id); if(e) e.innerHTML=html; };
-    const thisYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; }).length;
-    const lastYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1; }).length;
+    const thisYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear && d?.month<=curMonth; }).length;
+    const lastYr  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear-1 && d?.month<=curMonth; }).length;
     const thisMo  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; }).length;
     const lastMo  = rows.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===prevMonthYear&&d?.month===prevMonth; }).length;
     const yoy = lastYr  === 0 ? null : (thisYr - lastYr) / lastYr * 100;
