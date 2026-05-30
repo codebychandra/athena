@@ -1606,36 +1606,6 @@ pageEvents.j1visa = function () {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay')?.classList.remove('active');
   });
-
-  // ── Audio Summary ─────────────────────────────────────
-  if (visaBtn && window.speechSynthesis) {
-    visaBtn.addEventListener('click', () => {
-      const synth = window.speechSynthesis;
-      if (synth.speaking) { synth.cancel(); visaBtn.classList.remove('speaking'); return; }
-      const approved  = _currentRows.filter(r => r.visaStatus === 'Approved').length;
-      const rejected  = _currentRows.filter(r => /rejected/i.test(r.visaStatus)).length;
-      const pending   = _currentRows.filter(r => /pending/i.test(r.visaStatus)).length;
-      const upcoming  = _currentRows.filter(r => {
-        if (!r.visaAppointment || r.visaAppointment === '—') return false;
-        const d = new Date(r.visaAppointment); return !isNaN(d) && d >= new Date();
-      }).length;
-      const rate = (approved + rejected) > 0 ? Math.round(approved / (approved + rejected) * 100) : null;
-      const text =
-        `Visa Dashboard Summary for CTI Group J1 Program. ` +
-        `Currently showing ${_currentRows.length} participant record${_currentRows.length !== 1 ? 's' : ''} ` +
-        `out of ${allRows.length} total. ` +
-        `${approved} visa${approved !== 1 ? 's have' : ' has'} been approved` +
-        (rate !== null ? `, with a ${rate} percent approval rate` : '') + `. ` +
-        `${pending} application${pending !== 1 ? 's are' : ' is'} still pending. ` +
-        `${upcoming} participant${upcoming !== 1 ? 's have' : ' has'} an upcoming visa appointment scheduled.`;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.92; utter.pitch = 1;
-      utter.onstart = () => visaBtn.classList.add('speaking');
-      utter.onend   = () => visaBtn.classList.remove('speaking');
-      utter.onerror = () => visaBtn.classList.remove('speaking');
-      synth.speak(utter);
-    });
-  } else if (visaBtn) { visaBtn.style.opacity = '0.5'; }
 };
 
 // ============================
@@ -2520,32 +2490,6 @@ pageEvents.requisition = function () {
     e.preventDefault(); showChartPopup('reqDateChart','Opening by Start Date',e);
   });
 
-
- Audio Summary ─────────────────────────────────────
-  if (parBtn && window.speechSynthesis) {
-    parBtn.addEventListener('click', () => {
-      const synth = window.speechSynthesis;
-      if (synth.speaking) { synth.cancel(); parBtn.classList.remove('speaking'); return; }
-      const onboard   = _currentRows.filter(r => r.placementStatus === 'USA Onboard').length;
-      const completed = _currentRows.filter(r => r.placementStatus === 'Program Completed').length;
-      const countries = [...new Set(_currentRows.map(r => r.country).filter(v => v && v !== '—'))].length;
-      const sponsors  = [...new Set(_currentRows.map(r => r.processingSponsor).filter(v => v && v !== '—'))].length;
-      const text =
-        `Participant Dashboard Summary for CTI Group J1 Program. ` +
-        `Currently showing ${_currentRows.length} participant${_currentRows.length !== 1 ? 's' : ''} ` +
-        `out of ${allRows.length} total active records. ` +
-        `${onboard} participant${onboard !== 1 ? 's are' : ' is'} currently on board in the USA. ` +
-        `${completed} program${completed !== 1 ? 's have' : ' has'} been completed. ` +
-        `${countries} countr${countries !== 1 ? 'ies' : 'y'} represented, ` +
-        `across ${sponsors} processing sponsor${sponsors !== 1 ? 's' : ''}.`;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.92; utter.pitch = 1;
-      utter.onstart = () => parBtn.classList.add('speaking');
-      utter.onend   = () => parBtn.classList.remove('speaking');
-      utter.onerror = () => parBtn.classList.remove('speaking');
-      synth.speak(utter);
-    });
-  } else if (parBtn) { parBtn.style.opacity = '0.5'; }
 };
 
 // ============================
@@ -3119,32 +3063,6 @@ pageEvents.talentpool = function () {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay')?.classList.remove('active');
   });
-
-  // ── Audio Summary ─────────────────────────────────────
-  if (tpBtn && window.speechSynthesis) {
-    tpBtn.addEventListener('click', () => {
-      const synth = window.speechSynthesis;
-      if (synth.speaking) { synth.cancel(); tpBtn.classList.remove('speaking'); return; }
-      const salesCall  = _currentRows.filter(r => r.placementStatus === 'Sales Call').length;
-      const remaining  = parseInt(document.getElementById('tpKpiRemain')?.textContent?.replace(/,/g,'')) || 0;
-      const openings   = parseInt(document.getElementById('tpKpiTotal')?.textContent?.replace(/,/g,'')) || 0;
-      const sources    = [...new Set(_currentRows.map(r => r.programSource).filter(v => v && v !== '—'))].length;
-      const countries  = [...new Set(_currentRows.map(r => r.country).filter(v => v && v !== '—'))].length;
-      const text =
-        `Talent Pool Summary for CTI Group J1 Program. ` +
-        `Currently showing ${_currentRows.length} pre-placement candidate${_currentRows.length !== 1 ? 's' : ''} in the pipeline. ` +
-        `${salesCall} candidate${salesCall !== 1 ? 's are' : ' is'} in the active sales call stage. ` +
-        `${remaining} position${remaining !== 1 ? 's remain' : ' remains'} unfilled across ${openings} total open slots in active requisitions. ` +
-        `Candidates come from ${sources} source${sources !== 1 ? 's' : ''} ` +
-        `and represent ${countries} countr${countries !== 1 ? 'ies' : 'y'}.`;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.92; utter.pitch = 1;
-      utter.onstart = () => tpBtn.classList.add('speaking');
-      utter.onend   = () => tpBtn.classList.remove('speaking');
-      utter.onerror = () => tpBtn.classList.remove('speaking');
-      synth.speak(utter);
-    });
-  } else if (tpBtn) { tpBtn.style.opacity = '0.5'; }
 };
 
 // ── Housing page constants ─────────────────────────────
@@ -3578,36 +3496,6 @@ pageEvents.housing = function () {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay')?.classList.remove('active');
   });
-
-  // ── Audio Summary ─────────────────────────────────────
-  if (hsgBtn && window.speechSynthesis) {
-    hsgBtn.addEventListener('click', () => {
-      const synth = window.speechSynthesis;
-      if (synth.speaking) { synth.cancel(); hsgBtn.classList.remove('speaking'); return; }
-      const ctiHoused    = _currentRows.filter(r =>
-        (r.placementStatus === 'USA Onboard' || r.placementStatus === 'Program Completed') &&
-        r.housingAvailability === 'Available Through CTI').length;
-      const hostProvided = _currentRows.filter(r =>
-        r.housingAvailability === 'Provided by Host').length;
-      const demand       = _currentRows.filter(r =>
-        (r.placementStatus === 'Stage 2' || r.placementStatus === 'Stage 3' || r.placementStatus === 'Stage 4') &&
-        r.housingAvailability !== 'Provided by Host').length;
-      const hosts        = [...new Set(_currentRows.map(r => r.hostCompany).filter(v => v && v !== '—'))].length;
-      const text =
-        `Housing Dashboard Summary for CTI Group J1 Program. ` +
-        `Currently tracking ${_currentRows.length} approved participant${_currentRows.length !== 1 ? 's' : ''} ` +
-        `across ${hosts} hosting compan${hosts !== 1 ? 'ies' : 'y'}. ` +
-        `${ctiHoused} participant${ctiHoused !== 1 ? 's are' : ' is'} currently housed through CTI. ` +
-        `${hostProvided} participant${hostProvided !== 1 ? 's have' : ' has'} housing provided by their host company. ` +
-        `${demand} incoming participant${demand !== 1 ? 's are' : ' is'} in the pipeline requiring housing placement.`;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.92; utter.pitch = 1;
-      utter.onstart = () => hsgBtn.classList.add('speaking');
-      utter.onend   = () => hsgBtn.classList.remove('speaking');
-      utter.onerror = () => hsgBtn.classList.remove('speaking');
-      synth.speak(utter);
-    });
-  } else if (hsgBtn) { hsgBtn.style.opacity = '0.5'; }
 };
 
 // ============================
@@ -5660,34 +5548,6 @@ pageEvents.travel = function () {
     if (e.target === document.getElementById('modalOverlay'))
       document.getElementById('modalOverlay')?.classList.remove('active');
   });
-
-  // ── Audio Summary ─────────────────────────────────────
-  if (trvBtn && window.speechSynthesis) {
-    trvBtn.addEventListener('click', () => {
-      const synth = window.speechSynthesis;
-      if (synth.speaking) { synth.cancel(); trvBtn.classList.remove('speaking'); return; }
-      const depTotal     = depAllRows.length;
-      const depIssued    = depAllRows.filter(r => normalizeFlightStatus(r.flightBooked)        === 'Issued').length;
-      const depRequested = depAllRows.filter(r => normalizeFlightStatus(r.flightBooked)        === 'Requested').length;
-      const depNone      = depAllRows.filter(r => normalizeFlightStatus(r.flightBooked)        === 'No Ticket').length;
-      const retTotal     = retAllRows.length;
-      const retIssued    = retAllRows.filter(r => normalizeFlightStatus(r.returnFlightStatus)  === 'Issued').length;
-      const retRequested = retAllRows.filter(r => normalizeFlightStatus(r.returnFlightStatus)  === 'Requested').length;
-      const retNone      = retAllRows.filter(r => normalizeFlightStatus(r.returnFlightStatus)  === 'No Ticket').length;
-      const text =
-        `Travel Dashboard Summary for CTI Group J1 Program. ` +
-        `Departure tickets: ${depTotal} participant${depTotal !== 1 ? 's' : ''} with a program start date. ` +
-        `${depIssued} ticket${depIssued !== 1 ? 's' : ''} issued, ${depRequested} requested, and ${depNone} still unassigned. ` +
-        `Return tickets: ${retTotal} participant${retTotal !== 1 ? 's' : ''} with a program end date. ` +
-        `${retIssued} return ticket${retIssued !== 1 ? 's' : ''} issued, ${retRequested} requested, and ${retNone} still unassigned.`;
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.92; utter.pitch = 1;
-      utter.onstart = () => trvBtn.classList.add('speaking');
-      utter.onend   = () => trvBtn.classList.remove('speaking');
-      utter.onerror = () => trvBtn.classList.remove('speaking');
-      synth.speak(utter);
-    });
-  } else if (trvBtn) { trvBtn.style.opacity = '0.5'; }
 };
 
 // ── Marketing video playlist click ────────────────────────────
