@@ -1145,11 +1145,12 @@ pages.j1visa = async function () {
   const apptMonths = [...new Set(apptDates.map(d=>d.getMonth()))].sort((a,b)=>a-b);
 
   // Table headers
-  const thSort = VISA_TABLE_COLS.map(col =>
-    col.sortable
-      ? `<th data-visafield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;">${col.label} <span class="req-sort-icon">⇅</span></th>`
-      : `<th style="white-space:nowrap;">${col.label}</th>`
-  ).join('') + '<th style="width:52px;"></th>';
+  const thSort = VISA_TABLE_COLS.map(col => {
+    const w = col.minWidth ? `min-width:${col.minWidth};` : '';
+    return col.sortable
+      ? `<th data-visafield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;${w}">${col.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th style="white-space:nowrap;${w}">${col.label}</th>`;
+  }).join('') + '<th style="width:52px;"></th>';
 
   const sources    = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
   const placStats  = [...new Set(allRows.map(r=>r.placementStatus).filter(v=>v&&v!=='—'))].sort();
@@ -1171,7 +1172,8 @@ pages.j1visa = async function () {
     refLetterStatus:  refLetters,
   };
   const thFilter = VISA_TABLE_COLS.map(col => {
-    if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;">
+    const w = col.minWidth ? `min-width:${col.minWidth};` : '';
+    if (col.datecol) return `<th style="min-width:170px;padding:2px 4px;${w}">
       <div style="display:flex;gap:2px;align-items:center;">
         <select class="req-cf req-cf-date-cond" data-visafield="${escH(col.field)}"
           title="Before / On or Before / On / On or After / After"
@@ -1865,6 +1867,7 @@ function visaRejectionCount(status) {
   return 0;
 }
 const VISA_TABLE_COLS = [
+  { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true, minWidth:'320px' },
   { label:'J1 App Status',     field:'placementStatus',  sortable:true,  statusbadge:true },
   { label:'J1 Source',         field:'programSource',    sortable:true                    },
   { label:'First Name',        field:'firstName',        sortable:true                    },
@@ -1874,7 +1877,6 @@ const VISA_TABLE_COLS = [
   { label:'Eligible Programs', field:'eligiblePrograms', sortable:true                    },
   { label:'Country',           field:'country',          sortable:true                    },
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
-  { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true  },
   { label:'Expired Date',      field:'visaExpiredDate',  sortable:true,  datecol:true     },
   { label:'Support Letter',    field:'refLetterStatus',  sortable:true                    },
 ];
