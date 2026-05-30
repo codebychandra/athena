@@ -2241,14 +2241,6 @@ pageEvents.visa = function () {
   let viActiveKpi = null, viSortF = null, viSortD = 1;
   const setT = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
-  // Visa requirement badge
-  const vReqBadge = v => {
-    if (!v||v==='—') return _dash;
-    const c = {'Required':'#DC2626','Not Required':'#6B7280','Review':'#D97706',
-               'Review Port Requirement':'#1D4ED8'}[v]||'#6B7280';
-    return `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
-      background:${c}20;color:${c};border:1.5px solid ${c}60;white-space:nowrap;">${escH(v)}</span>`;
-  };
 
   // Compact badges for the combined Visa Required column
   const visaReqCell = r => {

@@ -1046,55 +1046,6 @@ function j1PanelSection(title, fields, color) {
   </div>`;
 }
 
-// Build executive summary text from live rows
-function generateJ1Summary(rows) {
-  const total = rows.length;
-  const today = new Date();
-
-  const males   = rows.filter(r => r['Gender'] === 'Male').length;
-  const females = rows.filter(r => r['Gender'] === 'Female').length;
-
-  const active = rows.filter(r => {
-    const s = parseZohoDate(r['Program Start Date']);
-    const e = parseZohoDate(r['Program End Date']);
-    return s && e && s <= today && e >= today;
-  }).length;
-
-  const hostMap = {};
-  rows.forEach(r => { const h = r['Hosting Company']||'Unknown'; hostMap[h]=(hostMap[h]||0)+1; });
-  const hostTop3 = Object.entries(hostMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
-
-  const jobMap = {};
-  rows.forEach(r => { const j = r['Selected Job']||'Unknown'; jobMap[j]=(jobMap[j]||0)+1; });
-  const jobTop = Object.entries(jobMap).sort((a,b)=>b[1]-a[1]);
-
-  const spMap = {};
-  rows.forEach(r => { const s = r['Processing Sponsor']||'Unknown'; spMap[s]=(spMap[s]||0)+1; });
-  const spList = Object.entries(spMap).sort((a,b)=>b[1]-a[1]);
-
-  const starts   = rows.map(r => parseZohoDate(r['Program Start Date'])).filter(Boolean);
-  const ends     = rows.map(r => parseZohoDate(r['Program End Date'])).filter(Boolean);
-  const minStart = starts.length ? new Date(Math.min(...starts.map(d=>d.getTime()))) : null;
-  const maxEnd   = ends.length   ? new Date(Math.max(...ends.map(d=>d.getTime())))   : null;
-
-  const durations = rows.map(r => {
-    const s = parseZohoDate(r['Program Start Date']);
-    const e = parseZohoDate(r['Program End Date']);
-    return (s && e) ? (e - s) / (1000 * 60 * 60 * 24 * 30.44) : null;
-  }).filter(Boolean);
-  const avgDur = durations.length
-    ? (durations.reduce((a,b)=>a+b,0) / durations.length).toFixed(1)
-    : 'N/A';
-
-  return `CTI Group's J1 Cultural Exchange currently has ${total} participants placed across ${Object.keys(hostMap).length} hosting companies. ` +
-    `${active} participants are actively on program in the United States right now. ` +
-    `Gender distribution is nearly balanced — ${males} male and ${females} female participants. ` +
-    `The top hosting partners are ${hostTop3.map(e=>`${e[0]} with ${e[1]} placements`).join(', ')}. ` +
-    `In terms of roles, ${jobTop[0][0]} is the most common position at ${Math.round(jobTop[0][1]/total*100)}% — ${jobTop[0][1]} of ${total} participants — followed by ${jobTop.slice(1).map(e=>`${e[0]} (${e[1]})`).join(', ')}. ` +
-    `For sponsorship, ${spList.map(e=>`${e[0]} handles ${e[1]} participants (${Math.round(e[1]/total*100)}%)`).join(', and ')}. ` +
-    `Programs span from ${fmtMonthYear(minStart)} to ${fmtMonthYear(maxEnd)}, with an average duration of ${avgDur} months per placement.`;
-}
-
 
 // ============================
 // PAGE: REPORTS

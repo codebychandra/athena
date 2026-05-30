@@ -118,30 +118,6 @@ const FINAL_INTERVIEW_TABS = [
   { name: 'CUK Maritime',                   defaultBrand: 'CUK Maritime' },
 ];
 
-function csvParseLine(line) {
-  const out = []; let cur = '', inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
-    else if (c === '"') { inQ = !inQ; }
-    else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
-    else { cur += c; }
-  }
-  out.push(cur);
-  return out.map(s => s.trim());
-}
-
-function csvToObjects(csv) {
-  const lines = csv.split(/\r?\n/).filter(l => l.length > 0);
-  if (lines.length < 2) return [];
-  const header = csvParseLine(lines[0]).map(h => h.replace(/^"|"$/g,''));
-  return lines.slice(1).map(line => {
-    const cells = csvParseLine(line).map(c => c.replace(/^"|"$/g,''));
-    const obj = {};
-    header.forEach((h, i) => { obj[h] = cells[i] ?? ''; });
-    return obj;
-  });
-}
 
 async function fetchSheetTabAsCSV(token, resourceId, worksheetName) {
   const body = new URLSearchParams({
@@ -874,150 +850,6 @@ export default {
         return json(payload, 200, ch);
       }
 
-      // ── GET /api/cruise/debug/record?id=<recordId> ─────────────────────
-      // Fetches a single Candidates record with EVERY field populated, so
-      // we can see exactly which API name holds the value the user expects.
-      if (method === 'GET' && path === '/api/cruise/debug/record') {
-        const id = url.searchParams.get('id');
-        if (!id) return json({ error: 'Pass ?id=<recordId>' }, 400, ch);
-        const token = await getToken(env);
-        const r = await fetch(`${ZOHO_RECRUIT}/Candidates/${id}`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` },
-        });
-        const data = await r.json();
-        // Filter to fields with a non-null value for easier reading
-        const rec = data.data?.[0] || {};
-        const filled = {};
-        Object.entries(rec).forEach(([k, v]) => {
-          if (v !== null && v !== '' && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v||{}).length === 0)) {
-            filled[k] = v;
-          }
-        });
-        return json({ id, filledFieldCount: Object.keys(filled).length, filled, raw: rec }, 200, ch);
-      }
-
-      // ── GET /api/cruise/debug/brandscan?brand=Cunard%20Line ────────────
-      // Walks every page of Candidates, counts how many records per brand
-      // pass the eligibility filter, and how many of those have a non-empty
-      // Crew_ID_Number / Position_Applied. Names the first 3 samples per
-      // bucket so we can confirm the right records are matching.
-      if (method === 'GET' && path === '/api/cruise/debug/brandscan') {
-        const brand = url.searchParams.get('brand') || 'Cunard Line';
-        const token = await getToken(env);
-        const fields = ['Full_Name','Cruise_Line','Employment_Status','Sign_On_Date',
-                        'Onboarding_Status','Position_Applied','Position_Hired_2',
-                        'Crew_ID_Number','Hired_Date'].join(',');
-        const eligibleOB = new Set(['Completing Documents','Ready to Go','Rescheduled']);
-        let all = [], page = 1, more = true;
-        while (more && page <= 50) {
-          const r = await zGet(`${ZOHO_RECRUIT}/Candidates`, token, { fields, page, per_page: 200 });
-          all = all.concat(r.data || []);
-          more = r.info?.more_records === true;
-          page++;
-        }
-        const totals = { scanned: all.length, brandMatch: 0, eligible: 0,
-                         withId: 0, withPos: 0, eligibleWithId: 0 };
-        const sampleIds = [], samplePos = [], sampleElig = [];
-        all.forEach(r => {
-          if (r.Cruise_Line !== brand) return;
-          totals.brandMatch++;
-          const eligible = r.Employment_Status === 'New Hire'
-            && !r.Sign_On_Date
-            && eligibleOB.has(r.Onboarding_Status);
-          if (eligible) totals.eligible++;
-          if (r.Crew_ID_Number) { totals.withId++; if (sampleIds.length < 3) sampleIds.push({
-            name: r.Full_Name, hired: r.Hired_Date, position: r.Position_Applied,
-            id: r.Crew_ID_Number, emp: r.Employment_Status, signOn: r.Sign_On_Date,
-            onb: r.Onboarding_Status,
-          });}
-          if (r.Position_Applied) { totals.withPos++; if (samplePos.length < 3) samplePos.push({
-            name: r.Full_Name, hired: r.Hired_Date, position: r.Position_Applied,
-          });}
-          if (eligible && r.Crew_ID_Number) { totals.eligibleWithId++;
-            if (sampleElig.length < 3) sampleElig.push({
-              name: r.Full_Name, position: r.Position_Applied, id: r.Crew_ID_Number,
-              hired: r.Hired_Date, onb: r.Onboarding_Status,
-            });
-          }
-        });
-        return json({ brand, totals, sampleIds, samplePos, sampleElig }, 200, ch);
-      }
-
-      // ── GET /api/cruise/debug/idsearch ─────────────────────────────────
-      // Searches the Candidates module for records that have a non-empty
-      // value in any of the ID-like fields, to find which one the team is
-      // actually populating.
-      if (method === 'GET' && path === '/api/cruise/debug/idsearch') {
-        const token = await getToken(env);
-        const probeFields = ['Candidate_ID','Crew_ID_Number','Temporary_ID','Crew_ID_2'];
-        const fields = ['Full_Name','Cruise_Line','Hired_Date','Position_Applied','Position_Hired_2',
-                        ...probeFields].join(',');
-        // Pull 5 pages = up to 1000 candidates
-        let all = [];
-        for (let page = 1; page <= 5; page++) {
-          const data = await zGet(`${ZOHO_RECRUIT}/Candidates`, token,
-            { fields, page, per_page: 200 });
-          all = all.concat(data.data || []);
-          if (!data.info?.more_records) break;
-        }
-        const counts = {}; probeFields.forEach(f => counts[f] = 0);
-        const samples = {}; probeFields.forEach(f => samples[f] = []);
-        all.forEach(r => {
-          probeFields.forEach(f => {
-            if (r[f] != null && r[f] !== '') {
-              counts[f]++;
-              if (samples[f].length < 2) samples[f].push({
-                full_name: r.Full_Name, cruise_line: r.Cruise_Line,
-                hired_date: r.Hired_Date, position_applied: r.Position_Applied,
-                position_hired_2: r.Position_Hired_2, [f]: r[f],
-              });
-            }
-          });
-        });
-        return json({ scanned: all.length, counts, samples }, 200, ch);
-      }
-
-      // ── GET /api/cruise/debug/fields?module=Candidates ─────────────────
-      // Lists every field on a Recruit module with its api_name + label so
-      // we can find the right name for Position Hired / Seafarer ID, etc.
-      if (method === 'GET' && path === '/api/cruise/debug/fields') {
-        const moduleName = url.searchParams.get('module') || 'Candidates';
-        const filter     = (url.searchParams.get('q') || '').toLowerCase();
-        const token = await getToken(env);
-        const r = await fetch(`${ZOHO_RECRUIT}/settings/fields?module=${moduleName}`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` },
-        });
-        const data = await r.json();
-        const all  = (data.fields || []).map(f => ({
-          api_name:    f.api_name,
-          field_label: f.field_label,
-          data_type:   f.data_type,
-        }));
-        const matches = filter
-          ? all.filter(f => (f.api_name + ' ' + f.field_label).toLowerCase().includes(filter))
-          : all;
-        return json({ moduleName, count: matches.length, fields: matches }, 200, ch);
-      }
-
-      // ── GET /api/cruise/debug/modules ──────────────────────────────────
-      // Lists every Recruit module API name so we can find the right one
-      // for the Seafarer / cruise records.
-      if (method === 'GET' && path === '/api/cruise/debug/modules') {
-        const token = await getToken(env);
-        const r = await fetch(`${ZOHO_RECRUIT}/settings/modules`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` },
-        });
-        const data = await r.json();
-        const summary = (data.modules || []).map(m => ({
-          api_name:     m.api_name,
-          plural_label: m.plural_label,
-          module_name:  m.module_name,
-          singular:     m.singular_label,
-          generated:    m.generated_type,
-          visible:      m.visibility,
-        }));
-        return json({ summary, raw: data }, 200, ch);
-      }
 
       // ── GET /api/cruise/seafarers ──────────────────────────────────────
       // Cruise hires live in the Recruit 'Candidates' module (the plural label
@@ -1091,11 +923,6 @@ export default {
             cf: { cacheEverything: false },   // bypass Cloudflare edge cache
           });
           const sheetText = await sheetRes.text();
-          // debug=raw or debug=1 → return raw Zoho text (first 800 chars) for diagnosis
-          if (debug === 'raw' || debug === '1') {
-            return json({ httpStatus: sheetRes.status, preview: sheetText.slice(0, 800) }, 200, ch);
-          }
-          // debug=force → skip KV, run full parse, return result (for cache-busting)
 
           const sheetData = JSON.parse(sheetText);
           // Zoho Sheet v2: { method, records: [{col:val,...}, ...] }
