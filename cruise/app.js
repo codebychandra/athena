@@ -3047,7 +3047,7 @@ pages.deployment = async function () {
   // ── Filter options ─────────────────────────────────────────────────────────
   const cruiseLines = [...new Set(raw.map(r=>v(r,COL.cruiseLine)).filter(Boolean))].sort();
   const empStatuses = [...new Set(raw.map(r=>v(r,COL.empStatus)).filter(Boolean))].sort();
-  const ctiOffices  = [...new Set(raw.map(r=>v(r,COL.ctiOffice)).filter(Boolean))].sort();
+  const ctiOffices  = [...new Set(raw.map(r=>v(r,COL.ctiOfficeAnalytics)).filter(Boolean))].sort();
   const years       = [...new Set(raw.map(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year; }).filter(Boolean))].sort((a,b)=>b-a);
 
   // ── KPI counts (full data) ─────────────────────────────────────────────────
@@ -3217,7 +3217,7 @@ pageEvents.deployment = function () {
     let out = raw.filter(r => {
       if (gLine.length && !gLine.includes(v(r,COL.cruiseLine)))  return false;
       if (gEmp.length  && !gEmp.includes(v(r,COL.empStatus)))    return false;
-      if (gOff.length  && !gOff.includes(v(r,COL.ctiOffice)))    return false;
+      if (gOff.length  && !gOff.includes(v(r,COL.ctiOfficeAnalytics))) return false;
       if (mo !== '' && mo !== undefined && mo !== null) {
         const d = depParseDate(v(r,COL.date));
         if (!d || d.month !== +mo) return false;
