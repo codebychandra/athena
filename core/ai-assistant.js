@@ -31,10 +31,13 @@
   // ── Helpers ───────────────────────────────────────────────────────────────
   function escAI(s) {
     return String(s || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      // strip markdown formatting
+      .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold** → plain
+      .replace(/\*(.+?)\*/g, '$1')        // *italic* → plain
+      .replace(/#{1,6}\s+/g, '')          // ## headings → plain
+      .replace(/`(.+?)`/g, '$1')          // `code` → plain
+      // newlines → line breaks
       .replace(/\n/g, '<br>');
   }
   function stripMd(s) {
@@ -354,7 +357,7 @@
     const btn = document.createElement('button');
     btn.id = 'cti-ai-btn';
     btn.title = 'CTI AI Assistant';
-    btn.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M14,5 C14,7.5 21,14 23,14 C21,14 14,21 14,23 C14,21 7,14 5,14 C7,14 14,7.5 14,5 Z"/><path d="M5.5,1.5 C5.5,2.5 8,5 9,5.5 C8,5.5 5.5,8 5.5,9 C5.5,8 3,5.5 2,5.5 C3,5.5 5.5,2.5 5.5,1.5 Z"/></svg>';
+    btn.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
     btn.setAttribute('aria-label', 'Open CTI AI Assistant');
 
     document.body.appendChild(panel);

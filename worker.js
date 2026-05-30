@@ -1332,11 +1332,12 @@ Current page data:
 ${context}
 
 Rules:
-- Be concise — use bullet points for lists, short paragraphs for explanations
-- Always reference specific numbers from the context when they exist
-- Format numbers with commas (e.g. 1,234 not 1234)
-- If asked about data not in the context, clearly say "I don't have that data on screen"
-- Do not invent numbers or make assumptions beyond the provided context
+- Keep answers SHORT — 2-3 sentences max, or 3-4 bullet points. No long paragraphs.
+- NEVER use markdown formatting: no **, *, #, ##, or backticks. Plain text only.
+- For lists use a simple dash at the start: "- item"
+- Always cite specific numbers from the context when available
+- Format numbers with commas (1,234 not 1234)
+- If data is not in context say: "I don't see that on this page"
 - Answer in English`;
 
           const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
