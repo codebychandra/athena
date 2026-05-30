@@ -4206,6 +4206,7 @@ pageEvents.housing = function () {
 
 // ── Return Home table columns ─────────────────────────────────
 const RH_TABLE_COLS = [
+  { label:'Days Left',        field:'_daysLeft',          sortable:true,  daysremaining:true },
   { label:'J1 App Status',    field:'placementStatus',    sortable:true,  statusbadge:true  },
   { label:'J1 Source',        field:'programSource',      sortable:true                     },
   { label:'First Name',       field:'firstName',          sortable:true                     },
@@ -4213,7 +4214,6 @@ const RH_TABLE_COLS = [
   { label:'Sponsor',          field:'processingSponsor',  sortable:true                     },
   { label:'Hosting Company',  field:'hostCompany',        sortable:true                     },
   { label:'Program End',      field:'programEnd',         sortable:true,  datecol:true      },
-  { label:'Days Left',        field:'_daysLeft',          sortable:true,  daysremaining:true },
   { label:'Return Ticket',    field:'returnFlightStatus', sortable:true,  flightbadge:true  },
   { label:'Return Departure', field:'returnDeparture',    sortable:true,  datecol:true      },
   { label:'Return Trip',      field:'_returnTrip',        sortable:false                    },
@@ -4327,6 +4327,7 @@ pages.returnhome = async function () {
           <option value="30">≤ 30 days</option>
           <option value="60">≤ 60 days</option>
           <option value="90">≤ 90 days</option>
+          <option value=">90">&gt; 90 days</option>
         </select>
       </span>
       <button id="rhClearBtn" class="req-clear-btn">Clear</button>
@@ -4505,12 +4506,20 @@ pageEvents.returnhome = function () {
 
     // Countdown filter
     if (countdown) {
-      const days = +countdown;
-      const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
-      filtered = filtered.filter(r => {
-        const d = r.programEnd ? new Date(r.programEnd) : null;
-        return d && !isNaN(d) && d <= cutoff;
-      });
+      if (countdown === '>90') {
+        const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + 90);
+        filtered = filtered.filter(r => {
+          const d = r.programEnd ? new Date(r.programEnd) : null;
+          return d && !isNaN(d) && d > cutoff;
+        });
+      } else {
+        const days = +countdown;
+        const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+        filtered = filtered.filter(r => {
+          const d = r.programEnd ? new Date(r.programEnd) : null;
+          return d && !isNaN(d) && d <= cutoff;
+        });
+      }
     }
 
     if (gSt.length)        filtered = filtered.filter(r => gSt.includes(r.placementStatus));
