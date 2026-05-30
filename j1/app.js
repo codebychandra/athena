@@ -41,7 +41,7 @@ const PAGE_TITLES = {
 };
 
 // Pages that are locked (no live data yet)
-const LOCKED_PAGES = new Set(['dashboard','analytics','cruise','marine','visa']);
+const LOCKED_PAGES = new Set(['dashboard','analytics','cruise','marine','visa','participant','clients']);
 
 // ── Locked page placeholder ───────────────────────────────────
 function lockedPage(name) {
@@ -2050,7 +2050,7 @@ pages.requisition = async function () {
         </table>
       </div>
     </div>
-
+
 
     ` : `
     <div class="card" style="text-align:center;padding:48px 24px;">
