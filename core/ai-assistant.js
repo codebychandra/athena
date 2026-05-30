@@ -539,7 +539,7 @@
           // Reset pause timer — send after 1.5s of silence
           clearTimeout(_sendTimer);
           _sendTimer = setTimeout(() => {
-            if (_listening && _finalTranscript.trim()) stopListening();
+            if (_listening && _finalTranscript.trim()) sendAndContinue();
           }, 1500);
         } else {
           interim += t;
@@ -570,6 +570,22 @@
     try { _recog.start(); } catch (_) { stopListening(); }
   }
 
+  // Auto-send after pause — keep mic on for follow-up questions
+  function sendAndContinue() {
+    const text = _finalTranscript.trim();
+    _finalTranscript = '';
+    const live = $id('cti-ai-live');
+    if (live) { live.textContent = 'Listening…'; }
+    if (text) {
+      const inp = $id('cti-ai-input');
+      if (inp) { inp.value = text; inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 80) + 'px'; }
+      sendMessage();
+      // Restart recognition so user can ask the next question immediately
+      try { if (_recog) { _recog.stop(); _recog.start(); } } catch (_) {}
+    }
+  }
+
+  // Full stop — called only when user manually clicks the mic button
   function stopListening() {
     _listening = false;
     clearTimeout(_sendTimer);
@@ -578,7 +594,7 @@
     const live = $id('cti-ai-live');
     if (live) live.style.display = 'none';
     try { if (_recog) _recog.stop(); } catch (_) {}
-    // Put finalized transcript into input and auto-send
+    // Send any remaining transcript
     const text = _finalTranscript.trim();
     _finalTranscript = '';
     if (text) {
