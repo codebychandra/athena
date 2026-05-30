@@ -5059,6 +5059,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ── Silent background preload — gives AI full knowledge from any page ─────
+  (async () => {
+    try {
+      // 1. Seafarers (same logic as pages.seafarer, but silent)
+      if (!_sfRows.length) {
+        const res = await safeJson(WORKER_URL + '/api/cruise/seafarers').catch(() => ({}));
+        const allRows = res.data || [];
+        const RESIGNED = new Set(['resign','resigned']);
+        _sfRows = allRows.filter(s => !RESIGNED.has((s.onboardingStatus||'').trim().toLowerCase()));
+      }
+      // 2. Deployment sheet (same as pages.deployment, but silent)
+      if (!_depRows.length) {
+        const res = await safeJson(WORKER_URL + '/api/cruise/deployment?_v=2').catch(() => ({}));
+        _depRows = res.data || [];
+      }
+      // 3. Build full AI context
+      buildFullPortalContext();
+    } catch (_) {}
+  })();
+
   // Server status badge + last-updated + refresh button
   checkServerStatus();
   startLastUpdatedTicker();
