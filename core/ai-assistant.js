@@ -235,6 +235,18 @@
         0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
         40%           { transform: translateY(-5px); opacity: 1; }
       }
+      #cti-ai-live {
+        display: none;
+        padding: 6px 12px 4px;
+        font-size: 11.5px;
+        color: #B01A18;
+        font-style: italic;
+        background: rgba(176,26,24,0.05);
+        border-top: 1px solid rgba(176,26,24,0.12);
+        min-height: 28px;
+        line-height: 1.5;
+        word-break: break-word;
+      }
       #cti-ai-input-row {
         display: flex;
         align-items: center;
@@ -338,6 +350,7 @@
         </button>
       </div>
       <div id="cti-ai-messages"></div>
+      <div id="cti-ai-live"></div>
       <div id="cti-ai-input-row">
         <button id="cti-ai-mic" title="Voice input">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -493,6 +506,14 @@
   }
 
   // ── Voice input ───────────────────────────────────────────────────────────
+  let _finalTranscript = '';   // accumulated confirmed words
+
+  function setLiveText(interim) {
+    const el = $id('cti-ai-live');
+    if (!el) return;
+    el.textContent = _finalTranscript + (interim ? ' ' + interim : '') || 'Listening…';
+  }
+
   function setupRecognition() {
     const SRCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     const micBtn = $id('cti-ai-mic');
@@ -504,25 +525,25 @@
       return;
     }
     _recog = new SRCtor();
-    _recog.continuous = false;
-    _recog.interimResults = false;
+    _recog.continuous     = true;   // keep recording until user clicks mic again
+    _recog.interimResults = true;   // show live words as they come in
     _recog.lang = 'en-US';
 
     _recog.onresult = function (e) {
-      const transcript = (e.results[0]?.[0]?.transcript || '').trim();
-      if (!transcript) return;
-      const inp = $id('cti-ai-input');
-      if (inp) {
-        inp.value = transcript;
-        inp.style.height = 'auto';
-        inp.style.height = Math.min(inp.scrollHeight, 80) + 'px';
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) _finalTranscript += t + ' ';
+        else interim += t;
       }
-      stopListening();
-      sendMessage();
+      setLiveText(interim);
     };
 
     _recog.onerror = function () { stopListening(); };
-    _recog.onend   = function () { if (_listening) stopListening(); };
+    _recog.onend   = function () {
+      // Browser stopped on its own (timeout) — restart if still toggled on
+      if (_listening) { try { _recog.start(); } catch (_) { stopListening(); } }
+    };
   }
 
   function toggleMic() {
@@ -532,8 +553,11 @@
   function startListening() {
     if (!_recog) return;
     _listening = true;
+    _finalTranscript = '';
     const btn = $id('cti-ai-mic');
     if (btn) btn.classList.add('cti-mic-active');
+    const live = $id('cti-ai-live');
+    if (live) { live.textContent = 'Listening…'; live.style.display = 'block'; }
     try { _recog.start(); } catch (_) { stopListening(); }
   }
 
@@ -541,7 +565,17 @@
     _listening = false;
     const btn = $id('cti-ai-mic');
     if (btn) btn.classList.remove('cti-mic-active');
+    const live = $id('cti-ai-live');
+    if (live) live.style.display = 'none';
     try { if (_recog) _recog.stop(); } catch (_) {}
+    // Put finalized transcript into input and auto-send
+    const text = _finalTranscript.trim();
+    _finalTranscript = '';
+    if (text) {
+      const inp = $id('cti-ai-input');
+      if (inp) { inp.value = text; inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 80) + 'px'; }
+      sendMessage();
+    }
   }
 
   // ── Send message ──────────────────────────────────────────────────────────
