@@ -58,7 +58,6 @@
         border-radius: 50%;
         background: #B01A18;
         color: #fff;
-        font-size: 22px;
         border: none;
         cursor: pointer;
         box-shadow: 0 4px 16px rgba(176,26,24,0.4);
@@ -71,6 +70,39 @@
       #cti-ai-btn:hover {
         transform: scale(1.08);
         box-shadow: 0 6px 20px rgba(176,26,24,0.55);
+      }
+      #cti-ai-btn.cti-ai-pulse {
+        animation: ctiPulse 2s ease-in-out 3;
+      }
+      @keyframes ctiPulse {
+        0%,100% { box-shadow: 0 4px 16px rgba(176,26,24,0.4); }
+        50%      { box-shadow: 0 0 0 10px rgba(176,26,24,0.15), 0 4px 16px rgba(176,26,24,0.4); transform: scale(1.06); }
+      }
+      #cti-ai-nudge {
+        position: fixed;
+        bottom: 86px;
+        right: 24px;
+        z-index: 99991;
+        background: #1A1A1A;
+        color: #fff;
+        font-size: 12px;
+        font-family: inherit;
+        padding: 8px 13px;
+        border-radius: 10px 10px 2px 10px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.25s, transform 0.25s;
+        max-width: 240px;
+        white-space: normal;
+        line-height: 1.4;
+      }
+      #cti-ai-nudge.cti-nudge-show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
       }
       #cti-ai-panel {
         position: fixed;
@@ -289,7 +321,7 @@
     panel.innerHTML = `
       <div id="cti-ai-header">
         <div id="cti-ai-header-text">
-          <div id="cti-ai-title">✨ CTI AI Assistant</div>
+          <div id="cti-ai-title">CTI AI Assistant</div>
           <div id="cti-ai-subtitle">Ask me about this page</div>
         </div>
         <button class="cti-ai-hbtn" id="cti-ai-tts-btn" title="Toggle voice output">🔊</button>
@@ -314,7 +346,7 @@
     const btn = document.createElement('button');
     btn.id = 'cti-ai-btn';
     btn.title = 'CTI AI Assistant';
-    btn.innerHTML = '✨';
+    btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>';
     btn.setAttribute('aria-label', 'Open CTI AI Assistant');
 
     document.body.appendChild(panel);
@@ -565,13 +597,76 @@
     toggle: toggle,
   };
 
+  // ── Nudge bubble: greeting + periodic data facts ──────────────────────────
+  const NUDGE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  function getNudgeText() {
+    const ctx = window.CTI_PAGE_CONTEXT;
+    const page = ctx?.page || '';
+    const summary = ctx?.summary || '';
+
+    // Try to extract a useful fact from the current page context
+    const facts = [];
+
+    // Extract numbers from summary lines
+    const lines = summary.split('\n').filter(l => l.trim() && l.includes(':'));
+    lines.forEach(line => {
+      const m = line.match(/:\s*([\d,]+)/);
+      if (m && +m[1].replace(/,/g,'') > 0) facts.push(line.trim());
+    });
+
+    if (facts.length > 0) {
+      // Pick a random fact
+      const fact = facts[Math.floor(facts.length * 0.3)]; // deterministic-ish
+      return '💡 ' + fact;
+    }
+    if (page) return `👋 Hi! Ask me anything about ${page}.`;
+    return '👋 Hi! I can answer questions about the data on this page.';
+  }
+
+  function showNudge(text) {
+    if (_open) return; // don't show when chat is open
+    let nudge = document.getElementById('cti-ai-nudge');
+    if (!nudge) {
+      nudge = document.createElement('div');
+      nudge.id = 'cti-ai-nudge';
+      document.body.appendChild(nudge);
+    }
+    nudge.textContent = text;
+    nudge.classList.add('cti-nudge-show');
+
+    // Pulse the button
+    const btn = document.getElementById('cti-ai-btn');
+    if (btn) {
+      btn.classList.remove('cti-ai-pulse');
+      void btn.offsetWidth; // reflow to restart animation
+      btn.classList.add('cti-ai-pulse');
+    }
+
+    // Auto-dismiss after 6 seconds
+    clearTimeout(nudge._timer);
+    nudge._timer = setTimeout(() => nudge.classList.remove('cti-nudge-show'), 6000);
+
+    // Click nudge to open chat
+    nudge.onclick = () => { nudge.classList.remove('cti-nudge-show'); open(); };
+  }
+
+  function scheduleNudges() {
+    // First nudge: 3 seconds after page load
+    setTimeout(() => showNudge(getNudgeText()), 3000);
+    // Then every 5 minutes
+    setInterval(() => showNudge(getNudgeText()), NUDGE_INTERVAL);
+  }
+
   // ── Auto-init on DOMContentLoaded ─────────────────────────────────────────
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       buildDOM();
+      scheduleNudges();
     });
   } else {
     buildDOM();
+    scheduleNudges();
   }
 
 }());
