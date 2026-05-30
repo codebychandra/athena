@@ -3657,37 +3657,107 @@ pageEvents.reports = function () {
     await fetchCruiseData(true);
     regenerate();
   });
-  document.getElementById('rptDownloadBtn').addEventListener('click', () => {
-    const brand = document.getElementById('rptBrand').value;
-    downloadReportPDF(
-      brand,
-      new Date(document.getElementById('rptDate').value),
-      notesLines(_reportNotes[brand])
-    );
-  });
-  document.getElementById('rptDownloadAllBtn').addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    const reportDate = new Date(document.getElementById('rptDate').value);
-    const originalLabel = btn.textContent;
-    btn.disabled = true;
-    try {
-      const { seafarers, finalInt } = await fetchCruiseData(false);
-      for (let i = 0; i < CRUISE_BRANDS.length; i++) {
-        const brand = CRUISE_BRANDS[i];
-        btn.textContent = `Downloading ${i+1}/${CRUISE_BRANDS.length}…`;
-        // Use edited notes if present, else auto-generate for that brand
-        const notes = _reportNotes[brand] != null
-          ? notesLines(_reportNotes[brand])
-          : computeAutoNotes(brand, seafarers, finalInt, reportDate);
-        await downloadBrandPDF(brand, reportDate, seafarers, finalInt, notes);
+  // ── Report password gate (SHA-256, never stored plain) ───────────────────
+  const RPT_HASH = 'ef8e5b8012a7598cfa0f65069b44765ea6d3f10359b104c4e69504b93df5c40f';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function rptPasswordPrompt(onSuccess) {
+    // Build modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99995;
+      display:flex;align-items:center;justify-content:center;`;
+    overlay.innerHTML = `
+      <div style="background:var(--card-bg,#fff);border-radius:12px;padding:28px 28px 22px;
+        width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.22);font-family:inherit;">
+        <div style="font-size:14px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:4px;">
+          🔒 Report Password Required
+        </div>
+        <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
+          Enter the password to download this report.
+        </div>
+        <input id="rptPwInput" type="password" placeholder="Password"
+          style="width:100%;height:36px;border:1px solid var(--border,#ddd);border-radius:7px;
+            padding:0 12px;font-size:13px;font-family:inherit;background:var(--bg-page,#fafafa);
+            color:var(--text,#1A1A1A);outline:none;box-sizing:border-box;">
+        <div id="rptPwError" style="color:#DC2626;font-size:11px;margin-top:6px;min-height:16px;"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+          <button id="rptPwCancel"
+            style="padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--border,#ddd);
+              background:transparent;color:var(--text);border-radius:7px;cursor:pointer;font-family:inherit;">
+            Cancel
+          </button>
+          <button id="rptPwOk"
+            style="padding:7px 18px;font-size:12px;font-weight:600;border:none;
+              background:#B01A18;color:#fff;border-radius:7px;cursor:pointer;font-family:inherit;">
+            Unlock
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#rptPwInput');
+    const errEl = overlay.querySelector('#rptPwError');
+    input.focus();
+
+    const close = () => overlay.remove();
+
+    overlay.querySelector('#rptPwCancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    const tryUnlock = async () => {
+      const hash = await sha256(input.value);
+      if (hash === RPT_HASH) {
+        close();
+        onSuccess();
+      } else {
+        errEl.textContent = 'Incorrect password. Please try again.';
+        input.value = '';
+        input.focus();
       }
-      btn.textContent = 'All 3 downloaded ✓';
-      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1800);
-    } catch (err) {
-      btn.textContent = 'Failed — see console';
-      console.error(err);
-      setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 2400);
-    }
+    };
+
+    overlay.querySelector('#rptPwOk').addEventListener('click', tryUnlock);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+  }
+
+  document.getElementById('rptDownloadBtn').addEventListener('click', () => {
+    rptPasswordPrompt(() => {
+      const brand = document.getElementById('rptBrand').value;
+      downloadReportPDF(
+        brand,
+        new Date(document.getElementById('rptDate').value),
+        notesLines(_reportNotes[brand])
+      );
+    });
+  });
+  document.getElementById('rptDownloadAllBtn').addEventListener('click', () => {
+    rptPasswordPrompt(async () => {
+      const btn = document.getElementById('rptDownloadAllBtn');
+      const reportDate = new Date(document.getElementById('rptDate').value);
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      try {
+        const { seafarers, finalInt } = await fetchCruiseData(false);
+        for (let i = 0; i < CRUISE_BRANDS.length; i++) {
+          const brand = CRUISE_BRANDS[i];
+          btn.textContent = `Downloading ${i+1}/${CRUISE_BRANDS.length}…`;
+          const notes = _reportNotes[brand] != null
+            ? notesLines(_reportNotes[brand])
+            : computeAutoNotes(brand, seafarers, finalInt, reportDate);
+          await downloadBrandPDF(brand, reportDate, seafarers, finalInt, notes);
+        }
+        btn.textContent = 'All 3 downloaded ✓';
+        setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1800);
+      } catch (err) {
+        btn.textContent = 'Failed — see console';
+        console.error(err);
+        setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 2400);
+      }
+    });
   });
   regenerate();
 
