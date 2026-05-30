@@ -3126,6 +3126,40 @@ pageEvents.participant = function () {
     if (tbody) tbody.innerHTML = renderRows(_currentRows);
     refreshCount(_currentRows);
     refreshTabCounts();
+
+    // ── Update AI context ─────────────────────────────────────────────────
+    (function () {
+      const rows = _currentRows;
+      const top = (obj, n) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,v])=>`${k} (${v})`).join(', ');
+      const byStatus = {}, byHost = {}, bySponsor = {}, bySource = {}, byCountry = {};
+      rows.forEach(r => {
+        const st = r.placementStatus||'—'; byStatus[st]=(byStatus[st]||0)+1;
+        const h  = r.hostCompany||'—';     if(h!=='—') byHost[h]=(byHost[h]||0)+1;
+        const sp = r.processingSponsor||'—'; if(sp!=='—') bySponsor[sp]=(bySponsor[sp]||0)+1;
+        const so = r.programSource||'—';   if(so!=='—') bySource[so]=(bySource[so]||0)+1;
+        const co = r.country||'—';         if(co!=='—') byCountry[co]=(byCountry[co]||0)+1;
+      });
+      const today = new Date(); today.setHours(0,0,0,0);
+      const activeNow = rows.filter(r => {
+        const s = r.programStart ? new Date(r.programStart) : null;
+        const e = r.programEnd   ? new Date(r.programEnd)   : null;
+        return s && e && s <= today && e >= today;
+      }).length;
+      window.CTI_PAGE_CONTEXT = {
+        page: 'Participant',
+        summary: [
+          `Page: J1 Participant — J1 Cultural Exchange Program`,
+          `Total showing: ${rows.length} (of ${allRows.length} total)`,
+          `Currently on program in USA: ${activeNow}`,
+          ``,
+          `Status breakdown: ${top(byStatus, 8)||'—'}`,
+          `Top Host Companies: ${top(byHost, 5)||'—'}`,
+          `Processing Sponsors: ${top(bySponsor, 5)||'—'}`,
+          `Program Sources: ${top(bySource, 5)||'—'}`,
+          `Top Countries: ${top(byCountry, 5)||'—'}`,
+        ].join('\n'),
+      };
+    }());
   }
 
   refresh();

@@ -1353,6 +1353,29 @@ pageEvents.seafarer = function () {
       card.style.boxShadow  = isActive ? `0 2px 12px ${col}33` : '';
       card.style.transform  = isActive ? 'translateY(-1px)' : '';
     });
+
+    // ── Update AI context ─────────────────────────────────────────────────
+    window.CTI_PAGE_CONTEXT = {
+      page: 'Seafarer',
+      summary: (() => {
+        const today2 = new Date(); today2.setHours(0,0,0,0);
+        const readyN = rows.filter(r=>!r.signOnDate&&sfIsReadyToGo(r)).length;
+        const hasAsN = rows.filter(r=>r.signOnDate&&new Date(r.signOnDate)>today2&&['completing documents','rescheduled'].includes((r.onboardingStatus||'').trim().toLowerCase())).length;
+        const noAsN  = rows.filter(r=>!r.signOnDate&&!sfIsReadyToGo(r)).length;
+        const byCL   = {}; rows.forEach(r=>{const k=r.cruiseLine||'—';if(k!=='—')byCL[k]=(byCL[k]||0)+1;});
+        const byOnb  = {}; rows.forEach(r=>{const k=r.onboardingStatus||'—';if(k!=='—')byOnb[k]=(byOnb[k]||0)+1;});
+        const top2   = (obj,n)=>Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,val])=>`${k} (${val})`).join(', ');
+        return [
+          `Page: Seafarer (active seafarers, resigned excluded)`,
+          `Total showing: ${rows.length}`,
+          `  Ready to Go / No Assignment: ${readyN}`,
+          `  Have Assignment / Not Ready: ${hasAsN}`,
+          `  No Assignment / Not Ready: ${noAsN}`,
+          `Top Cruise Lines: ${top2(byCL,5)||'—'}`,
+          `Onboarding Status breakdown: ${top2(byOnb,6)||'—'}`,
+        ].join('\n');
+      })(),
+    };
   }
 
   initMS();
@@ -2357,6 +2380,29 @@ pageEvents.visa = function () {
       card.style.boxShadow = isActive?`0 2px 12px ${col}30`:'';
       card.style.transform = isActive?'translateY(-1px)':'';
     });
+
+    // ── Update AI context ─────────────────────────────────────────────────
+    window.CTI_PAGE_CONTEXT = {
+      page: 'Visa',
+      summary: (() => {
+        const ntp2 = s=>(s||'').trim().toLowerCase()==='need to process';
+        const c1dN = rows.filter(r=>{const q=getVisaReqs(r);return q.c1d==='Required'||ntp2(r.c1dStatus);}).length;
+        const mcvN = rows.filter(r=>{const q=getVisaReqs(r);return q.mcv==='Required'||ntp2(r.mcvStatus);}).length;
+        const oktbN= rows.filter(r=>{const q=getVisaReqs(r);return q.oktb==='Required'||ntp2(r.oktbStatus);}).length;
+        const nzetaN=rows.filter(r=>{const q=getVisaReqs(r);return q.nzeta==='Required'||ntp2(r.nzetaStatus);}).length;
+        const atvN = rows.filter(r=>{const q=getVisaReqs(r);return q.atv==='Required'||ntp2(r.atvStatus);}).length;
+        const schN = rows.filter(r=>getVisaReqs(r).schengen==='Required'||((r.otherVisaName||'').toLowerCase().includes('schengen')&&ntp2(r.otherVisaStatus))).length;
+        const byCL ={};rows.forEach(r=>{const k=r.cruiseLine||'—';if(k!=='—')byCL[k]=(byCL[k]||0)+1;});
+        const top2 =(obj,n)=>Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,val])=>`${k} (${val})`).join(', ');
+        return [
+          `Page: Visa (CTI Indonesia, non-resigned, non-report-to-ship seafarers)`,
+          `Total showing: ${rows.length}`,
+          `Visa action required:`,
+          `  C1/D: ${c1dN} | MCV: ${mcvN} | OKTB: ${oktbN} | NZeTA: ${nzetaN} | ATV: ${atvN} | Schengen: ${schN}`,
+          `Top Cruise Lines: ${top2(byCL,5)||'—'}`,
+        ].join('\n');
+      })(),
+    };
   }
 
   initMS();
@@ -3298,6 +3344,36 @@ pageEvents.deployment = function () {
     const byEmp = {};
     rows.forEach(r=>{ const k=v(r,COL.empReport)||'—'; if(k!=='—') byEmp[k]=(byEmp[k]||0)+1; });
     mkDepBar('depEmpChart', Object.entries(byEmp).sort((a,b)=>b[1]-a[1]), '#7C3AED');
+
+    // ── Update AI context ─────────────────────────────────────────────────
+    window.CTI_PAGE_CONTEXT = {
+      page: 'Deployment',
+      summary: (() => {
+        const top = (obj, n) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,val])=>`${k} (${val})`).join(', ');
+        const byLine2={}, byOff2={}, byEmp2={};
+        rows.forEach(r=>{
+          const k1=v(r,COL.cruiseLine)||'—'; if(k1!=='—') byLine2[k1]=(byLine2[k1]||0)+1;
+          const k2=v(r,COL.ctiOfficeAnalytics)||'—'; if(k2!=='—') byOff2[k2]=(byOff2[k2]||0)+1;
+          const k3=v(r,COL.empStatus)||'—'; if(k3!=='—') byEmp2[k3]=(byEmp2[k3]||0)+1;
+        });
+        return [
+          `Page: Deployment — Cruise Line Deployment Report`,
+          `Total records (all data): ${raw.length.toLocaleString()}`,
+          `Currently showing: ${rows.length.toLocaleString()} records`,
+          ``,
+          `KPIs (filtered view):`,
+          `  This year (Jan–${DEP_MONTH_NAMES[curMonth]} ${curYear}): ${thisYr}`,
+          `  Last year (Jan–${DEP_MONTH_NAMES[curMonth]} ${curYear-1}): ${lastYr} (${yoy===null?'N/A':(yoy>=0?'+':'')+yoy.toFixed(1)+'%'})`,
+          `  This month (${DEP_MONTH_NAMES[curMonth]} ${curYear}): ${thisMo}`,
+          `  Last month (${DEP_MONTH_NAMES[prevMonth]}): ${lastMo} (${mom===null?'N/A':(mom>=0?'+':'')+mom.toFixed(1)+'%'})`,
+          `  Repeater: ${rCount} | New Hire + Re Hire: ${nCount}`,
+          ``,
+          `Top Cruise Lines: ${top(byLine2,5)||'—'}`,
+          `Top CTI Offices: ${top(byOff2,5)||'—'}`,
+          `Employment: ${top(byEmp2,5)||'—'}`,
+        ].join('\n');
+      })(),
+    };
   }
 
   initMS();

@@ -1315,6 +1315,55 @@ export default {
         return json({ ok: false, error: errText }, 200, ch);
       }
 
+      // ── POST /api/ai/chat ──────────────────────────────────────────────────
+      // Proxies to Anthropic Claude API. Requires ANTHROPIC_API_KEY secret.
+      if (method === 'POST' && path === '/api/ai/chat') {
+        try {
+          const apiKey = env.ANTHROPIC_API_KEY;
+          if (!apiKey) return json({ error: 'AI not configured — set ANTHROPIC_API_KEY secret in Cloudflare dashboard' }, 400, ch);
+
+          const body = await request.json();
+          const messages = (body.messages || []).slice(-12);
+          const context  = String(body.context || '').slice(0, 4000); // cap context size
+
+          const systemPrompt = `You are CTI AI, a concise and professional data assistant for CTI Group Worldwide Services Inc., a maritime crewing agency. You help operations staff understand their recruitment and deployment data.
+
+Current page data:
+${context}
+
+Rules:
+- Be concise — use bullet points for lists, short paragraphs for explanations
+- Always reference specific numbers from the context when they exist
+- Format numbers with commas (e.g. 1,234 not 1234)
+- If asked about data not in the context, clearly say "I don't have that data on screen"
+- Do not invent numbers or make assumptions beyond the provided context
+- Answer in English`;
+
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type':      'application/json',
+              'x-api-key':         apiKey,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model:      'claude-3-5-haiku-20241022',
+              max_tokens: 800,
+              system:     systemPrompt,
+              messages,
+            }),
+          });
+
+          const aiData = await aiRes.json();
+          if (!aiRes.ok) return json({ error: aiData.error?.message || 'Claude API error' }, 500, ch);
+
+          const text = aiData.content?.[0]?.text || '';
+          return json({ response: text }, 200, ch);
+        } catch (err) {
+          return json({ error: err.message }, 500, ch);
+        }
+      }
+
       // ── 404 ───────────────────────────────────────────────────────────
       return json({ error: `No route: ${method} ${path}` }, 404, ch);
 
