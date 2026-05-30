@@ -354,7 +354,7 @@
     const btn = document.createElement('button');
     btn.id = 'cti-ai-btn';
     btn.title = 'CTI AI Assistant';
-    btn.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z"/></svg>';
+    btn.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M14,5 C14,7.5 21,14 23,14 C21,14 14,21 14,23 C14,21 7,14 5,14 C7,14 14,7.5 14,5 Z"/><path d="M5.5,1.5 C5.5,2.5 8,5 9,5.5 C8,5.5 5.5,8 5.5,9 C5.5,8 3,5.5 2,5.5 C3,5.5 5.5,2.5 5.5,1.5 Z"/></svg>';
     btn.setAttribute('aria-label', 'Open CTI AI Assistant');
 
     document.body.appendChild(panel);
