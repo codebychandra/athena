@@ -4242,17 +4242,22 @@ pages.returnhome = async function () {
   });
 
   const in7Days  = new Date(today); in7Days.setDate(in7Days.getDate() + 7);
+  const in15Days = new Date(today); in15Days.setDate(in15Days.getDate() + 15);
   const in30Days = new Date(today); in30Days.setDate(in30Days.getDate() + 30);
 
-  const endingSoonRows    = allRows.filter(r => new Date(r.programEnd) <= in30Days);
+  const rows7d            = allRows.filter(r => new Date(r.programEnd) <= in7Days);
+  const rows15d           = allRows.filter(r => new Date(r.programEnd) <= in15Days);
+  const rows30d           = allRows.filter(r => new Date(r.programEnd) <= in30Days);
   const returnPendingRows = allRows.filter(r => normalizeFlightStatus(r.returnFlightStatus) !== 'Issued');
 
   state.dataCache['rh-rows']         = allRows;
-  state.dataCache['rh-soon-rows']    = endingSoonRows;
+  state.dataCache['rh-7d-rows']      = rows7d;
+  state.dataCache['rh-15d-rows']     = rows15d;
+  state.dataCache['rh-30d-rows']     = rows30d;
   state.dataCache['rh-pending-rows'] = returnPendingRows;
 
-  const kpiWeek   = allRows.filter(r => new Date(r.programEnd) <= in7Days).length;
-  const kpiMonth  = endingSoonRows.length;
+  const kpiWeek   = rows7d.length;
+  const kpiMonth  = rows30d.length;
   const kpiIssued = allRows.filter(r => normalizeFlightStatus(r.returnFlightStatus) === 'Issued').length;
   const total     = allRows.length;
   const authErr   = errorMsg && (errorMsg.includes('NOT_AUTHENTICATED') || errorMsg.includes('401'));
@@ -4295,7 +4300,7 @@ pages.returnhome = async function () {
     <div class="req-page-header">
       <h1>Return Home</h1>
       <span class="req-live-badge">● Live · Zoho Recruit</span>
-      <span class="req-page-sub">${total} participants currently in programme</span>
+      <span class="req-page-sub">${total} participants currently in program</span>
     </div>
 
     ${errorMsg ? `<div class="req-error-banner"><span>${authErr?'🔑':'⚠️'}</span>
@@ -4309,37 +4314,60 @@ pages.returnhome = async function () {
       ${buildMS('rhSourceFilter',  'J1 Source',     rhSources)}
       ${buildMS('rhSponsorFilter', 'Sponsor',       rhSponsors)}
       ${buildMS('rhTicketFilter',  'Return Ticket', ['No Ticket','Requested','Booked','Issued'])}
-      <button id="rhClearBtn" class="req-clear-btn">✕ Clear</button>
+      <span style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
+        <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Countdown</label>
+        <select id="rhCountdownFilter"
+          style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;
+            font-size:11px;font-family:inherit;min-width:110px;
+            background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+            background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
+          <option value="">All</option>
+          <option value="7">≤ 7 days</option>
+          <option value="15">≤ 15 days</option>
+          <option value="30">≤ 30 days</option>
+          <option value="60">≤ 60 days</option>
+          <option value="90">≤ 90 days</option>
+        </select>
+      </span>
+      <button id="rhClearBtn" class="req-clear-btn">Clear</button>
       <span id="rhCount" class="req-count-badge">${total} participants</span>
     </div>
 
     <!-- KPI Widgets -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;">
       <div class="req-kpi-card">
-        <div class="req-kpi-label">🌍 In Programme</div>
+        <div class="req-kpi-label">In Program</div>
         <div class="req-kpi-value" id="rhKpiTotal">${total}</div>
       </div>
       <div class="req-kpi-card" style="border-left:3px solid #DC2626;">
-        <div class="req-kpi-label">🔴 Ending ≤ 7 days</div>
+        <div class="req-kpi-label">Ending ≤ 7 days</div>
         <div class="req-kpi-value" id="rhKpiWeek" style="color:#DC2626;">${kpiWeek}</div>
       </div>
       <div class="req-kpi-card" style="border-left:3px solid #D97706;">
-        <div class="req-kpi-label">🟠 Ending ≤ 30 days</div>
+        <div class="req-kpi-label">Ending ≤ 30 days</div>
         <div class="req-kpi-value" id="rhKpiMonth" style="color:#D97706;">${kpiMonth}</div>
       </div>
       <div class="req-kpi-card" style="border-left:3px solid #059669;">
-        <div class="req-kpi-label">✅ Return Ticket Issued</div>
+        <div class="req-kpi-label">Return Ticket Issued</div>
         <div class="req-kpi-value" id="rhKpiIssued" style="color:#059669;">${kpiIssued}</div>
       </div>
     </div>
 
     <!-- Tab bar -->
     <div class="par-tab-bar">
-      <button class="par-tab active" data-rh-tab="all">🌍 All In-Country <span style="background:var(--text-muted,#888);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${total}</span></button>
-      <button class="par-tab" data-rh-tab="soon">🔜 Ending in 30 Days
-        ${endingSoonRows.length > 0 ? `<span style="background:#D97706;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${endingSoonRows.length}</span>` : ''}
+      <button class="par-tab active" data-rh-tab="all">All In-Country
+        <span style="background:var(--text-muted,#888);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${total}</span>
       </button>
-      <button class="par-tab" data-rh-tab="pending">⏳ Return Not Arranged
+      <button class="par-tab" data-rh-tab="7d">Return in 7 Days
+        ${rows7d.length > 0 ? `<span style="background:#DC2626;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${rows7d.length}</span>` : ''}
+      </button>
+      <button class="par-tab" data-rh-tab="15d">Return in 15 Days
+        ${rows15d.length > 0 ? `<span style="background:#B87A14;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${rows15d.length}</span>` : ''}
+      </button>
+      <button class="par-tab" data-rh-tab="30d">Return in 30 Days
+        ${rows30d.length > 0 ? `<span style="background:#D97706;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${rows30d.length}</span>` : ''}
+      </button>
+      <button class="par-tab" data-rh-tab="pending">Return Not Arranged
         ${returnPendingRows.length > 0 ? `<span style="background:#DC2626;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:5px;vertical-align:middle;">${returnPendingRows.length}</span>` : ''}
       </button>
     </div>
@@ -4365,7 +4393,9 @@ pages.returnhome = async function () {
 // ── Return Home page events ───────────────────────────────────
 pageEvents.returnhome = function () {
   const allRows      = state.dataCache['rh-rows']         || [];
-  const soonRows     = state.dataCache['rh-soon-rows']    || [];
+  const rows7d       = state.dataCache['rh-7d-rows']      || [];
+  const rows15d      = state.dataCache['rh-15d-rows']     || [];
+  const rows30d      = state.dataCache['rh-30d-rows']     || [];
   const pendingRows  = state.dataCache['rh-pending-rows'] || [];
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -4427,7 +4457,9 @@ pageEvents.returnhome = function () {
   }
 
   function getTabRows() {
-    if (_rhActiveTab === 'soon')    return soonRows;
+    if (_rhActiveTab === '7d')      return rows7d;
+    if (_rhActiveTab === '15d')     return rows15d;
+    if (_rhActiveTab === '30d')     return rows30d;
     if (_rhActiveTab === 'pending') return pendingRows;
     return allRows;
   }
@@ -4463,12 +4495,23 @@ pageEvents.returnhome = function () {
     const gSrc       = msGetVals('rhSourceFilter');
     const gSp        = msGetVals('rhSponsorFilter');
     const ticketVals = msGetVals('rhTicketFilter');
+    const countdown  = document.getElementById('rhCountdownFilter')?.value || '';
     // Column-level multiselects
     const cfStatus   = msGetVals('rhCF_placementStatus');
     const cfSource   = msGetVals('rhCF_programSource');
     const cfSponsor  = msGetVals('rhCF_processingSponsor');
     const cfTicket   = msGetVals('rhCF_returnFlightStatus');
     let filtered     = [...getTabRows()];
+
+    // Countdown filter
+    if (countdown) {
+      const days = +countdown;
+      const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+      filtered = filtered.filter(r => {
+        const d = r.programEnd ? new Date(r.programEnd) : null;
+        return d && !isNaN(d) && d <= cutoff;
+      });
+    }
 
     if (gSt.length)        filtered = filtered.filter(r => gSt.includes(r.placementStatus));
     if (gSrc.length)       filtered = filtered.filter(r => gSrc.includes(r.programSource));
@@ -4609,9 +4652,11 @@ pageEvents.returnhome = function () {
   initMS(document.getElementById('main-content'));
   [...['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'], ...RH_COL_MS].forEach(id =>
     msOnChange(id, applyFilters));
+  document.getElementById('rhCountdownFilter')?.addEventListener('change', applyFilters);
 
   clearBtn?.addEventListener('click', () => {
     [...['rhStatusFilter','rhSourceFilter','rhSponsorFilter','rhTicketFilter'], ...RH_COL_MS].forEach(id => msClear(id));
+    const cd = document.getElementById('rhCountdownFilter'); if (cd) cd.value = '';
     colFilters = {};
     document.querySelectorAll('#rhColFilterRow input[data-rhcol]').forEach(inp => inp.value = '');
     document.querySelectorAll('#rhColFilterRow select[data-rhcol]').forEach(sel => sel.value = '');
