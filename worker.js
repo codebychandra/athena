@@ -1250,22 +1250,66 @@ Rules:
     }
   },
 
-  // ── Cron Trigger: pre-warm cruise-seafarers cache every 15 min ────────────
-  // Keeps the KV cache hot so users almost never hit a cold Zoho fetch.
+  // ── Cron Trigger: pre-warm ALL portal caches every 15 min ────────────────
+  // Runs in parallel — keeps every dataset hot so users never hit a cold fetch.
   // Triggered by the schedule in wrangler.toml: "*/15 * * * *"
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
-      try {
-        const token = await getToken(env);
-        // Pre-warm seafarers (the heaviest fetch — all Zoho fields, multi-page)
-        const records = await fetchAll(token, ZOHO_RECRUIT, 'Candidates', null);
-        const data    = records.map(mapSeafarer);
-        const payload = { source: 'recruit-seafarers', count: data.length, data };
-        await setCached(env, 'cruise-seafarers', payload);
-        console.log(`[cron] cruise-seafarers refreshed: ${data.length} records`);
-      } catch (e) {
-        console.error('[cron] cruise-seafarers refresh failed:', e.message);
-      }
+      const token = await getToken(env);
+
+      await Promise.allSettled([
+
+        // ── Cruise: seafarers ──────────────────────────────────────────────
+        (async () => {
+          const records = await fetchAll(token, ZOHO_RECRUIT, 'Candidates', null);
+          const data    = records.map(mapSeafarer);
+          await setCached(env, 'cruise-seafarers', { source:'recruit-seafarers', count:data.length, data });
+        })(),
+
+        // ── Cruise: deployment sheet ───────────────────────────────────────
+        (async () => {
+          const resourceId = env.ZOHO_DEPLOYMENT_SHEET_ID || 'begbjf0b04d7026534b328e36baa0a9d82df7';
+          const sheetBody  = new URLSearchParams({ method:'worksheet.records.fetch', worksheet_name:'Deployment' });
+          const sheetRes   = await fetch(`${ZOHO_SHEET_API}/${resourceId}`, {
+            method:'POST',
+            headers:{ Authorization:`Zoho-oauthtoken ${token}`, 'Content-Type':'application/x-www-form-urlencoded' },
+            body: sheetBody, cf:{ cacheEverything:false },
+          });
+          const sheetData = await sheetRes.json();
+          let rows = [];
+          if (sheetData.records && Array.isArray(sheetData.records)) {
+            rows = sheetData.records.map(r => { const o={}; Object.entries(r).forEach(([k,v])=>{ if(k!=='row_index') o[k]=v??''; }); return o; });
+          }
+          await setCached(env, 'cruise-deployment', { source:'zoho-sheet', count:rows.length, data:rows });
+        })(),
+
+        // ── J1: Recruit participants ───────────────────────────────────────
+        (async () => {
+          const records = await fetchAll(token, ZOHO_RECRUIT, 'Candidates', Object.values(RF).join(','));
+          const data    = records.map(mapRecruit);
+          await setCached(env, 'recruit-j1-participants', { source:'recruit', count:data.length, data });
+        })(),
+
+        // ── J1: CRM participants ───────────────────────────────────────────
+        (async () => {
+          const records = await fetchAll(token, ZOHO_CRM, 'J1_Participants1', Object.values(CF).join(','));
+          const data    = records.map(mapCRM);
+          await setCached(env, 'crm-j1-participants', { source:'crm', count:data.length, data });
+        })(),
+
+        // ── J1: Requisition (job openings) ────────────────────────────────
+        (async () => {
+          const records = await fetchAll(token, ZOHO_RECRUIT, 'Job_Openings', Object.values(JF).join(','));
+          const allJobs = records.map(mapJob);
+          await setCached(env, 'recruit-job-openings', { source:'recruit', count:allJobs.length, data:allJobs });
+          // Also warm the j1-requisition view
+          const j1Jobs  = allJobs.filter(j => /^j1 program$/i.test((j.placementCategory||'').trim()) && /^active$/i.test((j.status||'').trim()));
+          const columns = REQ_COLS.map(([label]) => label);
+          const rows    = j1Jobs.map(j => REQ_COLS.map(([,get]) => String(get(j)??'')));
+          await setCached(env, 'j1-requisition', { source:'zoho-recruit', view:'Job Openings', data:{ columns, rows } });
+        })(),
+
+      ]);
     })());
   },
 };

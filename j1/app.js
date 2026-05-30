@@ -2080,7 +2080,7 @@ pages.requisition = async function () {
         </table>
       </div>
     </div>
-
+
 
     ` : `
     <div class="card" style="text-align:center;padding:48px 24px;">
@@ -3313,7 +3313,7 @@ pages.housing = async function () {
         </table>
       </div>
     </div>
-
+
   `;
 };
 
@@ -3768,7 +3768,7 @@ pages.returnhome = async function () {
     </div>
 
     <script type="application/json" id="rhHeaders">${JSON.stringify(rhH)}<\/script>
-
+
   `;
 };
 
@@ -5219,7 +5219,7 @@ pages.travel = async function () {
     <script type="application/json" id="travelDepHeaders">${JSON.stringify(depH)}<\/script>
     <script type="application/json" id="travelRetHeaders">${JSON.stringify(retH)}<\/script>
     <script type="application/json" id="travelFollowupHeaders">${JSON.stringify(followupH)}<\/script>
-
+
   `;
 };
 
@@ -5828,6 +5828,20 @@ document.addEventListener('DOMContentLoaded', function () {
     showToast('Zoho connected!', 'success');
     history.replaceState({}, '', '/');
   }
+
+  // ── Background prefetch — kick off ALL data sources in parallel ──────────
+  // This warms the browser fetch cache so page navigations are instant.
+  // Runs silently; never blocks the initial render.
+  (async () => {
+    try {
+      await Promise.allSettled([
+        fetch(WORKER_URL + '/api/recruit/j1-participants'),
+        fetch(WORKER_URL + '/api/crm/j1-participants'),
+        fetch(WORKER_URL + '/api/zoho/j1-requisition'),
+        fetch(WORKER_URL + '/api/recruit/job-openings'),
+      ]);
+    } catch (_) {}
+  })();
 
   // Restore last visited page (falls back to requisition)
   let _startPage = 'requisition';
