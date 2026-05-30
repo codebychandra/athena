@@ -324,13 +324,21 @@
           <div id="cti-ai-title">CTI AI Assistant</div>
           <div id="cti-ai-subtitle">Ask me about this page</div>
         </div>
-        <button class="cti-ai-hbtn" id="cti-ai-tts-btn" title="Toggle voice output">🔊</button>
-        <button class="cti-ai-hbtn" id="cti-ai-clear-btn" title="Clear conversation">🗑</button>
-        <button class="cti-ai-hbtn" id="cti-ai-close-btn" title="Close">×</button>
+        <button class="cti-ai-hbtn" id="cti-ai-tts-btn" title="Toggle voice output">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+        <button class="cti-ai-hbtn" id="cti-ai-clear-btn" title="New conversation">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button class="cti-ai-hbtn" id="cti-ai-close-btn" title="Close">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <div id="cti-ai-messages"></div>
       <div id="cti-ai-input-row">
-        <button id="cti-ai-mic" title="Voice input">🎤</button>
+        <button id="cti-ai-mic" title="Voice input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
         <textarea id="cti-ai-input" placeholder="Ask about this page…" rows="1"></textarea>
         <button id="cti-ai-send" title="Send">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -346,7 +354,7 @@
     const btn = document.createElement('button');
     btn.id = 'cti-ai-btn';
     btn.title = 'CTI AI Assistant';
-    btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>';
+    btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
     btn.setAttribute('aria-label', 'Open CTI AI Assistant');
 
     document.body.appendChild(panel);
@@ -463,8 +471,10 @@
     _tts = !_tts;
     const btn = $id('cti-ai-tts-btn');
     if (btn) {
-      btn.textContent = _tts ? '🔇' : '🔊';
-      btn.title = _tts ? 'Voice output on (click to mute)' : 'Toggle voice output';
+      btn.innerHTML = _tts
+        ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+      btn.title = _tts ? 'Voice on — click to mute' : 'Toggle voice output';
     }
     if (!_tts && window.speechSynthesis) window.speechSynthesis.cancel();
   }
