@@ -3231,8 +3231,14 @@ pageEvents.deployment = function () {
 
     // KPI sub-filter
     if (depActiveKpi && depActiveKpi !== 'all') {
-      if      (depActiveKpi==='yoy')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear; });
-      else if (depActiveKpi==='mom')      out=out.filter(r=>{ const d=depParseDate(v(r,COL.date)); return d?.year===curYear&&d?.month===curMonth; });
+      if (depActiveKpi==='yoy') out=out.filter(r=>{
+        const d=depParseDate(v(r,COL.date)); if(!d) return false;
+        return (d.year===curYear && d.month<=curMonth) || (d.year===curYear-1 && d.month<=curMonth);
+      });
+      else if (depActiveKpi==='mom') out=out.filter(r=>{
+        const d=depParseDate(v(r,COL.date)); if(!d) return false;
+        return (d.year===curYear && d.month===curMonth) || (d.year===prevMonthYear && d.month===prevMonth);
+      });
       else if (depActiveKpi==='emptype')  out=out.filter(r=>{ const s=(v(r,COL.empStatus)||'').toLowerCase(); return s==='repeater'||s==='new hire'||s==='re hire'; });
     }
     return out;
