@@ -155,7 +155,7 @@ function render() {
   renderPortalTabs();
   renderTypeTabs();
   renderStatsBar();
-  renderCards();
+  renderTable();
 }
 
 function renderPortalTabs() {
@@ -202,150 +202,170 @@ function renderStatsBar() {
   bar.innerHTML = parts.join(' &nbsp;·&nbsp; ');
 }
 
-function renderCards() {
-  const grid = document.getElementById('kb-grid');
-  if (!grid) return;
+// ── Table render ──────────────────────────────────────────────────────────────
+function renderTable() {
+  const wrap = document.getElementById('kb-grid');
+  if (!wrap) return;
   const entries = getFilteredEntries();
 
   if (entries.length === 0) {
     const isEmpty = allEntries.length === 0;
-    grid.innerHTML = `
+    wrap.innerHTML = `
       <div class="kb-empty-state">
-        <div class="kb-empty-icon">
-          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted,#9CA3AF)">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-          </svg>
-        </div>
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted,#9CA3AF);margin-bottom:12px;">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
         <p class="kb-empty-text">
-          ${isEmpty
-            ? 'No knowledge entries yet.<br>Add your first entry to teach the AI.'
-            : 'No entries match your current filters.'}
+          ${isEmpty ? 'No knowledge entries yet.<br>Add your first entry to teach the AI.' : 'No entries match your current filters.'}
         </p>
         ${isEmpty ? `<button class="kb-btn-primary" id="emptyAddBtn">+ Add Your First Entry</button>` : ''}
-      </div>
-    `;
+      </div>`;
     document.getElementById('emptyAddBtn')?.addEventListener('click', openAddModal);
     return;
   }
 
-  grid.innerHTML = entries.map(entry => {
-    const typeColor   = TYPE_COLORS[entry.type]   || '#6B7280';
-    const portalColor = PORTAL_COLORS[entry.portal] || '#6B7280';
-    const content     = entry.content || '';
-    const preview     = content.slice(0, 200);
-    const hasMore     = content.length > 200;
+  wrap.innerHTML = `
+    <table class="kb-table">
+      <thead>
+        <tr>
+          <th style="width:36px;text-align:center;">#</th>
+          <th>Knowledge Title</th>
+          <th style="width:130px;">Portal</th>
+          <th style="width:130px;">Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries.map((entry, i) => {
+          const tc = TYPE_COLORS[entry.type]    || '#6B7280';
+          const pc = PORTAL_COLORS[entry.portal] || '#6B7280';
+          return `<tr class="kb-row" data-id="${escAttr(entry.id)}">
+            <td style="text-align:center;color:var(--text-muted,#888);font-size:11px;">${i + 1}</td>
+            <td class="kb-row-title">${escHtml(entry.title)}</td>
+            <td><span class="kb-badge" style="background:${pc}18;color:${pc};border:1px solid ${pc}30;">${escHtml(entry.portal)}</span></td>
+            <td><span class="kb-badge" style="background:${tc}18;color:${tc};border:1px solid ${tc}30;">${escHtml(entry.type)}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
 
-    // Related terms as small tags
-    const relatedHtml = entry.relatedTerms
-      ? entry.relatedTerms.split(',').map(t => t.trim()).filter(Boolean)
-          .map(t => `<span class="kb-term-tag">${escHtml(t)}</span>`).join('')
-      : '';
+  wrap.querySelectorAll('.kb-row').forEach(row => {
+    row.addEventListener('click', () => openSidePanel(row.dataset.id));
+  });
+}
 
-    return `
-      <div class="kb-card" data-id="${escAttr(entry.id)}">
-        <div class="kb-card-inner">
-          <div class="kb-card-badges">
-            <span class="kb-badge" style="background:${portalColor}18;color:${portalColor};border:1px solid ${portalColor}30;">${escHtml(entry.portal)}</span>
-            <span class="kb-badge" style="background:${typeColor}18;color:${typeColor};border:1px solid ${typeColor}30;">${escHtml(entry.type)}</span>
-          </div>
-          <div class="kb-card-title">${escHtml(entry.title)}</div>
-          <div class="kb-card-content"
-               data-full="${escAttr(content)}"
-               data-expanded="false"
-          >${escHtml(preview)}${hasMore ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : ''}</div>
-          ${entry.whereToFind ? `<div class="kb-where-to-find">📍 ${escHtml(entry.whereToFind)}</div>` : ''}
-          ${relatedHtml ? `<div class="kb-related-terms">${relatedHtml}</div>` : ''}
-          <div class="kb-card-footer">
-            <span class="kb-updated-at">${relativeTime(entry.updatedAt)}</span>
-            <div class="kb-card-actions">
-              <button class="kb-btn-edit"   data-id="${escAttr(entry.id)}" title="Edit entry">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                Edit
-              </button>
-              <button class="kb-btn-delete" data-id="${escAttr(entry.id)}" title="Delete entry">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+// ── Side Panel ────────────────────────────────────────────────────────────────
+function openSidePanel(id) {
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry) return;
+
+  const tc = TYPE_COLORS[entry.type]    || '#6B7280';
+  const pc = PORTAL_COLORS[entry.portal] || '#6B7280';
+
+  const relatedHtml = entry.relatedTerms
+    ? entry.relatedTerms.split(',').map(t => t.trim()).filter(Boolean)
+        .map(t => `<span class="kb-term-tag">${escHtml(t)}</span>`).join('')
+    : '';
+
+  let panel = document.getElementById('kb-side-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'kb-side-panel';
+    panel.className = 'kb-side-panel';
+    document.querySelector('.kb-page')?.appendChild(panel);
+  }
+
+  panel.innerHTML = `
+    <div class="kb-sp-header">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="kb-badge" style="background:${pc}18;color:${pc};border:1px solid ${pc}30;">${escHtml(entry.portal)}</span>
+        <span class="kb-badge" style="background:${tc}18;color:${tc};border:1px solid ${tc}30;">${escHtml(entry.type)}</span>
       </div>
-    `;
-  }).join('');
+      <button class="kb-sp-close" id="kb-sp-close-btn" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
 
-  // Attach events
-  grid.querySelectorAll('.kb-btn-edit').forEach(btn => {
-    btn.addEventListener('click', () => openEditModal(btn.dataset.id));
-  });
-  grid.querySelectorAll('.kb-btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => confirmDelete(btn.dataset.id));
-  });
-  grid.querySelectorAll('.kb-read-more').forEach(span => {
-    span.addEventListener('click', e => expandContent(e.target));
-  });
+    <div class="kb-sp-title">${escHtml(entry.title)}</div>
+
+    <div class="kb-sp-section">
+      <div class="kb-sp-label">Description</div>
+      <div class="kb-sp-content">${escHtml(entry.content || '—')}</div>
+    </div>
+
+    ${entry.whereToFind ? `
+    <div class="kb-sp-section">
+      <div class="kb-sp-label">📍 Where to Find</div>
+      <div class="kb-sp-where">${escHtml(entry.whereToFind)}</div>
+    </div>` : ''}
+
+    ${relatedHtml ? `
+    <div class="kb-sp-section">
+      <div class="kb-sp-label">Related Terms</div>
+      <div class="kb-related-terms">${relatedHtml}</div>
+    </div>` : ''}
+
+    ${entry.updatedAt ? `
+    <div style="font-size:10.5px;color:var(--text-muted,#888);margin-top:auto;padding-top:16px;">
+      Last updated ${relativeTime(entry.updatedAt)}
+    </div>` : ''}
+
+    <div class="kb-sp-footer">
+      <button class="kb-btn-secondary kb-sp-edit-btn" data-id="${escAttr(entry.id)}">Edit</button>
+      <button class="kb-btn-delete kb-sp-del-btn" data-id="${escAttr(entry.id)}">Delete</button>
+    </div>`;
+
+  panel.classList.add('kb-sp-open');
+
+  document.getElementById('kb-sp-close-btn').addEventListener('click', closeSidePanel);
+  panel.querySelector('.kb-sp-edit-btn').addEventListener('click', () => { closeSidePanel(); openEditModal(id); });
+  panel.querySelector('.kb-sp-del-btn').addEventListener('click', () => { closeSidePanel(); confirmDelete(id); });
+
+  // Highlight active row
+  document.querySelectorAll('.kb-row').forEach(r => r.classList.toggle('kb-row-active', r.dataset.id === id));
 }
 
-function expandContent(readMoreEl) {
-  const contentEl = readMoreEl.closest('.kb-card-content');
-  if (!contentEl) return;
-  const full = contentEl.dataset.full || '';
-  contentEl.innerHTML = escHtml(full) +
-    '<span class="kb-expand-hint"> <span class="kb-read-less">show less</span></span>';
-  contentEl.dataset.expanded = 'true';
-  contentEl.querySelector('.kb-read-less')?.addEventListener('click', e => collapseContent(e.target));
-}
-
-function collapseContent(readLessEl) {
-  const contentEl = readLessEl.closest('.kb-card-content');
-  if (!contentEl) return;
-  const full    = contentEl.dataset.full || '';
-  const preview = full.slice(0, 200);
-  const hasMore = full.length > 200;
-  contentEl.innerHTML = escHtml(preview) +
-    (hasMore ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : '');
-  contentEl.dataset.expanded = 'false';
-  contentEl.querySelector('.kb-read-more')?.addEventListener('click', e => expandContent(e.target));
+function closeSidePanel() {
+  const panel = document.getElementById('kb-side-panel');
+  if (panel) panel.classList.remove('kb-sp-open');
+  document.querySelectorAll('.kb-row').forEach(r => r.classList.remove('kb-row-active'));
 }
 
 // ── Skeleton loading ──────────────────────────────────────────────────────────
 function renderSkeleton() {
-  const grid = document.getElementById('kb-grid');
-  if (!grid) return;
-  grid.innerHTML = Array(6).fill(0).map(() => `
-    <div class="kb-card">
-      <div class="kb-card-inner">
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          <div class="skeleton-block" style="height:20px;width:72px;border-radius:12px;"></div>
-          <div class="skeleton-block" style="height:20px;width:80px;border-radius:12px;"></div>
-        </div>
-        <div class="skeleton-block" style="height:17px;width:75%;margin-bottom:10px;"></div>
-        <div class="skeleton-block" style="height:13px;width:100%;margin-bottom:5px;"></div>
-        <div class="skeleton-block" style="height:13px;width:92%;margin-bottom:5px;"></div>
-        <div class="skeleton-block" style="height:13px;width:78%;margin-bottom:14px;"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div class="skeleton-block" style="height:11px;width:55px;"></div>
-          <div style="display:flex;gap:6px;">
-            <div class="skeleton-block" style="height:26px;width:52px;border-radius:6px;"></div>
-            <div class="skeleton-block" style="height:26px;width:62px;border-radius:6px;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  const wrap = document.getElementById('kb-grid');
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <table class="kb-table">
+      <thead><tr>
+        <th style="width:36px;">#</th><th>Knowledge Title</th>
+        <th style="width:130px;">Portal</th><th style="width:130px;">Category</th>
+      </tr></thead>
+      <tbody>${Array(8).fill(0).map((_, i) => `
+        <tr class="kb-row">
+          <td style="text-align:center;"><div class="skeleton-block" style="height:11px;width:16px;margin:auto;"></div></td>
+          <td><div class="skeleton-block" style="height:13px;width:${60 + (i % 3) * 15}%;"></div></td>
+          <td><div class="skeleton-block" style="height:20px;width:80px;border-radius:10px;"></div></td>
+          <td><div class="skeleton-block" style="height:20px;width:88px;border-radius:10px;"></div></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 // ── Error banner ──────────────────────────────────────────────────────────────
 function renderError(msg) {
-  const grid = document.getElementById('kb-grid');
-  if (!grid) return;
-  grid.innerHTML = `
-    <div class="kb-error-banner" style="grid-column:1/-1;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>Failed to load knowledge entries: ${escHtml(msg)}</span>
-      <button onclick="loadEntries()" style="margin-left:12px;padding:4px 12px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer;font-size:12px;">Retry</button>
-    </div>
-  `;
+  const wrap = document.getElementById('kb-grid');
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <div class="kb-error-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>Failed to load: ${escHtml(msg)}</span>
+      <button onclick="loadEntries()" style="margin-left:12px;padding:4px 12px;border-radius:6px;
+        border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer;font-size:12px;">Retry</button>
+    </div>`;
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -508,8 +528,8 @@ function buildPage() {
       <!-- Stats bar -->
       <div class="kb-stats-bar" id="kb-stats-bar"></div>
 
-      <!-- Card grid -->
-      <div class="kb-grid" id="kb-grid"></div>
+      <!-- Table container -->
+      <div id="kb-grid"></div>
 
     </div>
 
@@ -598,7 +618,7 @@ function buildPage() {
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') { closeModal(); closeSidePanel(); }
   });
 }
 
@@ -714,87 +734,145 @@ function injectStyles() {
     }
     .kb-stats-bar strong { color: var(--text, #1A1A1A); }
 
-    /* Card grid */
-    .kb-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 14px;
+    /* Table wrapper + side panel layout */
+    .kb-grid { position: relative; }
+    .kb-page { position: relative; }
+
+    /* Table */
+    .kb-table {
+      width: 100%; border-collapse: collapse;
+      background: var(--card-bg,#fff);
+      border: 1px solid var(--border,#E5E7EB);
+      border-radius: 10px; overflow: hidden;
+    }
+    .kb-table thead tr {
+      background: var(--bg-page,#F9FAFB);
+      border-bottom: 1px solid var(--border,#E5E7EB);
+    }
+    .kb-table th {
+      padding: 9px 14px; text-align: left;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--text-muted,#888);
+    }
+    .kb-row {
+      cursor: pointer;
+      border-bottom: 1px solid var(--border,#f0f0f0);
+      transition: background 0.12s;
+    }
+    .kb-row:last-child { border-bottom: none; }
+    .kb-row:hover { background: var(--bg-page,#F9FAFB); }
+    .kb-row-active { background: rgba(27,58,107,0.05) !important; }
+    .kb-row td { padding: 9px 14px; vertical-align: middle; }
+    .kb-row-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--text,#1A1A1A);
     }
 
-    /* Card */
-    .kb-card { min-width: 0; }
-    .kb-card-inner {
-      background: var(--card-bg, #fff);
-      border: 1px solid var(--border, #E5E7EB);
-      border-radius: 12px;
-      padding: 15px 17px 13px;
-      height: 100%;
-      display: flex; flex-direction: column; gap: 7px;
-      transition: box-shadow 0.15s, transform 0.15s;
-    }
-    .kb-card-inner:hover {
-      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
-      transform: translateY(-1px);
-    }
-    .kb-card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .kb-badge {
       font-size: 11px; font-weight: 600;
       padding: 2px 9px; border-radius: 12px;
       letter-spacing: 0.02em; white-space: nowrap;
+      display: inline-block;
     }
-    .kb-card-title {
-      font-size: 14px; font-weight: 700;
-      color: var(--text, #1A1A1A); line-height: 1.35;
-    }
-    .kb-card-content {
-      font-size: 12.5px; color: var(--text-muted, #6B7280);
-      line-height: 1.65; flex: 1;
-      white-space: pre-wrap; word-break: break-word;
-      display: -webkit-box;
-    }
-    .kb-expand-hint { font-style: normal; }
-    .kb-read-more, .kb-read-less {
-      color: #1B3A6B; cursor: pointer;
-      font-weight: 600; font-size: 11.5px;
-    }
-    .kb-read-more:hover, .kb-read-less:hover { text-decoration: underline; }
 
-    /* Where to find */
+    /* Side panel */
+    .kb-side-panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 400px; height: 100vh;
+      background: var(--card-bg,#fff);
+      border-left: 1px solid var(--border,#E5E7EB);
+      box-shadow: -6px 0 24px rgba(0,0,0,0.1);
+      z-index: 9000;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(.22,1,.36,1);
+      overflow: hidden;
+    }
+    .kb-sp-open { transform: translateX(0); }
+    .kb-sp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border,#E5E7EB);
+      flex-shrink: 0;
+    }
+    .kb-sp-close {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid var(--border,#ddd);
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted,#888); flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .kb-sp-close:hover { background: var(--bg-page,#f5f5f5); }
+    .kb-sp-title {
+      font-size: 16px; font-weight: 700;
+      color: var(--text,#1A1A1A);
+      padding: 14px 16px 6px; line-height: 1.35;
+      flex-shrink: 0;
+    }
+    .kb-sp-section {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border,#f0f0f0);
+      flex-shrink: 0;
+    }
+    .kb-sp-label {
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--text-muted,#888); margin-bottom: 6px;
+    }
+    .kb-sp-content {
+      font-size: 13px; color: var(--text,#1A1A1A);
+      line-height: 1.65; white-space: pre-wrap;
+    }
+    .kb-sp-where {
+      font-size: 12.5px; color: var(--text,#1A1A1A);
+      line-height: 1.55;
+      padding: 7px 10px;
+      background: var(--bg-page,#F9FAFB);
+      border-radius: 7px;
+      border: 1px solid var(--border,#E5E7EB);
+    }
+    .kb-sp-body {
+      flex: 1; overflow-y: auto; min-height: 0;
+    }
+    .kb-sp-footer {
+      display: flex; gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border,#E5E7EB);
+      flex-shrink: 0; margin-top: auto;
+    }
+
+    /* Where to find (in side panel) */
     .kb-where-to-find {
-      font-size: 11.5px; color: var(--text-muted, #888);
-      line-height: 1.5;
-      padding: 5px 9px;
-      background: var(--bg-page, #F9FAFB);
-      border-radius: 6px;
-      border: 1px solid var(--border, #E5E7EB);
+      font-size: 11.5px; color: var(--text-muted,#888);
+      line-height: 1.5; padding: 5px 9px;
+      background: var(--bg-page,#F9FAFB); border-radius: 6px;
+      border: 1px solid var(--border,#E5E7EB);
     }
 
     /* Related terms */
-    .kb-related-terms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
+    .kb-related-terms { display: flex; flex-wrap: wrap; gap: 4px; }
     .kb-term-tag {
       font-size: 10.5px; font-weight: 500;
       padding: 1px 8px; border-radius: 10px;
-      background: var(--bg-page, #F3F4F6);
-      color: var(--text-muted, #6B7280);
-      border: 1px solid var(--border, #E5E7EB);
+      background: var(--bg-page,#F3F4F6);
+      color: var(--text-muted,#6B7280);
+      border: 1px solid var(--border,#E5E7EB);
     }
 
-    /* Card footer */
-    .kb-card-footer {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      margin-top: 4px; gap: 8px;
-    }
-    .kb-updated-at { font-size: 10.5px; color: var(--text-muted, #9CA3AF); }
-    .kb-card-actions { display: flex; gap: 5px; }
+    .kb-updated-at { font-size: 10.5px; color: var(--text-muted,#9CA3AF); }
 
-    .kb-btn-edit, .kb-btn-delete {
+    .kb-btn-edit, .kb-btn-delete, .kb-btn-secondary {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 4px 9px; border-radius: 6px;
-      font-size: 11px; font-weight: 600; cursor: pointer;
+      padding: 6px 14px; border-radius: 7px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
       font-family: inherit; transition: all 0.15s;
       border: 1px solid transparent;
     }
+    .kb-btn-secondary { background: rgba(27,58,107,0.07); color: #1B3A6B; border-color: rgba(27,58,107,0.15); }
+    .kb-btn-secondary:hover { background: rgba(27,58,107,0.14); }
     .kb-btn-edit   { background: rgba(27,58,107,0.07);  color: #1B3A6B; border-color: rgba(27,58,107,0.15); }
     .kb-btn-edit:hover   { background: rgba(27,58,107,0.14); }
     .kb-btn-delete { background: rgba(176,26,24,0.07);  color: #B01A18; border-color: rgba(176,26,24,0.15); }
@@ -802,13 +880,11 @@ function injectStyles() {
 
     /* Empty state */
     .kb-empty-state {
-      grid-column: 1/-1; text-align: center;
-      padding: 60px 24px;
+      text-align: center; padding: 60px 24px;
       display: flex; flex-direction: column; align-items: center; gap: 16px;
     }
-    .kb-empty-icon { opacity: 0.4; }
     .kb-empty-text {
-      font-size: 14px; color: var(--text-muted, #6B7280);
+      font-size: 14px; color: var(--text-muted,#6B7280);
       max-width: 340px; line-height: 1.65; margin: 0;
     }
 
