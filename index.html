@@ -192,11 +192,13 @@
     /* ── Portal cards grid ──────────────────────────────── */
     .hub-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
-      justify-content: center;
       width: 100%;
-      max-width: 700px;
+      max-width: 1020px;
+    }
+    @media (max-width: 800px) {
+      .hub-grid { grid-template-columns: 1fr; }
     }
 
     .portal-card {
