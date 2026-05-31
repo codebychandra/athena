@@ -152,29 +152,15 @@ function getFilteredEntries() {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
-  renderPortalTabs();
-  renderTypeTabs();
+  renderInsightTabs();
   renderStatsBar();
   renderTable();
+  // Sync portal select value
+  const sel = document.getElementById('kb-portal-select');
+  if (sel) sel.value = activePortal;
 }
 
-function renderPortalTabs() {
-  const c = document.getElementById('kb-portal-tabs');
-  if (!c) return;
-  const tabs = ['All', ...PORTALS];
-  c.innerHTML = tabs.map(p => {
-    const active = p === activePortal;
-    const color  = p === 'All' ? '#1B3A6B' : (PORTAL_COLORS[p] || '#6B7280');
-    return `<button class="kb-tab${active ? ' kb-tab-active' : ''}" data-portal="${p}"
-      style="${active ? `background:${color};color:#fff;border-color:${color};` : ''}"
-    >${p}</button>`;
-  }).join('');
-  c.querySelectorAll('[data-portal]').forEach(btn => {
-    btn.addEventListener('click', () => { activePortal = btn.dataset.portal; render(); });
-  });
-}
-
-function renderTypeTabs() {
+function renderInsightTabs() {
   const c = document.getElementById('kb-type-tabs');
   if (!c) return;
   const tabs = ['All', ...ENTRY_TYPES];
@@ -230,21 +216,29 @@ function renderTable() {
     <table class="kb-table">
       <thead>
         <tr>
-          <th style="width:36px;text-align:center;">#</th>
-          <th>Knowledge Title</th>
-          <th style="width:130px;">Portal</th>
-          <th style="width:130px;">Category</th>
+          <th style="width:32px;text-align:center;">#</th>
+          <th style="min-width:180px;">Knowledge Title</th>
+          <th style="width:110px;">Portal</th>
+          <th style="width:115px;">Insight</th>
+          <th>Description</th>
+          <th style="min-width:160px;">Where to Find</th>
+          <th style="width:80px;">Updated</th>
         </tr>
       </thead>
       <tbody>
         ${entries.map((entry, i) => {
-          const tc = TYPE_COLORS[entry.type]    || '#6B7280';
-          const pc = PORTAL_COLORS[entry.portal] || '#6B7280';
+          const tc  = TYPE_COLORS[entry.type]     || '#6B7280';
+          const pc  = PORTAL_COLORS[entry.portal]  || '#6B7280';
+          const desc = (entry.content || '').slice(0, 90) + (entry.content?.length > 90 ? '…' : '');
+          const wtf  = (entry.whereToFind || '').slice(0, 60) + (entry.whereToFind?.length > 60 ? '…' : '');
           return `<tr class="kb-row" data-id="${escAttr(entry.id)}">
             <td style="text-align:center;color:var(--text-muted,#888);font-size:11px;">${i + 1}</td>
             <td class="kb-row-title">${escHtml(entry.title)}</td>
             <td><span class="kb-badge" style="background:${pc}18;color:${pc};border:1px solid ${pc}30;">${escHtml(entry.portal)}</span></td>
             <td><span class="kb-badge" style="background:${tc}18;color:${tc};border:1px solid ${tc}30;">${escHtml(entry.type)}</span></td>
+            <td class="kb-row-desc">${escHtml(desc) || '<span style="color:var(--text-muted,#bbb);">—</span>'}</td>
+            <td class="kb-row-wtf">${wtf ? `<span style="font-size:11.5px;color:var(--text-muted,#888);">📍 ${escHtml(wtf)}</span>` : '<span style="color:var(--text-muted,#bbb);">—</span>'}</td>
+            <td style="font-size:10.5px;color:var(--text-muted,#9CA3AF);white-space:nowrap;">${relativeTime(entry.updatedAt)}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -339,15 +333,19 @@ function renderSkeleton() {
   wrap.innerHTML = `
     <table class="kb-table">
       <thead><tr>
-        <th style="width:36px;">#</th><th>Knowledge Title</th>
-        <th style="width:130px;">Portal</th><th style="width:130px;">Category</th>
+        <th style="width:32px;">#</th><th>Knowledge Title</th>
+        <th style="width:110px;">Portal</th><th style="width:115px;">Insight</th>
+        <th>Description</th><th>Where to Find</th><th style="width:80px;">Updated</th>
       </tr></thead>
       <tbody>${Array(8).fill(0).map((_, i) => `
         <tr class="kb-row">
-          <td style="text-align:center;"><div class="skeleton-block" style="height:11px;width:16px;margin:auto;"></div></td>
-          <td><div class="skeleton-block" style="height:13px;width:${60 + (i % 3) * 15}%;"></div></td>
+          <td></td>
+          <td><div class="skeleton-block" style="height:13px;width:${55 + (i%3)*15}%;"></div></td>
           <td><div class="skeleton-block" style="height:20px;width:80px;border-radius:10px;"></div></td>
           <td><div class="skeleton-block" style="height:20px;width:88px;border-radius:10px;"></div></td>
+          <td><div class="skeleton-block" style="height:12px;width:90%;"></div></td>
+          <td><div class="skeleton-block" style="height:12px;width:75%;"></div></td>
+          <td><div class="skeleton-block" style="height:11px;width:50px;"></div></td>
         </tr>`).join('')}
       </tbody>
     </table>`;
@@ -513,16 +511,26 @@ function buildPage() {
         </div>
       </div>
 
-      <!-- Portal filter row -->
-      <div class="kb-filter-section">
-        <span class="kb-filter-label">Portal</span>
-        <div class="kb-tab-row" id="kb-portal-tabs"></div>
-      </div>
-
-      <!-- Type filter row -->
-      <div class="kb-filter-section" style="margin-top:6px;">
-        <span class="kb-filter-label">Type</span>
-        <div class="kb-tab-row" id="kb-type-tabs"></div>
+      <!-- Single filter row: Portal dropdown + Insight pills -->
+      <div class="kb-filter-section" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span class="kb-filter-label" style="margin:0;">Portal</span>
+          <select id="kb-portal-select"
+            style="height:28px;border:1px solid var(--border,#ddd);border-radius:6px;
+              padding:0 24px 0 8px;font-size:12px;font-family:inherit;
+              background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+              background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;min-width:110px;">
+            <option value="All">All Portals</option>
+            <option value="Cruise Line">Cruise Line</option>
+            <option value="J1 Program">J1 Program</option>
+            <option value="Both">Both</option>
+            <option value="General">General</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
+          <span class="kb-filter-label" style="margin:0;flex-shrink:0;">Insight</span>
+          <div class="kb-tab-row" id="kb-type-tabs" style="flex:1;"></div>
+        </div>
       </div>
 
       <!-- Stats bar -->
@@ -614,6 +622,11 @@ function buildPage() {
 
   document.getElementById('kb-search').addEventListener('input', e => {
     searchQuery = e.target.value;
+    render();
+  });
+
+  document.getElementById('kb-portal-select')?.addEventListener('change', e => {
+    activePortal = e.target.value;
     render();
   });
 
@@ -766,7 +779,12 @@ function injectStyles() {
     .kb-row td { padding: 9px 14px; vertical-align: middle; }
     .kb-row-title {
       font-size: 13px; font-weight: 600;
-      color: var(--text,#1A1A1A);
+      color: var(--text,#1A1A1A); white-space: nowrap;
+    }
+    .kb-row-desc, .kb-row-wtf {
+      font-size: 12px; color: var(--text-muted,#6B7280);
+      line-height: 1.4; max-width: 260px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     .kb-badge {
