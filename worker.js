@@ -1162,7 +1162,10 @@ export default {
             if (idx !== -1) entries.splice(idx, 1);
           } else if (body.action === 'save') {
             const entry = body.entry;
-            if (!entry?.topic || !entry?.content) return json({ ok: false, error: 'topic and content required' }, 400, ch);
+            // Support new structure (title/type/portal) and legacy (topic/category)
+            const hasTitle   = entry?.title || entry?.topic;
+            const hasContent = entry?.content;
+            if (!hasTitle || !hasContent) return json({ ok: false, error: 'title and content required' }, 400, ch);
             entry.updatedAt = new Date().toISOString();
             if (!entry.id) entry.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             const idx = entries.findIndex(e => e.id === entry.id);
@@ -1194,7 +1197,13 @@ export default {
             const kb = (await getCached(env, 'ai-knowledge-base')) || { entries: [] };
             if (kb.entries?.length) {
               knowledgeContext = '\n\n--- KNOWLEDGE BASE ---\n' +
-                kb.entries.map(e => `[${e.category}] ${e.topic}:\n${e.content}`).join('\n\n') +
+                kb.entries.map(e => {
+                  let entry = `[${e.portal || e.category || 'General'} | ${e.type || 'Definition'}] ${e.title || e.topic}`;
+                  entry += `\n${e.content}`;
+                  if (e.whereToFind) entry += `\nWhere to find: ${e.whereToFind}`;
+                  if (e.relatedTerms) entry += `\nRelated: ${e.relatedTerms}`;
+                  return entry;
+                }).join('\n\n') +
                 '\n--- END KNOWLEDGE BASE ---';
             }
           } catch (_) {}

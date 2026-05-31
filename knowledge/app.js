@@ -1,83 +1,102 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  CTI Athena — AI Knowledge Library  app.js
+//  CTI Athena — AI Knowledge Library  app.js  (v2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
-const DEFAULT_CATEGORIES = [
-  'Navigation (Cruise)', 'Navigation (J1)',
-  'Terminology (Cruise)', 'Terminology (J1)',
-  'Visa (Cruise)', 'Visa (J1)',
-  'Process / SOP', 'HR Policy', 'General',
+
+const ENTRY_TYPES = [
+  'Definition',
+  'Filter Guide',
+  'Data Source',
+  'Business Rule',
+  'Calculation',
+  'FAQ',
+  'Example',
 ];
 
-const CAT_COLORS = {
-  'Navigation (Cruise)':  '#B01A18',
-  'Navigation (J1)':      '#1B3A6B',
-  'Terminology (Cruise)': '#DC2626',
-  'Terminology (J1)':     '#2563EB',
-  'Visa (Cruise)':        '#0891B2',
-  'Visa (J1)':            '#7C3AED',
-  'Process / SOP':        '#2D7A55',
-  'HR Policy':            '#D97706',
-  'General':              '#6B7280',
+const PORTALS = ['Cruise Line', 'J1 Program', 'Both', 'General'];
+
+const TYPE_COLORS = {
+  'Definition':    '#1B3A6B',
+  'Filter Guide':  '#2D7A55',
+  'Data Source':   '#0891B2',
+  'Business Rule': '#B01A18',
+  'Calculation':   '#7C3AED',
+  'FAQ':           '#D97706',
+  'Example':       '#6B7280',
 };
 
-function getCatColor(cat) {
-  return CAT_COLORS[cat] || '#6B7280';
+const PORTAL_COLORS = {
+  'Cruise Line': '#B01A18',
+  'J1 Program':  '#1B3A6B',
+  'Both':        '#2D7A55',
+  'General':     '#6B7280',
+};
+
+// ── Backward-compat normalizer ────────────────────────────────────────────────
+function normalizeEntry(e) {
+  return {
+    ...e,
+    title:  e.title  || e.topic    || '',
+    type:   e.type   || 'Definition',
+    portal: e.portal || e.category || 'General',
+  };
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let allEntries = [];
-let activeCategory = 'All';
-let searchQuery = '';
-let editingId = null;
+let allEntries   = [];
+let activePortal = 'All';
+let activeType   = 'All';
+let searchQuery  = '';
+let editingId    = null;
 
 // ── Relative time ─────────────────────────────────────────────────────────────
-function relativeTime(isoString) {
-  if (!isoString) return '';
-  const diff = Date.now() - new Date(isoString).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60)  return 'just now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60)  return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24)   return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30)  return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+function relativeTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60)  return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30)  return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escAttr(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'success') {
-  const container = document.getElementById('toastContainer');
-  if (!container) return;
+  const c = document.getElementById('toastContainer');
+  if (!c) return;
   const t = document.createElement('div');
-  t.className = 'toast';
   t.style.cssText = `
-    background: ${type === 'success' ? '#2D7A55' : '#B01A18'};
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.2s, transform 0.2s;
-    pointer-events: none;
+    background:${type === 'success' ? '#2D7A55' : '#B01A18'};
+    color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;
+    font-weight:500;margin-bottom:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+    opacity:0;transform:translateY(-8px);
+    transition:opacity 0.2s,transform 0.2s;pointer-events:none;
   `;
   t.textContent = msg;
-  container.appendChild(t);
-  requestAnimationFrame(() => {
-    t.style.opacity = '1';
-    t.style.transform = 'translateY(0)';
-  });
+  c.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity='1'; t.style.transform='translateY(0)'; });
   setTimeout(() => {
-    t.style.opacity = '0';
-    t.style.transform = 'translateY(-8px)';
+    t.style.opacity='0'; t.style.transform='translateY(-8px)';
     setTimeout(() => t.remove(), 220);
   }, 3000);
 }
@@ -87,7 +106,7 @@ async function fetchEntries() {
   const res = await fetch(WORKER_URL + '/api/knowledge');
   if (!res.ok) throw new Error(`Server error ${res.status}`);
   const data = await res.json();
-  return data.entries || [];
+  return (data.entries || []).map(normalizeEntry);
 }
 
 async function saveEntry(entry) {
@@ -112,55 +131,75 @@ async function deleteEntry(id) {
 
 // ── Filter ────────────────────────────────────────────────────────────────────
 function getFilteredEntries() {
-  let entries = allEntries;
-  if (activeCategory !== 'All') {
-    entries = entries.filter(e => e.category === activeCategory);
+  let list = allEntries;
+  if (activePortal !== 'All') {
+    list = list.filter(e => e.portal === activePortal);
+  }
+  if (activeType !== 'All') {
+    list = list.filter(e => e.type === activeType);
   }
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
-    entries = entries.filter(e =>
-      (e.topic || '').toLowerCase().includes(q) ||
-      (e.content || '').toLowerCase().includes(q)
+    list = list.filter(e =>
+      (e.title        || '').toLowerCase().includes(q) ||
+      (e.content      || '').toLowerCase().includes(q) ||
+      (e.whereToFind  || '').toLowerCase().includes(q) ||
+      (e.relatedTerms || '').toLowerCase().includes(q)
     );
   }
-  return entries;
-}
-
-// ── All categories from entries + defaults ─────────────────────────────────────
-function getAllCategories() {
-  const fromEntries = allEntries.map(e => e.category).filter(Boolean);
-  const combined = [...DEFAULT_CATEGORIES, ...fromEntries];
-  return ['All', ...Array.from(new Set(combined))];
+  return list;
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
-  renderFilterTabs();
+  renderPortalTabs();
+  renderTypeTabs();
+  renderStatsBar();
   renderCards();
 }
 
-function renderFilterTabs() {
-  const container = document.getElementById('kb-category-tabs');
-  if (!container) return;
-  const categories = getAllCategories();
-  container.innerHTML = categories.map(cat => {
-    const isActive = cat === activeCategory;
-    const color = cat === 'All' ? '#1B3A6B' : getCatColor(cat);
-    return `
-      <button
-        class="kb-tab${isActive ? ' kb-tab-active' : ''}"
-        data-cat="${cat}"
-        style="${isActive ? `background:${color};color:#fff;border-color:${color};` : ''}"
-      >${cat}</button>
-    `;
+function renderPortalTabs() {
+  const c = document.getElementById('kb-portal-tabs');
+  if (!c) return;
+  const tabs = ['All', ...PORTALS];
+  c.innerHTML = tabs.map(p => {
+    const active = p === activePortal;
+    const color  = p === 'All' ? '#1B3A6B' : (PORTAL_COLORS[p] || '#6B7280');
+    return `<button class="kb-tab${active ? ' kb-tab-active' : ''}" data-portal="${p}"
+      style="${active ? `background:${color};color:#fff;border-color:${color};` : ''}"
+    >${p}</button>`;
   }).join('');
-
-  container.querySelectorAll('.kb-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeCategory = btn.dataset.cat;
-      render();
-    });
+  c.querySelectorAll('[data-portal]').forEach(btn => {
+    btn.addEventListener('click', () => { activePortal = btn.dataset.portal; render(); });
   });
+}
+
+function renderTypeTabs() {
+  const c = document.getElementById('kb-type-tabs');
+  if (!c) return;
+  const tabs = ['All', ...ENTRY_TYPES];
+  c.innerHTML = tabs.map(t => {
+    const active = t === activeType;
+    const color  = t === 'All' ? '#6B7280' : (TYPE_COLORS[t] || '#6B7280');
+    return `<button class="kb-tab kb-tab-sm${active ? ' kb-tab-active' : ''}" data-type="${t}"
+      style="${active ? `background:${color};color:#fff;border-color:${color};` : ''}"
+    >${t}</button>`;
+  }).join('');
+  c.querySelectorAll('[data-type]').forEach(btn => {
+    btn.addEventListener('click', () => { activeType = btn.dataset.type; render(); });
+  });
+}
+
+function renderStatsBar() {
+  const bar = document.getElementById('kb-stats-bar');
+  if (!bar) return;
+  const total = allEntries.length;
+  const typeCounts = {};
+  ENTRY_TYPES.forEach(t => { typeCounts[t] = allEntries.filter(e => e.type === t).length; });
+  const topTypes = ENTRY_TYPES.filter(t => typeCounts[t] > 0).slice(0, 4);
+  const parts = [`<strong>${total}</strong> ${total === 1 ? 'entry' : 'entries'}`];
+  topTypes.forEach(t => { parts.push(`${typeCounts[t]} ${t}s`); });
+  bar.innerHTML = parts.join(' &nbsp;·&nbsp; ');
 }
 
 function renderCards() {
@@ -173,17 +212,17 @@ function renderCards() {
     grid.innerHTML = `
       <div class="kb-empty-state">
         <div class="kb-empty-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted,#9CA3AF)">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted,#9CA3AF)">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
           </svg>
         </div>
         <p class="kb-empty-text">
           ${isEmpty
-            ? 'No knowledge entries yet. Add your first entry to teach the AI.'
-            : 'No entries match your search.'}
+            ? 'No knowledge entries yet.<br>Add your first entry to teach the AI.'
+            : 'No entries match your current filters.'}
         </p>
-        ${isEmpty ? `<button class="kb-btn-primary" id="emptyAddBtn">+ Add Entry</button>` : ''}
+        ${isEmpty ? `<button class="kb-btn-primary" id="emptyAddBtn">+ Add Your First Entry</button>` : ''}
       </div>
     `;
     document.getElementById('emptyAddBtn')?.addEventListener('click', openAddModal);
@@ -191,28 +230,41 @@ function renderCards() {
   }
 
   grid.innerHTML = entries.map(entry => {
-    const color = getCatColor(entry.category || 'Other');
-    const preview = (entry.content || '').slice(0, 180);
+    const typeColor   = TYPE_COLORS[entry.type]   || '#6B7280';
+    const portalColor = PORTAL_COLORS[entry.portal] || '#6B7280';
+    const content     = entry.content || '';
+    const preview     = content.slice(0, 200);
+    const hasMore     = content.length > 200;
+
+    // Related terms as small tags
+    const relatedHtml = entry.relatedTerms
+      ? entry.relatedTerms.split(',').map(t => t.trim()).filter(Boolean)
+          .map(t => `<span class="kb-term-tag">${escHtml(t)}</span>`).join('')
+      : '';
+
     return `
-      <div class="kb-card" data-id="${entry.id}">
-        <div class="kb-card-inner" style="border-left: 4px solid ${color};">
-          <div class="kb-card-header">
-            <span class="kb-badge" style="background:${color}18;color:${color};border:1px solid ${color}30;">
-              ${entry.category || 'Other'}
-            </span>
+      <div class="kb-card" data-id="${escAttr(entry.id)}">
+        <div class="kb-card-inner">
+          <div class="kb-card-badges">
+            <span class="kb-badge" style="background:${portalColor}18;color:${portalColor};border:1px solid ${portalColor}30;">${escHtml(entry.portal)}</span>
+            <span class="kb-badge" style="background:${typeColor}18;color:${typeColor};border:1px solid ${typeColor}30;">${escHtml(entry.type)}</span>
           </div>
-          <div class="kb-card-topic">${escHtml(entry.topic || '')}</div>
-          <div class="kb-card-content" data-full="${escAttr(entry.content || '')}"
-               data-expanded="false">${escHtml(preview)}${(entry.content || '').length > 180 ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : ''}</div>
+          <div class="kb-card-title">${escHtml(entry.title)}</div>
+          <div class="kb-card-content"
+               data-full="${escAttr(content)}"
+               data-expanded="false"
+          >${escHtml(preview)}${hasMore ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : ''}</div>
+          ${entry.whereToFind ? `<div class="kb-where-to-find">📍 ${escHtml(entry.whereToFind)}</div>` : ''}
+          ${relatedHtml ? `<div class="kb-related-terms">${relatedHtml}</div>` : ''}
           <div class="kb-card-footer">
             <span class="kb-updated-at">${relativeTime(entry.updatedAt)}</span>
             <div class="kb-card-actions">
-              <button class="kb-btn-edit" data-id="${entry.id}" title="Edit entry">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <button class="kb-btn-edit"   data-id="${escAttr(entry.id)}" title="Edit entry">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
               </button>
-              <button class="kb-btn-delete" data-id="${entry.id}" title="Delete entry">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              <button class="kb-btn-delete" data-id="${escAttr(entry.id)}" title="Delete entry">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                 Delete
               </button>
             </div>
@@ -230,43 +282,52 @@ function renderCards() {
     btn.addEventListener('click', () => confirmDelete(btn.dataset.id));
   });
   grid.querySelectorAll('.kb-read-more').forEach(span => {
-    span.addEventListener('click', (e) => {
-      const contentEl = e.target.closest('.kb-card-content');
-      if (!contentEl) return;
-      const expanded = contentEl.dataset.expanded === 'true';
-      if (!expanded) {
-        contentEl.innerHTML = escHtml(contentEl.dataset.full) + '<span class="kb-expand-hint"> <span class="kb-read-less">show less</span></span>';
-        contentEl.dataset.expanded = 'true';
-        contentEl.querySelector('.kb-read-less')?.addEventListener('click', ev => {
-          const el = ev.target.closest('.kb-card-content');
-          const full = el.dataset.full || '';
-          const preview = full.slice(0, 180);
-          el.innerHTML = escHtml(preview) + (full.length > 180 ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : '');
-          el.dataset.expanded = 'false';
-          el.querySelector('.kb-read-more')?.addEventListener('click', arguments.callee);
-        });
-      }
-    });
+    span.addEventListener('click', e => expandContent(e.target));
   });
+}
+
+function expandContent(readMoreEl) {
+  const contentEl = readMoreEl.closest('.kb-card-content');
+  if (!contentEl) return;
+  const full = contentEl.dataset.full || '';
+  contentEl.innerHTML = escHtml(full) +
+    '<span class="kb-expand-hint"> <span class="kb-read-less">show less</span></span>';
+  contentEl.dataset.expanded = 'true';
+  contentEl.querySelector('.kb-read-less')?.addEventListener('click', e => collapseContent(e.target));
+}
+
+function collapseContent(readLessEl) {
+  const contentEl = readLessEl.closest('.kb-card-content');
+  if (!contentEl) return;
+  const full    = contentEl.dataset.full || '';
+  const preview = full.slice(0, 200);
+  const hasMore = full.length > 200;
+  contentEl.innerHTML = escHtml(preview) +
+    (hasMore ? '<span class="kb-expand-hint"> … <span class="kb-read-more">read more</span></span>' : '');
+  contentEl.dataset.expanded = 'false';
+  contentEl.querySelector('.kb-read-more')?.addEventListener('click', e => expandContent(e.target));
 }
 
 // ── Skeleton loading ──────────────────────────────────────────────────────────
 function renderSkeleton() {
   const grid = document.getElementById('kb-grid');
   if (!grid) return;
-  grid.innerHTML = Array(4).fill(0).map(() => `
+  grid.innerHTML = Array(6).fill(0).map(() => `
     <div class="kb-card">
-      <div class="kb-card-inner" style="border-left:4px solid #e5e7eb;">
-        <div class="skeleton-block" style="height:20px;width:70px;border-radius:12px;margin-bottom:12px;"></div>
-        <div class="skeleton-block" style="height:18px;width:80%;margin-bottom:8px;"></div>
-        <div class="skeleton-block" style="height:14px;width:100%;margin-bottom:4px;"></div>
-        <div class="skeleton-block" style="height:14px;width:90%;margin-bottom:4px;"></div>
-        <div class="skeleton-block" style="height:14px;width:75%;margin-bottom:16px;"></div>
-        <div style="display:flex;justify-content:space-between;">
-          <div class="skeleton-block" style="height:12px;width:60px;"></div>
-          <div style="display:flex;gap:8px;">
-            <div class="skeleton-block" style="height:28px;width:55px;border-radius:6px;"></div>
-            <div class="skeleton-block" style="height:28px;width:65px;border-radius:6px;"></div>
+      <div class="kb-card-inner">
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <div class="skeleton-block" style="height:20px;width:72px;border-radius:12px;"></div>
+          <div class="skeleton-block" style="height:20px;width:80px;border-radius:12px;"></div>
+        </div>
+        <div class="skeleton-block" style="height:17px;width:75%;margin-bottom:10px;"></div>
+        <div class="skeleton-block" style="height:13px;width:100%;margin-bottom:5px;"></div>
+        <div class="skeleton-block" style="height:13px;width:92%;margin-bottom:5px;"></div>
+        <div class="skeleton-block" style="height:13px;width:78%;margin-bottom:14px;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="skeleton-block" style="height:11px;width:55px;"></div>
+          <div style="display:flex;gap:6px;">
+            <div class="skeleton-block" style="height:26px;width:52px;border-radius:6px;"></div>
+            <div class="skeleton-block" style="height:26px;width:62px;border-radius:6px;"></div>
           </div>
         </div>
       </div>
@@ -290,7 +351,7 @@ function renderError(msg) {
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function openAddModal() {
   editingId = null;
-  openModal({ id: null, category: '', topic: '', content: '' });
+  openModal({ id: null, type: '', portal: '', title: '', content: '', whereToFind: '', relatedTerms: '' });
 }
 
 function openEditModal(id) {
@@ -304,31 +365,20 @@ function openModal(entry) {
   const modal = document.getElementById('kb-modal');
   if (!modal) return;
 
-  const isCustomCat = entry.category && !DEFAULT_CATEGORIES.includes(entry.category);
-
-  document.getElementById('modal-title').textContent = entry.id ? 'Edit Entry' : 'Add Knowledge Entry';
-  const catSelect = document.getElementById('modal-category');
-  catSelect.value = isCustomCat ? 'Custom...' : (entry.category || '');
-
-  const customCatWrap = document.getElementById('modal-custom-cat-wrap');
-  const customCatInput = document.getElementById('modal-custom-category');
-  if (isCustomCat) {
-    customCatWrap.style.display = 'block';
-    customCatInput.value = entry.category;
-  } else {
-    customCatWrap.style.display = 'none';
-    customCatInput.value = '';
-  }
-
-  document.getElementById('modal-topic').value   = entry.topic   || '';
-  document.getElementById('modal-content').value = entry.content || '';
+  document.getElementById('modal-title-label').textContent = entry.id ? 'Edit Entry' : 'Add Knowledge Entry';
+  document.getElementById('modal-type').value         = entry.type   || '';
+  document.getElementById('modal-portal').value       = entry.portal || '';
+  document.getElementById('modal-entry-title').value  = entry.title  || '';
+  document.getElementById('modal-content').value      = entry.content      || '';
+  document.getElementById('modal-where').value        = entry.whereToFind  || '';
+  document.getElementById('modal-related').value      = entry.relatedTerms || '';
 
   modal.style.display = 'flex';
   requestAnimationFrame(() => {
     modal.style.opacity = '1';
     document.getElementById('modal-card').style.transform = 'scale(1)';
   });
-  document.getElementById('modal-topic').focus();
+  document.getElementById('modal-entry-title').focus();
 }
 
 function closeModal() {
@@ -341,29 +391,29 @@ function closeModal() {
 }
 
 async function handleSave() {
-  const catSelect = document.getElementById('modal-category');
-  let category = catSelect.value;
-  if (category === 'Custom...') {
-    category = document.getElementById('modal-custom-category').value.trim();
-  }
-  const topic   = document.getElementById('modal-topic').value.trim();
-  const content = document.getElementById('modal-content').value.trim();
+  const type         = document.getElementById('modal-type').value.trim();
+  const portal       = document.getElementById('modal-portal').value.trim();
+  const title        = document.getElementById('modal-entry-title').value.trim();
+  const content      = document.getElementById('modal-content').value.trim();
+  const whereToFind  = document.getElementById('modal-where').value.trim();
+  const relatedTerms = document.getElementById('modal-related').value.trim();
 
-  if (!category) { showToast('Please select or enter a category.', 'error'); return; }
-  if (!topic)    { showToast('Topic is required.', 'error'); return; }
-  if (!content)  { showToast('Content is required.', 'error'); return; }
+  if (!type)    { showToast('Please select an entry type.', 'error');  return; }
+  if (!portal)  { showToast('Please select a portal.', 'error');       return; }
+  if (!title)   { showToast('Title is required.', 'error');            return; }
+  if (!content) { showToast('Content is required.', 'error');          return; }
 
   const saveBtn = document.getElementById('modal-save-btn');
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving…';
 
-  const entry = { category, topic, content };
+  const entry = { type, portal, title, content, whereToFind, relatedTerms };
   if (editingId) entry.id = editingId;
 
   try {
     const result = await saveEntry(entry);
     if (result.ok) {
-      allEntries = result.entries || allEntries;
+      allEntries = (result.entries || []).map(normalizeEntry);
       closeModal();
       render();
       showToast(editingId ? 'Entry updated.' : 'Entry added.');
@@ -380,13 +430,13 @@ async function handleSave() {
 
 async function confirmDelete(id) {
   const entry = allEntries.find(e => e.id === id);
-  const topic = entry?.topic || 'this entry';
-  if (!confirm(`Delete "${topic}"? This cannot be undone.`)) return;
+  const label = entry?.title || 'this entry';
+  if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
 
   try {
     const result = await deleteEntry(id);
     if (result.ok) {
-      allEntries = result.entries || allEntries.filter(e => e.id !== id);
+      allEntries = (result.entries || allEntries.filter(e => e.id !== id)).map(normalizeEntry);
       render();
       showToast('Entry deleted.');
     } else {
@@ -397,7 +447,7 @@ async function confirmDelete(id) {
   }
 }
 
-// ── Load entries ──────────────────────────────────────────────────────────────
+// ── Load ──────────────────────────────────────────────────────────────────────
 async function loadEntries() {
   renderSkeleton();
   try {
@@ -408,288 +458,267 @@ async function loadEntries() {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function escAttr(str) {
-  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-// ── Theme ─────────────────────────────────────────────────────────────────────
-function initTheme() {
-  const saved = localStorage.getItem('cti-theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  document.getElementById('theme-toggle')?.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = current === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('cti-theme', next);
-  });
-}
-
-// ── Build page structure ──────────────────────────────────────────────────────
+// ── Build page HTML ───────────────────────────────────────────────────────────
 function buildPage() {
   const main = document.getElementById('main-content');
   if (!main) return;
 
+  const typeOptions  = ENTRY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+  const portalOptions = PORTALS.map(p => `<option value="${p}">${p}</option>`).join('');
+
   main.innerHTML = `
     <div class="kb-page">
 
-      <!-- Page header -->
+      <!-- Header -->
       <div class="kb-page-header">
-        <div class="kb-page-header-left">
+        <div class="kb-header-left">
           <h1 class="kb-page-title">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
             </svg>
             AI Knowledge Library
           </h1>
-          <span class="kb-entry-count" id="kb-entry-count"></span>
+          <p class="kb-page-subtitle">Self-service data intelligence for CTI Group</p>
         </div>
-        <div class="kb-page-header-right">
+        <div class="kb-header-right">
           <button class="kb-btn-primary" id="addEntryBtn">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Entry
           </button>
           <div class="kb-search-wrap">
             <svg class="kb-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" class="kb-search-input" id="kb-search" placeholder="Search topic or content…">
+            <input type="text" id="kb-search" class="kb-search-input" placeholder="Search title, content, filters…">
           </div>
         </div>
       </div>
 
-      <!-- Category filter tabs -->
-      <div class="kb-category-tabs" id="kb-category-tabs"></div>
+      <!-- Portal filter row -->
+      <div class="kb-filter-section">
+        <span class="kb-filter-label">Portal</span>
+        <div class="kb-tab-row" id="kb-portal-tabs"></div>
+      </div>
 
-      <!-- Cards grid -->
+      <!-- Type filter row -->
+      <div class="kb-filter-section" style="margin-top:6px;">
+        <span class="kb-filter-label">Type</span>
+        <div class="kb-tab-row" id="kb-type-tabs"></div>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="kb-stats-bar" id="kb-stats-bar"></div>
+
+      <!-- Card grid -->
       <div class="kb-grid" id="kb-grid"></div>
 
     </div>
 
     <!-- Add/Edit Modal -->
-    <div id="kb-modal" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;transition:opacity 0.18s;">
-      <div id="modal-card" style="background:var(--card-bg,#fff);border-radius:14px;width:520px;max-width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.2);transform:scale(0.97);transition:transform 0.18s;padding:28px 28px 24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-          <h2 id="modal-title" style="font-size:16px;font-weight:700;color:var(--text,#1A1A1A);margin:0;">Add Knowledge Entry</h2>
+    <div id="kb-modal" style="display:none;opacity:0;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;transition:opacity 0.18s;">
+      <div id="modal-card" style="background:var(--card-bg,#fff);border-radius:14px;width:600px;max-width:calc(100vw - 24px);max-height:90vh;overflow-y:auto;box-shadow:0 28px 72px rgba(0,0,0,0.22);transform:scale(0.97);transition:transform 0.18s;padding:28px 28px 24px;">
+
+        <!-- Modal header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+          <h2 id="modal-title-label" style="font-size:16px;font-weight:700;color:var(--text,#1A1A1A);margin:0;">Add Knowledge Entry</h2>
           <button id="modal-close-btn" title="Close"
-            style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--text-muted,#9CA3AF);font-size:18px;transition:background 0.15s;"
+            style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--text-muted,#9CA3AF);transition:background 0.15s;"
             onmouseover="this.style.background='var(--bg-page,#f3f4f6)'" onmouseout="this.style.background='transparent'">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
+        <!-- Row 1: Type + Portal -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div class="kb-form-group" style="margin-bottom:0">
+            <label class="kb-label" for="modal-type">Type <span style="color:#B01A18">*</span></label>
+            <select id="modal-type" class="kb-select">
+              <option value="">— Select type —</option>
+              ${typeOptions}
+            </select>
+          </div>
+          <div class="kb-form-group" style="margin-bottom:0">
+            <label class="kb-label" for="modal-portal">Portal <span style="color:#B01A18">*</span></label>
+            <select id="modal-portal" class="kb-select">
+              <option value="">— Select portal —</option>
+              ${portalOptions}
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 2: Title -->
         <div class="kb-form-group">
-          <label class="kb-label" for="modal-category">Category</label>
-          <select id="modal-category" class="kb-select">
-            <option value="">— Select category —</option>
-            ${DEFAULT_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
-            <option value="Custom...">Custom…</option>
-          </select>
+          <label class="kb-label" for="modal-entry-title">Title <span style="color:#B01A18">*</span></label>
+          <input type="text" id="modal-entry-title" class="kb-input"
+            placeholder="e.g. Report to Ship, MCV Visa, How is YoY calculated?">
         </div>
 
-        <div id="modal-custom-cat-wrap" class="kb-form-group" style="display:none;">
-          <label class="kb-label" for="modal-custom-category">Custom Category Name</label>
-          <input type="text" id="modal-custom-category" class="kb-input" placeholder="Enter custom category…">
-        </div>
-
+        <!-- Row 3: Content -->
         <div class="kb-form-group">
-          <label class="kb-label" for="modal-topic">Topic</label>
-          <input type="text" id="modal-topic" class="kb-input" placeholder="e.g. C1/D Processing Time">
+          <label class="kb-label" for="modal-content">Content <span style="color:#B01A18">*</span></label>
+          <textarea id="modal-content" class="kb-textarea" rows="7"
+            placeholder="Full explanation — define the term, describe the rule, show the calculation…"></textarea>
         </div>
 
+        <!-- Row 4: Where to Find -->
         <div class="kb-form-group">
-          <label class="kb-label" for="modal-content">Content</label>
-          <textarea id="modal-content" class="kb-textarea" rows="7" placeholder="Enter the knowledge content that the AI should know…"></textarea>
+          <label class="kb-label" for="modal-where">Where to Find <span class="kb-optional">(optional)</span></label>
+          <input type="text" id="modal-where" class="kb-input"
+            placeholder="e.g. Seafarer page → filter by Onboarding Status">
         </div>
 
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+        <!-- Row 5: Related Terms -->
+        <div class="kb-form-group">
+          <label class="kb-label" for="modal-related">Related Terms <span class="kb-optional">(optional, comma-separated)</span></label>
+          <input type="text" id="modal-related" class="kb-input"
+            placeholder="e.g. OKTB, Visa, Sign On Date">
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;padding-top:16px;border-top:1px solid var(--border,#E5E7EB);">
           <button id="modal-cancel-btn" class="kb-btn-secondary">Cancel</button>
-          <button id="modal-save-btn" class="kb-btn-primary">Save</button>
+          <button id="modal-save-btn"   class="kb-btn-primary">Save</button>
         </div>
       </div>
     </div>
   `;
 
-  // Wire up events
+  // Wire events
   document.getElementById('addEntryBtn').addEventListener('click', openAddModal);
   document.getElementById('modal-close-btn').addEventListener('click', closeModal);
   document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
   document.getElementById('modal-save-btn').addEventListener('click', handleSave);
 
-  document.getElementById('kb-modal').addEventListener('click', (e) => {
+  document.getElementById('kb-modal').addEventListener('click', e => {
     if (e.target === document.getElementById('kb-modal')) closeModal();
   });
 
-  document.getElementById('modal-category').addEventListener('change', (e) => {
-    const wrap = document.getElementById('modal-custom-cat-wrap');
-    wrap.style.display = e.target.value === 'Custom...' ? 'block' : 'none';
-  });
-
-  document.getElementById('kb-search').addEventListener('input', (e) => {
+  document.getElementById('kb-search').addEventListener('input', e => {
     searchQuery = e.target.value;
     render();
   });
 
-  // Keyboard shortcut: Escape closes modal
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeModal();
   });
 }
 
-// ── Inline styles ─────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
 function injectStyles() {
   const style = document.createElement('style');
   style.textContent = `
+    /* Page wrapper */
     .kb-page {
       padding: 24px 28px;
-      max-width: 1200px;
+      max-width: 1300px;
       margin: 0 auto;
     }
 
-    /* Page header */
+    /* Header */
     .kb-page-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
-    .kb-page-header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .kb-page-header-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    .kb-header-left { display: flex; flex-direction: column; gap: 3px; }
+    .kb-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .kb-page-title {
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 700;
       color: var(--text, #1A1A1A);
       margin: 0;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
+      line-height: 1.2;
     }
-    .kb-entry-count {
-      font-size: 12px;
-      color: var(--text-muted, #6B7280);
-      background: var(--bg-page, #F3F4F6);
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-weight: 500;
+    .kb-page-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted, #888);
+      margin: 0;
+      padding-left: 30px;
     }
 
-    /* Primary button */
+    /* Buttons */
     .kb-btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: none;
-      background: #1B3A6B;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; border: none;
+      background: #1B3A6B; color: #fff;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; white-space: nowrap;
       transition: background 0.15s, box-shadow 0.15s;
-      white-space: nowrap;
     }
-    .kb-btn-primary:hover { background: #142d55; box-shadow: 0 2px 8px rgba(27,58,107,0.3); }
+    .kb-btn-primary:hover  { background: #142d55; box-shadow: 0 2px 8px rgba(27,58,107,0.3); }
+    .kb-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* Secondary button */
     .kb-btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 16px;
-      border-radius: 8px;
+      display: inline-flex; align-items: center;
+      padding: 8px 16px; border-radius: 8px;
       border: 1px solid var(--border, #E5E7EB);
-      background: transparent;
-      color: var(--text, #1A1A1A);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s;
+      background: transparent; color: var(--text, #1A1A1A);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.15s;
     }
     .kb-btn-secondary:hover { background: var(--bg-page, #F3F4F6); }
 
     /* Search */
-    .kb-search-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
+    .kb-search-wrap { position: relative; display: flex; align-items: center; }
     .kb-search-icon {
-      position: absolute;
-      left: 10px;
-      color: var(--text-muted, #9CA3AF);
-      pointer-events: none;
+      position: absolute; left: 10px;
+      color: var(--text-muted, #9CA3AF); pointer-events: none;
     }
     .kb-search-input {
-      padding: 7px 12px 7px 32px;
-      border-radius: 8px;
+      padding: 7px 12px 7px 32px; border-radius: 8px;
       border: 1px solid var(--border, #E5E7EB);
-      background: var(--card-bg, #fff);
-      color: var(--text, #1A1A1A);
-      font-size: 13px;
-      font-family: inherit;
-      width: 220px;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      background: var(--card-bg, #fff); color: var(--text, #1A1A1A);
+      font-size: 13px; font-family: inherit; width: 230px;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .kb-search-input:focus {
-      border-color: #1B3A6B;
-      box-shadow: 0 0 0 2px rgba(27,58,107,0.12);
-    }
+    .kb-search-input:focus { border-color: #1B3A6B; box-shadow: 0 0 0 2px rgba(27,58,107,0.12); }
     .kb-search-input::placeholder { color: var(--text-muted, #9CA3AF); }
 
-    /* Category tabs */
-    .kb-category-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 20px;
+    /* Filter bar */
+    .kb-filter-section {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
-    .kb-tab {
-      padding: 5px 14px;
-      border-radius: 20px;
-      border: 1px solid var(--border, #E5E7EB);
-      background: transparent;
-      color: var(--text, #1A1A1A);
-      font-size: 12.5px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all 0.15s;
-      white-space: nowrap;
+    .kb-filter-label {
+      font-size: 11.5px; font-weight: 600; color: var(--text-muted, #888);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      min-width: 38px;
     }
-    .kb-tab:hover { background: var(--bg-page, #F3F4F6); }
-    .kb-tab-active { font-weight: 600; }
+    .kb-tab-row { display: flex; flex-wrap: wrap; gap: 5px; }
 
-    /* Cards grid */
+    /* Tabs */
+    .kb-tab {
+      padding: 5px 13px; border-radius: 20px;
+      border: 1px solid var(--border, #E5E7EB);
+      background: transparent; color: var(--text, #1A1A1A);
+      font-size: 12.5px; font-weight: 500; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .kb-tab:hover:not(.kb-tab-active) { background: var(--bg-page, #F3F4F6); }
+    .kb-tab-active { font-weight: 600; }
+    .kb-tab-sm { font-size: 11.5px; padding: 4px 11px; }
+
+    /* Stats bar */
+    .kb-stats-bar {
+      margin: 14px 0 16px;
+      font-size: 12.5px; color: var(--text-muted, #888);
+      padding: 8px 14px;
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #E5E7EB);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+    .kb-stats-bar strong { color: var(--text, #1A1A1A); }
+
+    /* Card grid */
     .kb-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-    }
-    @media (max-width: 700px) {
-      .kb-grid { grid-template-columns: 1fr; }
-      .kb-page { padding: 16px; }
-      .kb-page-header { flex-direction: column; align-items: flex-start; }
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
     }
 
     /* Card */
@@ -697,171 +726,171 @@ function injectStyles() {
     .kb-card-inner {
       background: var(--card-bg, #fff);
       border: 1px solid var(--border, #E5E7EB);
-      border-radius: 10px;
-      padding: 16px 18px 14px;
+      border-radius: 12px;
+      padding: 15px 17px 13px;
       height: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      display: flex; flex-direction: column; gap: 7px;
       transition: box-shadow 0.15s, transform 0.15s;
     }
     .kb-card-inner:hover {
-      box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
       transform: translateY(-1px);
     }
-    .kb-card-header { display: flex; align-items: center; gap: 8px; }
+    .kb-card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .kb-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 10px;
-      border-radius: 12px;
-      letter-spacing: 0.02em;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 9px; border-radius: 12px;
+      letter-spacing: 0.02em; white-space: nowrap;
     }
-    .kb-card-topic {
-      font-size: 14.5px;
-      font-weight: 700;
-      color: var(--text, #1A1A1A);
-      line-height: 1.35;
+    .kb-card-title {
+      font-size: 14px; font-weight: 700;
+      color: var(--text, #1A1A1A); line-height: 1.35;
     }
     .kb-card-content {
-      font-size: 13px;
-      color: var(--text-muted, #6B7280);
-      line-height: 1.6;
-      flex: 1;
-      white-space: pre-wrap;
-      word-break: break-word;
+      font-size: 12.5px; color: var(--text-muted, #6B7280);
+      line-height: 1.65; flex: 1;
+      white-space: pre-wrap; word-break: break-word;
+      display: -webkit-box;
     }
     .kb-expand-hint { font-style: normal; }
     .kb-read-more, .kb-read-less {
-      color: #1B3A6B;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 12px;
+      color: #1B3A6B; cursor: pointer;
+      font-weight: 600; font-size: 11.5px;
     }
     .kb-read-more:hover, .kb-read-less:hover { text-decoration: underline; }
-    .kb-card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 4px;
-      gap: 8px;
-    }
-    .kb-updated-at {
-      font-size: 11px;
-      color: var(--text-muted, #9CA3AF);
-    }
-    .kb-card-actions { display: flex; gap: 6px; }
-    .kb-btn-edit, .kb-btn-delete {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
+
+    /* Where to find */
+    .kb-where-to-find {
+      font-size: 11.5px; color: var(--text-muted, #888);
+      line-height: 1.5;
+      padding: 5px 9px;
+      background: var(--bg-page, #F9FAFB);
       border-radius: 6px;
-      font-size: 11.5px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all 0.15s;
+      border: 1px solid var(--border, #E5E7EB);
+    }
+
+    /* Related terms */
+    .kb-related-terms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 1px; }
+    .kb-term-tag {
+      font-size: 10.5px; font-weight: 500;
+      padding: 1px 8px; border-radius: 10px;
+      background: var(--bg-page, #F3F4F6);
+      color: var(--text-muted, #6B7280);
+      border: 1px solid var(--border, #E5E7EB);
+    }
+
+    /* Card footer */
+    .kb-card-footer {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-top: 4px; gap: 8px;
+    }
+    .kb-updated-at { font-size: 10.5px; color: var(--text-muted, #9CA3AF); }
+    .kb-card-actions { display: flex; gap: 5px; }
+
+    .kb-btn-edit, .kb-btn-delete {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 9px; border-radius: 6px;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
       border: 1px solid transparent;
     }
-    .kb-btn-edit {
-      background: rgba(27,58,107,0.08);
-      color: #1B3A6B;
-      border-color: rgba(27,58,107,0.15);
-    }
-    .kb-btn-edit:hover { background: rgba(27,58,107,0.15); }
-    .kb-btn-delete {
-      background: rgba(176,26,24,0.08);
-      color: #B01A18;
-      border-color: rgba(176,26,24,0.15);
-    }
-    .kb-btn-delete:hover { background: rgba(176,26,24,0.15); }
+    .kb-btn-edit   { background: rgba(27,58,107,0.07);  color: #1B3A6B; border-color: rgba(27,58,107,0.15); }
+    .kb-btn-edit:hover   { background: rgba(27,58,107,0.14); }
+    .kb-btn-delete { background: rgba(176,26,24,0.07);  color: #B01A18; border-color: rgba(176,26,24,0.15); }
+    .kb-btn-delete:hover { background: rgba(176,26,24,0.14); }
 
     /* Empty state */
     .kb-empty-state {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 56px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
+      grid-column: 1/-1; text-align: center;
+      padding: 60px 24px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
     }
-    .kb-empty-icon { opacity: 0.45; }
+    .kb-empty-icon { opacity: 0.4; }
     .kb-empty-text {
-      font-size: 14px;
-      color: var(--text-muted, #6B7280);
-      max-width: 340px;
-      line-height: 1.6;
+      font-size: 14px; color: var(--text-muted, #6B7280);
+      max-width: 340px; line-height: 1.65; margin: 0;
     }
 
     /* Error banner */
     .kb-error-banner {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 18px;
-      border-radius: 10px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px; border-radius: 10px;
       background: rgba(176,26,24,0.07);
       border: 1px solid rgba(176,26,24,0.2);
-      color: #B01A18;
-      font-size: 13px;
-      font-weight: 500;
+      color: #B01A18; font-size: 13px; font-weight: 500;
     }
 
-    /* Modal form */
-    .kb-form-group { margin-bottom: 16px; }
-    .kb-label {
-      display: block;
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--text, #1A1A1A);
-      margin-bottom: 6px;
+    /* Skeleton */
+    .skeleton-block {
+      background: linear-gradient(90deg, var(--border,#E5E7EB) 25%, var(--bg-page,#F3F4F6) 50%, var(--border,#E5E7EB) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.4s infinite;
+      border-radius: 4px;
     }
+    @keyframes skeleton-shimmer { to { background-position: -200% 0; } }
+
+    /* Modal form */
+    .kb-form-group { margin-bottom: 14px; }
+    .kb-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text,#1A1A1A); margin-bottom: 5px; }
+    .kb-optional { font-weight: 400; color: var(--text-muted,#9CA3AF); font-size: 11.5px; }
     .kb-select, .kb-input, .kb-textarea {
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border, #E5E7EB);
-      background: var(--bg-page, #F9FAFB);
-      color: var(--text, #1A1A1A);
-      font-size: 13.5px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      width: 100%; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border,#E5E7EB);
+      background: var(--bg-page,#F9FAFB); color: var(--text,#1A1A1A);
+      font-size: 13.5px; font-family: inherit;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
       box-sizing: border-box;
     }
     .kb-select:focus, .kb-input:focus, .kb-textarea:focus {
       border-color: #1B3A6B;
       box-shadow: 0 0 0 2px rgba(27,58,107,0.12);
-      background: var(--card-bg, #fff);
+      background: var(--card-bg,#fff);
     }
-    .kb-textarea {
-      resize: vertical;
-      min-height: 130px;
-      line-height: 1.6;
+    .kb-textarea { resize: vertical; min-height: 130px; line-height: 1.6; }
+
+    /* Toast container */
+    .toast-container {
+      position: fixed; top: 20px; right: 20px;
+      z-index: 2000; display: flex;
+      flex-direction: column; align-items: flex-end;
     }
 
-    /* Dark mode overrides */
-    [data-theme="dark"] .kb-card-inner { background: var(--card-bg, #1E1E1E); border-color: var(--border, #2A2A2A); }
-    [data-theme="dark"] .kb-search-input { background: var(--card-bg, #1E1E1E); }
+    /* Responsive */
+    @media (max-width: 860px) {
+      .kb-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      .kb-page { padding: 16px; }
+      .kb-page-header { flex-direction: column; align-items: flex-start; }
+      .kb-grid { grid-template-columns: 1fr; }
+      .kb-search-input { width: 180px; }
+    }
+
+    /* Dark mode */
+    [data-theme="dark"] .kb-card-inner  { background: var(--card-bg,#1E1E1E); border-color: var(--border,#2A2A2A); }
+    [data-theme="dark"] .kb-search-input,
     [data-theme="dark"] .kb-select,
     [data-theme="dark"] .kb-input,
-    [data-theme="dark"] .kb-textarea { background: var(--card-bg, #1E1E1E); border-color: var(--border, #2A2A2A); }
-    [data-theme="dark"] #modal-card { background: var(--card-bg, #1E1E1E); }
-
-    /* Toast container positioning */
-    .toast-container {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 2000;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-    }
+    [data-theme="dark"] .kb-textarea    { background: var(--card-bg,#1E1E1E); border-color: var(--border,#2A2A2A); }
+    [data-theme="dark"] #modal-card     { background: var(--card-bg,#1E1E1E); }
+    [data-theme="dark"] .kb-stats-bar   { background: var(--card-bg,#1E1E1E); border-color: var(--border,#2A2A2A); }
+    [data-theme="dark"] .kb-where-to-find { background: rgba(255,255,255,0.04); border-color: var(--border,#2A2A2A); }
+    [data-theme="dark"] .kb-term-tag    { background: rgba(255,255,255,0.06); border-color: var(--border,#2A2A2A); }
   `;
   document.head.appendChild(style);
+}
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('cti-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    const cur  = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = cur === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('cti-theme', next);
+  });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -870,17 +899,4 @@ document.addEventListener('DOMContentLoaded', () => {
   injectStyles();
   buildPage();
   loadEntries();
-
-  // Update entry count whenever render happens
-  const origRender = render;
-  window.render = function() {
-    origRender();
-    const countEl = document.getElementById('kb-entry-count');
-    if (countEl) {
-      const filtered = getFilteredEntries();
-      countEl.textContent = filtered.length === allEntries.length
-        ? `${allEntries.length} ${allEntries.length === 1 ? 'entry' : 'entries'}`
-        : `${filtered.length} of ${allEntries.length}`;
-    }
-  };
 });
