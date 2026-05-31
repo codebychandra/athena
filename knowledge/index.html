@@ -22,11 +22,17 @@
     if (!CTIAuth.requireAuth()) { document.body.innerHTML = ''; }
   </script>
 
-  <!-- Knowledge Library password gate -->
+  <!-- Knowledge Library password gate — blocks ALL content until unlocked -->
   <script>
     (function () {
       const KB_HASH = 'ef8e5b8012a7598cfa0f65069b44765ea6d3f10359b104c4e69504b93df5c40f';
       const KB_KEY  = 'cti_kb_auth';
+
+      // Already unlocked this session — reveal immediately
+      if (sessionStorage.getItem(KB_KEY)) return;
+
+      // Block the page body before anything renders
+      document.documentElement.style.visibility = 'hidden';
 
       async function sha256(str) {
         const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -34,46 +40,82 @@
       }
 
       function showGate() {
-        const overlay = document.createElement('div');
-        overlay.id = 'kbGate';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,sans-serif;';
-        overlay.innerHTML = `
-          <div style="background:#fff;border-radius:14px;padding:32px 30px 24px;width:340px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
-            <div style="font-size:15px;font-weight:700;color:#1A1A1A;margin-bottom:4px;">🔒 Knowledge Library</div>
-            <div style="font-size:12px;color:#6B7280;margin-bottom:20px;">Enter password to access</div>
-            <input id="kbPwInput" type="password" placeholder="Password"
-              style="width:100%;height:38px;border:1px solid #E5E7EB;border-radius:8px;padding:0 12px;
-                font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:6px;">
-            <div id="kbPwErr" style="color:#DC2626;font-size:11px;min-height:16px;margin-bottom:12px;"></div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-              <a href="../index.html" style="padding:7px 16px;font-size:12px;font-weight:600;border:1px solid #E5E7EB;border-radius:7px;color:#6B7280;text-decoration:none;display:inline-flex;align-items:center;">Cancel</a>
-              <button id="kbPwOk" style="padding:7px 20px;font-size:12px;font-weight:600;border:none;background:#1B3A6B;color:#fff;border-radius:7px;cursor:pointer;font-family:inherit;">Unlock</button>
+        // Full-page blocking gate (no overlay — IS the screen)
+        document.documentElement.style.visibility = 'visible';
+        document.body.style.cssText = 'margin:0;padding:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,system-ui,sans-serif;';
+        document.body.innerHTML = `
+          <div style="background:#1e293b;border-radius:16px;padding:40px 36px 32px;width:360px;
+            box-shadow:0 24px 60px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+              <div style="width:38px;height:38px;border-radius:10px;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div>
+                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">AI Knowledge Library</div>
+                <div style="font-size:11px;color:#64748b;">CTI Group — Restricted Access</div>
+              </div>
+            </div>
+            <div style="height:1px;background:rgba(255,255,255,0.07);margin:20px 0;"></div>
+            <label style="font-size:12px;font-weight:600;color:#94a3b8;display:block;margin-bottom:7px;">Password</label>
+            <input id="kbPwInput" type="password" placeholder="Enter password"
+              style="width:100%;height:42px;border:1.5px solid rgba(255,255,255,0.12);border-radius:9px;
+                padding:0 14px;font-size:13.5px;font-family:inherit;outline:none;box-sizing:border-box;
+                background:rgba(255,255,255,0.05);color:#f1f5f9;transition:border-color 0.15s;">
+            <div id="kbPwErr" style="color:#f87171;font-size:11px;min-height:18px;margin-top:6px;"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <a href="../index.html"
+                style="flex:1;padding:10px;font-size:12.5px;font-weight:600;border:1.5px solid rgba(255,255,255,0.12);
+                  border-radius:9px;color:#94a3b8;text-decoration:none;display:flex;align-items:center;justify-content:center;
+                  transition:border-color 0.15s,color 0.15s;"
+                onmouseover="this.style.borderColor='rgba(255,255,255,0.3)';this.style.color='#f1f5f9'"
+                onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.color='#94a3b8'">
+                Cancel
+              </a>
+              <button id="kbPwOk"
+                style="flex:2;padding:10px;font-size:12.5px;font-weight:700;border:none;
+                  background:#1B3A6B;color:#fff;border-radius:9px;cursor:pointer;font-family:inherit;
+                  transition:background 0.15s;"
+                onmouseover="this.style.background='#254f96'"
+                onmouseout="this.style.background='#1B3A6B'">
+                Unlock
+              </button>
             </div>
           </div>`;
-        document.body.appendChild(overlay);
 
-        const inp  = overlay.querySelector('#kbPwInput');
-        const errEl= overlay.querySelector('#kbPwErr');
+        const inp   = document.getElementById('kbPwInput');
+        const errEl = document.getElementById('kbPwErr');
         inp.focus();
 
+        inp.addEventListener('focus',  () => inp.style.borderColor = '#3b82f6');
+        inp.addEventListener('blur',   () => inp.style.borderColor = 'rgba(255,255,255,0.12)');
+        inp.addEventListener('input',  () => { errEl.textContent = ''; });
+
         const tryUnlock = async () => {
+          const btn = document.getElementById('kbPwOk');
+          btn.textContent = '...'; btn.disabled = true;
           const hash = await sha256(inp.value);
           if (hash === KB_HASH) {
             sessionStorage.setItem(KB_KEY, '1');
-            overlay.remove();
+            location.reload(); // reload now that session key is set
           } else {
-            errEl.textContent = 'Incorrect password.';
-            inp.value = '';
-            inp.focus();
+            errEl.textContent = 'Incorrect password. Please try again.';
+            inp.value = ''; inp.focus();
+            btn.textContent = 'Unlock'; btn.disabled = false;
           }
         };
 
-        overlay.querySelector('#kbPwOk').addEventListener('click', tryUnlock);
+        document.getElementById('kbPwOk').addEventListener('click', tryUnlock);
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
-        inp.addEventListener('input',   () => { errEl.textContent = ''; });
       }
 
-      if (!sessionStorage.getItem(KB_KEY)) showGate();
+      // Run after DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showGate);
+      } else {
+        showGate();
+      }
     })();
   </script>
 
