@@ -3,16 +3,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
-const DEFAULT_CATEGORIES = ['Visa', 'Operations', 'Process', 'Cruise Line', 'J1 Program', 'HR Policy', 'Other'];
+const DEFAULT_CATEGORIES = [
+  'Navigation (Cruise)', 'Navigation (J1)',
+  'Terminology (Cruise)', 'Terminology (J1)',
+  'Visa (Cruise)', 'Visa (J1)',
+  'Process / SOP', 'HR Policy', 'General',
+];
 
 const CAT_COLORS = {
-  'Visa':         '#0891B2',
-  'Operations':   '#1B3A6B',
-  'Process':      '#7C3AED',
-  'Cruise Line':  '#B01A18',
-  'J1 Program':   '#2D7A55',
-  'HR Policy':    '#D97706',
-  'Other':        '#6B7280',
+  'Navigation (Cruise)':  '#B01A18',
+  'Navigation (J1)':      '#1B3A6B',
+  'Terminology (Cruise)': '#DC2626',
+  'Terminology (J1)':     '#2563EB',
+  'Visa (Cruise)':        '#0891B2',
+  'Visa (J1)':            '#7C3AED',
+  'Process / SOP':        '#2D7A55',
+  'HR Policy':            '#D97706',
+  'General':              '#6B7280',
 };
 
 function getCatColor(cat) {

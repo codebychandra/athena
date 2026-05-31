@@ -547,6 +547,12 @@ async function showPage(name) {
   state.page = name;
   try { localStorage.setItem('cti-j1-page', name); } catch (_) {}
 
+  // Update AI context with current portal + page
+  window.CTI_PAGE_CONTEXT = {
+    page:    PAGE_TITLES[name] || name,
+    summary: `Portal: J1 Program Portal\nCurrent page: ${PAGE_TITLES[name] || name}`,
+  };
+
   document.title = `${PAGE_TITLES[name]} — CTI Group`;
   document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === name));
   document.getElementById('topbar-title').textContent = PAGE_TITLES[name];

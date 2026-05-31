@@ -4995,7 +4995,7 @@ function buildFullPortalContext() {
   }
 
   if (!sections.length) return '';
-  window.CTI_FULL_CONTEXT = `Current page: ${window.CTI_PAGE_CONTEXT?.page||'—'}\n\n` + sections.join('\n\n');
+  window.CTI_FULL_CONTEXT = `Portal: Cruise Line Portal\nCurrent page: ${window.CTI_PAGE_CONTEXT?.page||'—'}\n\n` + sections.join('\n\n');
   return window.CTI_FULL_CONTEXT;
 }
 
