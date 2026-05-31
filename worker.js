@@ -1142,6 +1142,41 @@ export default {
         return json({ ok: false, error: errText }, 200, ch);
       }
 
+      // ── GET /api/knowledge ────────────────────────────────────────────
+      // Returns all knowledge entries from KV.
+      if (method === 'GET' && path === '/api/knowledge') {
+        const data = await getCached(env, 'ai-knowledge-base');
+        return json(data || { entries: [] }, 200, ch);
+      }
+
+      // ── POST /api/knowledge ───────────────────────────────────────────
+      // action: 'save' → upsert entry; action: 'delete' → remove by id
+      if (method === 'POST' && path === '/api/knowledge') {
+        try {
+          const body    = await request.json();
+          const current = (await getCached(env, 'ai-knowledge-base')) || { entries: [] };
+          const entries = [...(current.entries || [])];
+
+          if (body.action === 'delete') {
+            const idx = entries.findIndex(e => e.id === body.id);
+            if (idx !== -1) entries.splice(idx, 1);
+          } else if (body.action === 'save') {
+            const entry = body.entry;
+            if (!entry?.topic || !entry?.content) return json({ ok: false, error: 'topic and content required' }, 400, ch);
+            entry.updatedAt = new Date().toISOString();
+            if (!entry.id) entry.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const idx = entries.findIndex(e => e.id === entry.id);
+            if (idx !== -1) entries[idx] = entry; else entries.push(entry);
+          }
+
+          // Store without TTL so knowledge never expires
+          await env.TOKEN_CACHE.put('ai-knowledge-base', JSON.stringify({ entries }));
+          return json({ ok: true, entries }, 200, ch);
+        } catch (err) {
+          return json({ ok: false, error: err.message }, 500, ch);
+        }
+      }
+
       // ── POST /api/ai/chat ──────────────────────────────────────────────────
       // Proxies to Anthropic Claude API. Requires ANTHROPIC_API_KEY secret.
       if (method === 'POST' && path === '/api/ai/chat') {
@@ -1152,6 +1187,17 @@ export default {
           const body = await request.json();
           const messages = (body.messages || []).slice(-12);
           const context  = String(body.context || '').slice(0, 4000); // cap context size
+
+          // Load knowledge base for AI context
+          let knowledgeContext = '';
+          try {
+            const kb = (await getCached(env, 'ai-knowledge-base')) || { entries: [] };
+            if (kb.entries?.length) {
+              knowledgeContext = '\n\n--- KNOWLEDGE BASE ---\n' +
+                kb.entries.map(e => `[${e.category}] ${e.topic}:\n${e.content}`).join('\n\n') +
+                '\n--- END KNOWLEDGE BASE ---';
+            }
+          } catch (_) {}
 
           const systemPrompt = `You are CTI AI, a concise assistant for CTI Group Worldwide Services Inc., a maritime crewing agency in Indonesia that deploys seafarers to cruise lines (P&O Cruises, Cunard Line, CUK Maritime).
 
@@ -1203,6 +1249,7 @@ Pages in this portal:
 - Requisition: open job positions by cruise line
 - Final Interview: approved candidates from CUK interview sheets
 --- END DICTIONARY ---
+${knowledgeContext}
 
 Current page data:
 ${context}
