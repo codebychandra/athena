@@ -20,6 +20,14 @@ const CRUISE_PAGE_TITLES = {
 
 const CRUISE_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 
+// All cruise lines available in Zoho (for RTS filter and other full-list uses)
+const ALL_CRUISE_LINES = [
+  'Carnival Cruise Line','CUK Maritime','Cunard Line','Four Seasons Yachts',
+  'Heinemann Americas','Holland America Line','Marella Cruises','Margaritaville at Sea',
+  'Norwegian Cruise Line','Oceania Cruises','P&O Cruises','Regent Seven Seas',
+  'Seabourn','TUI River Cruises','Viking Cruises','Virgin Voyages',
+];
+
 // ── Visa rules config (isolated — modify here only) ───────────────────────────
 // Source: CTI internal policy. DO NOT modify rules without written confirmation.
 const VISA_RULES = {
@@ -650,14 +658,7 @@ pages.task = async function () {
 
               <span style="width:1px;height:20px;background:var(--border,#ddd);flex-shrink:0;"></span>
 
-              <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;">Cruise Line</span>
-              <select id="rtsCruiseFilter"
-                style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:140px;
-                  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
-                  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
-                <option value="">All Cruise Lines</option>
-                ${CRUISE_BRANDS.map(b=>`<option value="${escH(b)}">${escH(b)}</option>`).join('')}
-              </select>
+              ${buildMS('rtsCruiseFilter', 'Cruise Line', ALL_CRUISE_LINES)}
 
               <span id="rtsCount" style="font-size:12px;color:var(--text-muted,#888);flex:1;"></span>
 
@@ -801,7 +802,7 @@ pageEvents.task = function () {
     const today   = new Date(); today.setHours(0,0,0,0);
     const moVal   = document.getElementById('rtsMonthFilter')?.value;
     const yrVal   = document.getElementById('rtsYearFilter')?.value;
-    const clVal   = document.getElementById('rtsCruiseFilter')?.value || '';
+    const clVals  = msGetVals('rtsCruiseFilter'); // multi-select
     const EXCL    = new Set(['report to ship','resign','resigned']);
     return _sfRows.filter(r => {
       if (!r.signOnDate || r.signOnDate === '—') return false;
@@ -810,7 +811,7 @@ pageEvents.task = function () {
       if (EXCL.has((r.onboardingStatus||'').trim().toLowerCase())) return false;
       if (moVal !== '' && moVal != null && d.getMonth() !== +moVal) return false;
       if (yrVal && d.getFullYear() !== +yrVal) return false;
-      if (clVal && r.cruiseLine !== clVal) return false;
+      if (clVals.length && !clVals.includes(r.cruiseLine)) return false;
       return true;
     }).map(r => ({ ...r, _analytics: getCtiAnal(r.ctiOffice) }));
   }
@@ -830,11 +831,10 @@ pageEvents.task = function () {
 
     const moVal  = document.getElementById('rtsMonthFilter')?.value;
     const yrVal  = document.getElementById('rtsYearFilter')?.value;
-    const clVal  = document.getElementById('rtsCruiseFilter')?.value || 'All';
+    const clVals = msGetVals('rtsCruiseFilter');
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const suffix = [clVal !== 'All' ? clVal.replace(/\s+/g,'_') : 'All',
-                    moVal !== '' && moVal != null ? MONTHS[+moVal] : 'All',
-                    yrVal || 'All'].join('_');
+    const clPart = clVals.length ? clVals.map(c=>c.replace(/\s+/g,'_')).join('+') : 'All';
+    const suffix = [clPart, moVal !== '' && moVal != null ? MONTHS[+moVal] : 'All', yrVal || 'All'].join('_');
 
     const headers = ['Employment Status','Onboarding Status','First Name','Last Name',
       'Crew ID','Position Hired','Joining Ship','Sign On Date','Sign On Port',
@@ -968,9 +968,10 @@ pageEvents.task = function () {
     }).join('');
   }
 
+  initMS(); // initialize multiselects in Task page (including rtsCruiseFilter)
+  msOnChange('rtsCruiseFilter', rtsApply);
   document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
-  document.getElementById('rtsCruiseFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsExportBtn')?.addEventListener('click', rtsExport);
   rtsApply();
 
