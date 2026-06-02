@@ -504,8 +504,8 @@ const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 const MISTRAL_COLUMNS = [
   { label:'Onboarding Status',     field:'onboardingStatus',    zoho:null,                   filterMS:true, sticky:true, w:130 },
   { label:'Seafarer ID Number',    field:'seafarerIdNumber',    zoho:'Crew_ID_Number',                      sticky:true, w:120 },
+  { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date',   sticky:true, w:100 },
   { label:'Seafarer Name',         field:'fullName',            zoho:null,                                  sticky:true, w:160 },
-  { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date' },
   { label:'Position Hired',        field:'positionHired',       zoho:'Position_Applied' },
   { label:'Cruise Line',           field:'cruiseLine',          zoho:'Cruise_Line',          filterMS:true },
   { label:'Place of Birth',        field:'placeOfBirth',        zoho:'Place_of_Birth' },
