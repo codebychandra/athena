@@ -650,18 +650,10 @@ pages.task = async function () {
               <span id="rtsCount" style="font-size:12px;color:var(--text-muted,#888);margin-left:4px;"></span>
             </div>
 
-            <!-- Table -->
-            <div style="overflow-x:auto;max-height:560px;overflow-y:auto;">
-              <table style="width:100%;border-collapse:collapse;min-width:1200px;" id="rtsTable">
-                <thead style="position:sticky;top:0;z-index:2;">
-                  <tr>
-                    ${['Employment Status','Onboarding Status','First Name','Last Name','Crew ID','Position Hired',
-                       'Joining Ship','Sign On Date','Sign On Port','Cruise Line','CTI Office','CTI Line Analytics']
-                      .map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
-                        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
-                        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${h}</th>`).join('')}
-                  </tr>
-                </thead>
+            <!-- Table (header + body injected by rtsApply) -->
+            <div style="overflow-x:auto;max-height:560px;overflow-y:auto;" id="rtsTableWrap">
+              <table style="width:100%;border-collapse:collapse;min-width:1400px;" id="rtsTable">
+                <thead style="position:sticky;top:0;z-index:2;" id="rtsThead"></thead>
                 <tbody id="rtsBody">
                   <tr><td colspan="12" style="padding:32px;text-align:center;color:var(--text-muted,#888);font-size:13px;">
                     Loading seafarer data…
@@ -748,37 +740,138 @@ pageEvents.task = function () {
     'CTI Partner Kendrick':   'CTI Indonesia',
     'CTI Group South Africa': 'CTI Indonesia',
   };
-
-  function getCtiLineAnalytics(ctiOffice) {
+  function getCtiAnal(ctiOffice) {
     return CTI_LINE_ANALYTICS[ctiOffice] || (ctiOffice || '—');
   }
 
-  function rtsApply() {
-    const tbody = document.getElementById('rtsBody');
-    const countEl = document.getElementById('rtsCount');
-    if (!tbody) return;
+  // Column definitions
+  const RTS_COLS = [
+    { label:'Employment Status',  field:'employmentStatus',  filterType:'select' },
+    { label:'Onboarding Status',  field:'onboardingStatus',  filterType:'select' },
+    { label:'First Name',         field:'firstName',         filterType:'text'   },
+    { label:'Last Name',          field:'lastName',          filterType:'text'   },
+    { label:'Crew ID',            field:'seafarerIdNumber',  filterType:'text'   },
+    { label:'Position Hired',     field:'positionHired',     filterType:'select' },
+    { label:'Joining Ship',       field:'joiningShip',       filterType:'select' },
+    { label:'Sign On Date',       field:'signOnDate',        filterType:'none'   },
+    { label:'Sign On Port',       field:'signOnPort',        filterType:'select' },
+    { label:'Cruise Line',        field:'cruiseLine',        filterType:'select' },
+    { label:'CTI Office',         field:'ctiOffice',         filterType:'select' },
+    { label:'CTI Line Analytics', field:'_analytics',        filterType:'select' },
+  ];
 
+  let rtsSortF = null, rtsSortD = 1;
+  let rtsColFilters = {}; // field → value
+
+  const TH_BASE = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;' +
+    'text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);' +
+    'border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;';
+  const TF_BASE = 'padding:3px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);';
+  const SEL_STYLE = 'width:100%;height:24px;font-size:10px;padding:0 4px;border:1px solid var(--border,#ddd);' +
+    'border-radius:4px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;';
+  const TXT_STYLE = 'width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);' +
+    'border-radius:4px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;';
+
+  function getRtsBaseRows() {
     const today = new Date(); today.setHours(0,0,0,0);
     const moVal = document.getElementById('rtsMonthFilter')?.value;
     const yrVal = document.getElementById('rtsYearFilter')?.value;
-    const EXCLUDED = new Set(['report to ship','resign','resigned']);
-
-    const rows = _sfRows.filter(r => {
+    const EXCL  = new Set(['report to ship','resign','resigned']);
+    return _sfRows.filter(r => {
       if (!r.signOnDate || r.signOnDate === '—') return false;
       const d = new Date(r.signOnDate);
-      if (isNaN(d.getTime())) return false;
-      if (d >= today) return false; // only PAST sign-on dates
-      const onb = (r.onboardingStatus || '').trim().toLowerCase();
-      if (EXCLUDED.has(onb)) return false;
-      if (moVal !== '' && moVal !== undefined && d.getMonth() !== +moVal) return false;
+      if (isNaN(d.getTime()) || d >= today) return false;
+      if (EXCL.has((r.onboardingStatus||'').trim().toLowerCase())) return false;
+      if (moVal !== '' && moVal != null && d.getMonth() !== +moVal) return false;
       if (yrVal && d.getFullYear() !== +yrVal) return false;
+      return true;
+    }).map(r => ({ ...r, _analytics: getCtiAnal(r.ctiOffice) }));
+  }
+
+  function getUniq(rows, field) {
+    return [...new Set(rows.map(r => r[field]||'').filter(Boolean))].sort();
+  }
+
+  function rtsApply() {
+    const thead  = document.getElementById('rtsThead');
+    const tbody  = document.getElementById('rtsBody');
+    const countEl= document.getElementById('rtsCount');
+    if (!thead || !tbody) return;
+
+    const base = getRtsBaseRows();
+
+    // Build select options once (from base rows before column filters)
+    const opts = {};
+    RTS_COLS.forEach(c => { if (c.filterType === 'select') opts[c.field] = getUniq(base, c.field); });
+
+    // Apply column filters
+    let rows = base.filter(r => {
+      for (const [f, v] of Object.entries(rtsColFilters)) {
+        if (!v) continue;
+        const rv = String(r[f]||'').toLowerCase();
+        if (!rv.includes(v.toLowerCase())) return false;
+      }
       return true;
     });
 
-    if (countEl) countEl.textContent = `${rows.length} record${rows.length !== 1 ? 's' : ''}`;
+    // Sort
+    if (rtsSortF) {
+      rows = rows.slice().sort((a, b) => {
+        const av = String(a[rtsSortF]||''), bv = String(b[rtsSortF]||'');
+        return av.localeCompare(bv, undefined, {numeric:true}) * rtsSortD;
+      });
+    }
 
+    if (countEl) countEl.textContent = `${rows.length} record${rows.length!==1?'s':''}`;
+
+    // ── Build sort header row ──────────────────────────────────────────────
+    thead.innerHTML = `
+      <tr id="rtsSortRow">
+        ${RTS_COLS.map(c => {
+          const isActive = rtsSortF === c.field;
+          const icon = !isActive ? '⇅' : rtsSortD > 0 ? '↑' : '↓';
+          return `<th data-rtsfield="${c.field}"
+            style="${TH_BASE}cursor:pointer;user-select:none;${isActive?'color:var(--text);':''}"
+          >${c.label} <span class="rts-sort-icon" style="font-size:9px;">${icon}</span></th>`;
+        }).join('')}
+      </tr>
+      <tr id="rtsFilterRow">
+        ${RTS_COLS.map(c => {
+          const curVal = rtsColFilters[c.field] || '';
+          if (c.filterType === 'none') return `<th style="${TF_BASE}"></th>`;
+          if (c.filterType === 'text') return `<th style="${TF_BASE}">
+            <input class="rts-col-f" data-rtsfield="${c.field}" type="text" placeholder="—"
+              value="${escH(curVal)}" style="${TXT_STYLE}">
+          </th>`;
+          // select
+          return `<th style="${TF_BASE}">
+            <select class="rts-col-f" data-rtsfield="${c.field}" style="${SEL_STYLE}">
+              <option value="">All</option>
+              ${(opts[c.field]||[]).map(v => `<option value="${escH(v)}"${v===curVal?'selected':''}>${escH(v)}</option>`).join('')}
+            </select>
+          </th>`;
+        }).join('')}
+      </tr>`;
+
+    // Wire sort
+    document.querySelectorAll('#rtsSortRow th[data-rtsfield]').forEach(th => {
+      th.addEventListener('click', () => {
+        const f = th.dataset.rtsfield;
+        if (rtsSortF === f) rtsSortD *= -1; else { rtsSortF = f; rtsSortD = 1; }
+        rtsApply();
+      });
+    });
+    // Wire column filters
+    document.querySelectorAll('.rts-col-f').forEach(el => {
+      el.addEventListener(el.tagName==='INPUT'?'input':'change', () => {
+        rtsColFilters[el.dataset.rtsfield] = el.value;
+        rtsApply();
+      });
+    });
+
+    // ── Build body ─────────────────────────────────────────────────────────
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="12" style="padding:32px;text-align:center;
+      tbody.innerHTML = `<tr><td colspan="${RTS_COLS.length}" style="padding:32px;text-align:center;
         color:var(--text-muted,#888);font-size:13px;">No overdue records found.</td></tr>`;
       return;
     }
@@ -803,17 +896,14 @@ pageEvents.task = function () {
         ${td(escH(r.signOnPort||'—'))}
         ${td(sfCruiseBadge(r.cruiseLine))}
         ${td(escH(r.ctiOffice||'—'))}
-        ${td(escH(getCtiLineAnalytics(r.ctiOffice)))}
+        ${td(escH(r._analytics||'—'))}
       </tr>`;
     }).join('');
   }
 
   document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
-
-  // Pre-load if data is already available
-  if (_sfRows.length) rtsApply();
-  else rtsApply(); // will show empty — data loads when user navigates there
+  rtsApply();
 
   // ── Duplicate Checker ──────────────────────────────────────────────────────
   const btn       = document.getElementById('dupRunBtn');
