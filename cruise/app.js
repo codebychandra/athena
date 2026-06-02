@@ -5210,21 +5210,18 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
     const recs = (agg.byPosition[pos.toLowerCase()] || []).slice();    // already date-sorted asc
 
     if (DEMAND_BY_HIRE_MONTH.has(pos)) {
-      // Special case: bucket each hire into the demand month matching its
-      // actual Hired_Date month (not the waterfall).
-      const monthRecs = {};   // mk -> [records]
+      // Hotel Asst F&B exception: bucket each hire into the demand month
+      // matching its actual Hired_Date month.
+      const monthRecs = {};
       allocMonthList.forEach(mk => {
         monthRecs[mk] = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
       });
-      // Apply manual reallocations (move surplus from one month to another)
       (DEMAND_REALLOCATIONS[pos] || []).forEach(({ from, to, count }) => {
         if (!monthRecs[from] || !monthRecs[to]) return;
-        const moved = monthRecs[from].splice(0, count);   // take from the front
-        monthRecs[to] = monthRecs[to].concat(moved);
+        monthRecs[to] = monthRecs[to].concat(monthRecs[from].splice(0, count));
       });
       allocMonthList.forEach(mk => {
-        const dem = Number(monthly[mk]?.[pos] || 0);
-        // Cap the counted hires at the month's demand — surplus is ignored.
+        const dem     = Number(monthly[mk]?.[pos] || 0);
         const inMonth = (monthRecs[mk] || []).slice(0, dem);
         alloc[pos][mk] = {
           dem,
@@ -5238,7 +5235,8 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       return;
     }
 
-    // Default: waterfall — fill each month's demand from the shared pool (chronological).
+    // All other positions: waterfall — fill oldest month first from shared pool,
+    // regardless of individual hire dates.
     let idx = 0;
     allocMonthList.forEach(mk => {
       const dem   = Number(monthly[mk]?.[pos] || 0);
