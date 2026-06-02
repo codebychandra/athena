@@ -4112,6 +4112,18 @@ pageEvents.reports = function () {
         });
       }
 
+      // Wire editable Pending Mistral ID cells (P&O monthly demand)
+      document.querySelectorAll('.rpt-pending-edit').forEach(input => {
+        const commit = () => {
+          const key = input.dataset.ovrkey;
+          const v   = input.value.trim();
+          _savePendingOverride(key, v === '' ? null : v);
+          regenerate(); // re-render so subtotals/grand total update + override styling refreshes
+        };
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+      });
+
       // Save Notes button
       const saveBtn = document.getElementById('rptNotesSaveBtn');
       if (saveBtn) {
@@ -5195,11 +5207,25 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable) 
 // across the demand months in chronological order: fill January's demand
 // first, overflow into February, and so on.
 //   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
+// ── Manual pending-Mistral-ID overrides for monthly demand (localStorage) ─────
+const _PENDING_OVR_KEY = 'cti_cruise_pending_overrides';
+function _loadPendingOverrides() {
+  try { return JSON.parse(localStorage.getItem(_PENDING_OVR_KEY) || '{}'); } catch { return {}; }
+}
+function _savePendingOverride(key, val) {
+  const all = _loadPendingOverrides();
+  if (val === null || val === undefined || val === '') delete all[key];
+  else all[key] = Number(val);
+  try { localStorage.setItem(_PENDING_OVR_KEY, JSON.stringify(all)); } catch {}
+}
+function _pendingOvrKey(brand, mk, pos) { return `${brand}||${mk}||${pos}`; }
+
 function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const monthly   = node.monthly    || {};
   const talentPool= node.talentPool || {};
+  const pendingOvr= _loadPendingOverrides();
 
   // Allocation uses chronological order (Jan → Dec) so waterfall fills correctly
   const allocMonthList = Object.keys(monthly)
@@ -5323,8 +5349,22 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
     const sub = { dem:0, remaining:0, hired:0, male:0, female:0, pending:0 };
     const rowsHtml = positions.map(p => {
       const a = alloc[p][mk];
+      // Apply manual pending override if set
+      const ovrKey = _pendingOvrKey(brand, mk, p);
+      const hasOvr = Object.prototype.hasOwnProperty.call(pendingOvr, ovrKey);
+      const pendingVal = hasOvr ? pendingOvr[ovrKey] : a.pending;
       sub.dem+=a.dem; sub.remaining+=a.remaining; sub.hired+=a.hired;
-      sub.male+=a.male; sub.female+=a.female; sub.pending+=a.pending;
+      sub.male+=a.male; sub.female+=a.female; sub.pending+=pendingVal;
+      const pendingCell = editable
+        ? `<td class="rpt-td rpt-num">
+             <input class="rpt-pending-edit" data-ovrkey="${escH(ovrKey)}"
+               value="${pendingVal}"
+               style="width:46px;text-align:center;font-size:11px;padding:2px 4px;
+                 border:1px solid ${hasOvr ? '#B01A18' : 'var(--border,#ddd)'};border-radius:4px;
+                 background:${hasOvr ? 'rgba(176,26,24,0.05)' : 'var(--card-bg,#fff)'};
+                 color:${hasOvr ? '#B01A18' : 'var(--text)'};font-family:inherit;font-weight:${hasOvr?'700':'400'};">
+           </td>`
+        : `<td class="rpt-td rpt-num">${pendingVal}</td>`;
       return `
         <tr>
           <td class="rpt-td">${escH(p)}</td>
@@ -5333,7 +5373,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
           <td class="rpt-td rpt-num">${a.hired}</td>
           <td class="rpt-td rpt-num">${a.male}</td>
           <td class="rpt-td rpt-num">${a.female}</td>
-          <td class="rpt-td rpt-num">${a.pending}</td>
+          ${pendingCell}
         </tr>`;
     }).join('');
     // accumulate into grand total
