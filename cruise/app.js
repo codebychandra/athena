@@ -4829,10 +4829,12 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
   // Pool of eligible records per position. Hire date is captured only so the
   // monthly-demand layout can order the waterfall allocation — it does NOT
   // filter anyone out. Talent Pool ignores date entirely.
-  const byPosition = {};   // pos -> [ { hasId, gender, hiredDate } ]
+  // Keys are stored lowercase so Zoho casing differences don't create mismatches.
+  const byPosition = {};   // pos_lowercase -> [ { hasId, gender, hiredDate, pos } ]
   function pushRec(pos, rec) {
     if (!pos || pos === '—') return;
-    (byPosition[pos] = byPosition[pos] || []).push(rec);
+    const key = pos.toLowerCase();
+    (byPosition[key] = byPosition[key] || []).push(rec);
   }
 
   seafarers.forEach(s => pushRec(s.positionHired, {
@@ -4962,7 +4964,7 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable) 
   let totalReq = 0, totalRem = 0, totalFul = 0, totalM = 0, totalF = 0;
   const rows = posList.map(pos => {
     const req    = Number(talentPool[pos] || 0);
-    const recs   = agg.byPosition[pos] || [];
+    const recs   = agg.byPosition[pos.toLowerCase()] || [];
     const withId = recs.filter(r => r.hasId);
     const fulfil = withId.length;
     const male   = withId.filter(r => r.gender === 'M').length;
@@ -5055,7 +5057,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   if (tpPositions.length) {
     const tpRows = tpPositions.sort().map(pos => {
       const req    = Number(talentPool[pos] || 0);
-      const recs   = agg.byPosition[pos] || [];
+      const recs   = agg.byPosition[pos.toLowerCase()] || [];
       const withId = recs.filter(r => r.hasId);
       const fulfil = withId.length;
       const male   = withId.filter(r => r.gender === 'M').length;
@@ -5090,7 +5092,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   const alloc = {};
   demandPositions.forEach(pos => {
     alloc[pos] = {};
-    const recs = (agg.byPosition[pos] || []).slice();    // already date-sorted asc
+    const recs = (agg.byPosition[pos.toLowerCase()] || []).slice();    // already date-sorted asc
 
     if (DEMAND_BY_HIRE_MONTH.has(pos)) {
       // Special case: bucket each hire into the demand month matching its
