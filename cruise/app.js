@@ -3880,7 +3880,6 @@ pages.reports = async function () {
               <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <button id="rptRegenBtn" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
               <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Download This Brand</button>
               <button id="rptDownloadAllBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download All Brands</button>
             </div>
@@ -3906,7 +3905,6 @@ pages.reports = async function () {
               </div>
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;">
-              <button id="mistralRefresh" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
               <button id="mistralDownload" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download Excel</button>
             </div>
           </div>
