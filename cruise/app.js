@@ -3879,11 +3879,6 @@ pages.reports = async function () {
               <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <button id="rptNotesSaveBtn"
-                style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:none;
-                  background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;transition:background 0.15s;">
-                Notes Saved ✓
-              </button>
               <button id="rptRegenBtn" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
               <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Download This Brand</button>
               <button id="rptDownloadAllBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download All Brands</button>
@@ -4912,9 +4907,15 @@ function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt, notesOver
 function renderNotesSection(notes, editable) {
   if (editable) {
     return `
-      <div class="rpt-notes-h" style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="rpt-notes-h" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <span>RECRUITING NOTES</span>
-        <button type="button" id="rptNotesAuto" class="rpt-notes-auto">Auto-fill</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button type="button" id="rptNotesAuto" class="rpt-notes-auto">Auto-fill</button>
+          <button type="button" id="rptNotesSaveBtn"
+            style="padding:4px 12px;font-size:11px;font-weight:700;border:none;border-radius:5px;
+              background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;transition:background 0.15s;
+              white-space:nowrap;">Notes Saved ✓</button>
+        </div>
       </div>
       <textarea id="rptNotesInline" class="rpt-notes-edit" rows="4"
         placeholder="Type recruiting notes — one line per bullet">${escH(notes.join('\n'))}</textarea>`;
