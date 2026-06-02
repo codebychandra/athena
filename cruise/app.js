@@ -629,9 +629,9 @@ pages.task = async function () {
               </div>
             </div>
 
-            <!-- Filters -->
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-              <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;">Filter Sign On Date</span>
+            <!-- Filters + Export -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;">Sign On Date</span>
               <select id="rtsMonthFilter"
                 style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:110px;
                   background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
@@ -647,7 +647,32 @@ pages.task = async function () {
                 <option value="">All Years</option>
                 ${[2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===new Date().getFullYear()?'selected':''}>${y}</option>`).join('')}
               </select>
-              <span id="rtsCount" style="font-size:12px;color:var(--text-muted,#888);margin-left:4px;"></span>
+
+              <span style="width:1px;height:20px;background:var(--border,#ddd);flex-shrink:0;"></span>
+
+              <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;">Cruise Line</span>
+              <select id="rtsCruiseFilter"
+                style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:140px;
+                  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+                  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
+                <option value="">All Cruise Lines</option>
+                ${CRUISE_BRANDS.map(b=>`<option value="${escH(b)}">${escH(b)}</option>`).join('')}
+              </select>
+
+              <span id="rtsCount" style="font-size:12px;color:var(--text-muted,#888);flex:1;"></span>
+
+              <button id="rtsExportBtn"
+                style="display:inline-flex;align-items:center;gap:7px;padding:7px 16px;font-size:12px;font-weight:600;
+                  border:none;border-radius:7px;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;
+                  flex-shrink:0;transition:opacity 0.15s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export Excel
+              </button>
             </div>
 
             <!-- Table (header + body injected by rtsApply) -->
@@ -773,10 +798,11 @@ pageEvents.task = function () {
     'border-radius:4px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;';
 
   function getRtsBaseRows() {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const moVal = document.getElementById('rtsMonthFilter')?.value;
-    const yrVal = document.getElementById('rtsYearFilter')?.value;
-    const EXCL  = new Set(['report to ship','resign','resigned']);
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const moVal   = document.getElementById('rtsMonthFilter')?.value;
+    const yrVal   = document.getElementById('rtsYearFilter')?.value;
+    const clVal   = document.getElementById('rtsCruiseFilter')?.value || '';
+    const EXCL    = new Set(['report to ship','resign','resigned']);
     return _sfRows.filter(r => {
       if (!r.signOnDate || r.signOnDate === '—') return false;
       const d = new Date(r.signOnDate);
@@ -784,8 +810,49 @@ pageEvents.task = function () {
       if (EXCL.has((r.onboardingStatus||'').trim().toLowerCase())) return false;
       if (moVal !== '' && moVal != null && d.getMonth() !== +moVal) return false;
       if (yrVal && d.getFullYear() !== +yrVal) return false;
+      if (clVal && r.cruiseLine !== clVal) return false;
       return true;
     }).map(r => ({ ...r, _analytics: getCtiAnal(r.ctiOffice) }));
+  }
+
+  function rtsExport() {
+    if (typeof XLSX === 'undefined') { alert('Excel library not loaded. Please refresh the page.'); return; }
+    const base = getRtsBaseRows();
+    // Apply column filters too
+    const rows = base.filter(r => {
+      for (const [f, v] of Object.entries(rtsColFilters)) {
+        if (!v) continue;
+        if (!String(r[f]||'').toLowerCase().includes(v.toLowerCase())) return false;
+      }
+      return true;
+    });
+    if (!rows.length) { alert('No data to export with the current filters.'); return; }
+
+    const moVal  = document.getElementById('rtsMonthFilter')?.value;
+    const yrVal  = document.getElementById('rtsYearFilter')?.value;
+    const clVal  = document.getElementById('rtsCruiseFilter')?.value || 'All';
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const suffix = [clVal !== 'All' ? clVal.replace(/\s+/g,'_') : 'All',
+                    moVal !== '' && moVal != null ? MONTHS[+moVal] : 'All',
+                    yrVal || 'All'].join('_');
+
+    const headers = ['Employment Status','Onboarding Status','First Name','Last Name',
+      'Crew ID','Position Hired','Joining Ship','Sign On Date','Sign On Port',
+      'Cruise Line','CTI Office','CTI Line Analytics'];
+
+    const data = [headers, ...rows.map(r => [
+      r.employmentStatus||'', r.onboardingStatus||'',
+      r.firstName||'', r.lastName||'', r.seafarerIdNumber||'',
+      r.positionHired||'', r.joiningShip||'', r.signOnDate||'',
+      r.signOnPort||'', r.cruiseLine||'', r.ctiOffice||'', r._analytics||'',
+    ])];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    // Column widths
+    ws['!cols'] = [18,18,14,14,12,20,18,12,14,16,20,18].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Check RTS');
+    XLSX.writeFile(wb, `Check_RTS_${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
   function getUniq(rows, field) {
@@ -903,6 +970,8 @@ pageEvents.task = function () {
 
   document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
+  document.getElementById('rtsCruiseFilter')?.addEventListener('change', rtsApply);
+  document.getElementById('rtsExportBtn')?.addEventListener('click', rtsExport);
   rtsApply();
 
   // ── Duplicate Checker ──────────────────────────────────────────────────────
