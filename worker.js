@@ -1142,6 +1142,93 @@ export default {
         return json({ ok: false, error: errText }, 200, ch);
       }
 
+      // ── POST /api/cruise/send-mistral-form ────────────────────────────
+      // Sends the Mistral personal-information form link to a seafarer via
+      // Microsoft Graph using cti-it-team@cti-usa.com.
+      if (method === 'POST' && path === '/api/cruise/send-mistral-form') {
+        const body = await request.json().catch(() => ({}));
+        const { to, name } = body;
+        if (!to || !name) return json({ error: 'Missing to or name' }, 400, ch);
+
+        const MISTRAL_FORM = 'https://zfrmz.com/eLrVxDrPk5aG5Qm5wf0h';
+        const token = await getMSToken(env);
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;">
+  <tr><td>
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#B01A18 !important;border-radius:8px 8px 0 0;overflow:hidden;" bgcolor="#B01A18">
+      <tr>
+        <td style="padding:22px 28px;background:#B01A18 !important;" bgcolor="#B01A18">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td><img src="https://codebychandra.github.io/athena/logo.png" width="48" height="48" alt="CTI Group" style="display:block;border:0;"></td>
+            <td style="padding-left:12px;">
+              <div style="color:#fff;font-size:18px;font-weight:700;">CTI Group</div>
+              <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;">Worldwide Services, Inc.</div>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr><td style="height:4px;background:#8B1210;" bgcolor="#8B1210"></td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
+      <tr><td style="padding:32px 28px;">
+        <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear <strong>${escHTML(name)}</strong>,</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly ask you to verify and complete your personal information in our system.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;line-height:1.6;">To proceed, please complete the form using the link below:</p>
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
+          <tr>
+            <td style="background:#B01A18 !important;border-radius:6px;text-align:center;" bgcolor="#B01A18">
+              <a href="${MISTRAL_FORM}" style="display:inline-block;padding:13px 32px;color:#fff;font-size:14px;font-weight:700;text-decoration:none;">
+                Complete Form
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 20px;font-size:12px;color:#888;line-height:1.5;">
+          Or copy and paste this link into your browser:<br>
+          <a href="${MISTRAL_FORM}" style="color:#B01A18;word-break:break-all;">${MISTRAL_FORM}</a>
+        </p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">If you have already submitted this information, please disregard this message.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;">Thank you for your cooperation.</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="border-top:1px solid #eee;padding-top:20px;">
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+              Best regards,<br>
+              <strong>CTI Group Worldwide Services, Inc.</strong><br>
+              <a href="https://www.cti-usa.com" style="color:#B01A18;text-decoration:none;">www.cti-usa.com</a>
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <p style="text-align:center;font-size:11px;color:#aaa;margin:14px 0 0;">
+      This is an automated message from CTI Group Worldwide Services, Inc. Please do not reply to this email.
+    </p>
+  </td></tr>
+</table>
+</body></html>`;
+
+        const mail = {
+          message: {
+            subject: `Additional Information Required – Crew ID Registration – ${escHTML(name)}`,
+            body: { contentType: 'HTML', content: html },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        };
+        const sendRes = await fetch(`${MS_GRAPH_API}/users/${SA_SEND_FROM}/sendMail`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(mail),
+        });
+        if (sendRes.status === 202) return json({ ok: true }, 200, ch);
+        const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
+        return json({ ok: false, error: errText }, 200, ch);
+      }
+
       // ── POST /api/cruise/send-rts-followup ────────────────────────────
       // Sends a Report-to-Ship follow-up email to an account manager via
       // Microsoft Graph (cti-it-team@cti-usa.com as sender).

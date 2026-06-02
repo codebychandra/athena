@@ -4245,6 +4245,29 @@ pageEvents.reports = function () {
   let _mistralSortF  = null;
   let _mistralSortD  = 1;
 
+  // ── Mistral email sent tracking (localStorage) ─────────────────────────────
+  const _MISTRAL_SENT_KEY = 'cti_cruise_mistral_sent';
+  function _loadMistralSent() {
+    try { return new Map(Object.entries(JSON.parse(localStorage.getItem(_MISTRAL_SENT_KEY) || '{}'))); }
+    catch { return new Map(); }
+  }
+  function _saveMistralSent(map) {
+    try { localStorage.setItem(_MISTRAL_SENT_KEY, JSON.stringify(Object.fromEntries(map))); } catch {}
+  }
+  let _mistralSentIds = _loadMistralSent(); // id → { ok, ts }
+
+  const fmtMistralSent = id => {
+    const entry = _mistralSentIds.get(id);
+    if (!entry) return '<span style="color:var(--text-muted,#bbb);font-size:10.5px;">—</span>';
+    const { ok, ts } = (typeof entry === 'object') ? entry : { ok: true, ts: entry };
+    if (!ok) return `<span style="font-size:10.5px;font-weight:600;color:#DC2626;">Failed</span>`;
+    const d = new Date(ts);
+    return `<span style="font-size:10.5px;color:#15803D;white-space:nowrap;">
+      ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}<br>
+      <span style="font-size:10px;color:var(--text-muted,#888);">${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
+    </span>`;
+  };
+
   function mistralOpts() {
     return {
       from: document.getElementById('mistralFrom')?.value || null,
@@ -4302,9 +4325,12 @@ pageEvents.reports = function () {
   }
 
   function buildMistralHeaderRows() {
-    // Empty sticky column at the front for the Detail buttons
-    const frontTh = `<th style="padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);width:74px;"></th>`;
-    const frontFilter = `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);"></th>`;
+    const TH = `padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
+    const TF = `padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
+    // Front column: Action (Detail + Send) + Last Sent
+    const frontTh = `<th style="${TH}width:140px;"></th>
+      <th style="${TH}font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);white-space:nowrap;">Last Sent</th>`;
+    const frontFilter = `<th style="${TF}"></th><th style="${TF}"></th>`;
 
     const thSort = MISTRAL_COLUMNS.map(c =>
       `<th data-field="${c.field}" class="sortable" style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;cursor:pointer;user-select:none;">
@@ -4337,14 +4363,21 @@ pageEvents.reports = function () {
     const header = buildMistralHeaderRows();
     const bodyHtml = rows.length
       ? rows.map(r => `<tr data-id="${escH(r.id)}">
-          <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;">
+          <td style="padding:5px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;white-space:nowrap;">
             <button class="mistral-detail-btn" data-id="${escH(r.id)}"
-              style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;">Detail</button>
+              style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
+            <button class="mistral-send-btn" data-id="${escH(r.id)}" data-email="${escH(r.email||'')}" data-name="${escH(r.fullName||'')}"
+              title="Send form email to seafarer"
+              style="font-size:10.5px;font-weight:600;border:none;background:${r.email?'#1B3A6B':'#ccc'};color:#fff;border-radius:5px;padding:3px 9px;cursor:${r.email?'pointer':'not-allowed'};font-family:inherit;">
+              Send Form</button>
+          </td>
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11px;">
+            ${fmtMistralSent(r.id)}
           </td>
           ${MISTRAL_COLUMNS.map(c =>
             `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(r[c.field]))}</td>`).join('')}
         </tr>`).join('')
-      : `<tr><td colspan="${MISTRAL_COLUMNS.length+1}" style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No matching seafarers.</td></tr>`;
+      : `<tr><td colspan="${MISTRAL_COLUMNS.length+3}" style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No matching seafarers.</td></tr>`;
     wrap.innerHTML = `
       <div style="padding:10px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
         <strong style="color:var(--text);">${rows.length}</strong> seafarer${rows.length!==1?'s':''} pending Mistral ID
@@ -4376,6 +4409,41 @@ pageEvents.reports = function () {
     }
     document.querySelectorAll('.mistral-detail-btn').forEach(b => {
       b.addEventListener('click', () => openMistralDetail(b.dataset.id));
+    });
+
+    // Send Form buttons
+    document.querySelectorAll('.mistral-send-btn').forEach(btn => {
+      if (!btn.dataset.email) return;
+      btn.addEventListener('click', async () => {
+        const id    = btn.dataset.id;
+        const email = btn.dataset.email;
+        const name  = btn.dataset.name;
+        if (!email) { showToast('No email address for this seafarer.', 'error'); return; }
+        const orig = btn.textContent;
+        btn.textContent = 'Sending…'; btn.disabled = true;
+        try {
+          const res = await fetch(WORKER_URL + '/api/cruise/send-mistral-form', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: email, name }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            _mistralSentIds.set(id, { ok: true, ts: new Date().toISOString() });
+            showToast(`Email sent to ${name}`, 'success');
+          } else {
+            _mistralSentIds.set(id, { ok: false, ts: new Date().toISOString() });
+            showToast(`Failed to send: ${data.error || 'Unknown error'}`, 'error');
+          }
+          _saveMistralSent(_mistralSentIds);
+          renderMistralTable();
+        } catch (err) {
+          _mistralSentIds.set(id, { ok: false, ts: new Date().toISOString() });
+          _saveMistralSent(_mistralSentIds);
+          showToast('Network error. Please try again.', 'error');
+          renderMistralTable();
+        }
+      });
     });
   }
 
