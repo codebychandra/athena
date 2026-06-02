@@ -1176,7 +1176,7 @@ export default {
            style="background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
       <tr><td style="padding:32px 28px;">
         <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear <strong>${escHTML(name)}</strong>,</p>
-        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly ask you to verify and complete your personal information in our system.</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.6;">As part of your onboarding process with <strong style="color:#B01A18;">CTI Group</strong>, we kindly ask you to verify and complete your personal information.</p>
         <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;line-height:1.6;">To proceed, please complete the form using the link below:</p>
         <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
           <tr>
