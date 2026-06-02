@@ -502,10 +502,10 @@ async function fetchCruiseData(forceRefresh) {
 const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 // Column definitions — each: { label, field, zoho (API name for save), filter? }
 const MISTRAL_COLUMNS = [
+  { label:'Seafarer Name',         field:'fullName',            zoho:null,                   sticky:true },        // frozen column
   { label:'Onboarding Status',     field:'onboardingStatus',    zoho:null,                   filterMS:true },
   { label:'Seafarer ID Number',    field:'seafarerIdNumber',    zoho:'Crew_ID_Number' },
   { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date' },
-  { label:'Seafarer Name',         field:'fullName',            zoho:null },                                       // computed
   { label:'Position Hired',        field:'positionHired',       zoho:'Position_Applied' },
   { label:'Cruise Line',           field:'cruiseLine',          zoho:'Cruise_Line',          filterMS:true },
   { label:'Place of Birth',        field:'placeOfBirth',        zoho:'Place_of_Birth' },
@@ -4312,17 +4312,24 @@ pageEvents.reports = function () {
   }
 
   function buildMistralHeaderRows() {
-    const TH = `padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
-    const TF = `padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
-    // Front column: Action (Detail + Send) + Last Sent
-    const frontTh = `<th style="${TH}width:140px;"></th>
-      <th style="${TH}font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);white-space:nowrap;">Last Sent</th>`;
-    const frontFilter = `<th style="${TF}"></th><th style="${TF}"></th>`;
+    const TH  = `padding:8px 10px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
+    const TF  = `padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);`;
+    const STH = `position:sticky;z-index:4;`; // sticky header z-index
+    // Front columns sticky
+    const frontTh = `
+      <th style="${TH}${STH}left:0;min-width:160px;"></th>
+      <th style="${TH}${STH}left:160px;min-width:80px;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);white-space:nowrap;">Last Sent</th>`;
+    const frontFilter = `<th style="${TF}${STH}left:0;"></th><th style="${TF}${STH}left:160px;"></th>`;
 
-    const thSort = MISTRAL_COLUMNS.map(c =>
-      `<th data-field="${c.field}" class="sortable" style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;cursor:pointer;user-select:none;">
+    const thSort = MISTRAL_COLUMNS.map(c => {
+      const s = c.sticky ? `${STH}left:240px;box-shadow:2px 0 4px rgba(0,0,0,0.06);` : '';
+      return `<th data-field="${c.field}" class="sortable"
+        style="${TH}${s}text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+          text-transform:uppercase;color:var(--text-muted,#888);white-space:nowrap;
+          cursor:pointer;user-select:none;${c.sticky?'min-width:160px;':''}">
         ${escH(c.label)} <span class="mistral-sort-icon">⇅</span>
-      </th>`).join('');
+      </th>`;
+    }).join('');
 
     const thFilter = MISTRAL_COLUMNS.map(c => {
       let cell;
@@ -4330,9 +4337,11 @@ pageEvents.reports = function () {
         const opts = [...new Set(_mistralBase.map(r => r[c.field]).filter(v => v && v !== '—' && v !== ''))].sort();
         cell = buildColMS(`mistralCF_${c.field}`, opts);
       } else {
-        cell = `<input class="mistral-col-f" data-field="${c.field}" type="text" placeholder="—" style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+        cell = `<input class="mistral-col-f" data-field="${c.field}" type="text" placeholder="—"
+          style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
       }
-      return `<th style="padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb);">${cell}</th>`;
+      const s = c.sticky ? `${STH}left:240px;` : '';
+      return `<th style="${TF}${s}">${cell}</th>`;
     }).join('');
 
     return `<tr>${frontTh}${thSort}</tr><tr>${frontFilter}${thFilter}</tr>`;
@@ -4350,7 +4359,7 @@ pageEvents.reports = function () {
     const header = buildMistralHeaderRows();
     const bodyHtml = rows.length
       ? rows.map(r => `<tr data-id="${escH(r.id)}">
-          <td style="padding:5px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;white-space:nowrap;">
+          <td style="padding:5px 8px;border-bottom:1px solid var(--border,#f0f0f0);text-align:center;white-space:nowrap;position:sticky;left:0;z-index:2;background:var(--card-bg,#fff);min-width:160px;">
             <button class="mistral-detail-btn" data-id="${escH(r.id)}"
               style="font-size:10.5px;font-weight:600;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;margin-right:4px;">Detail</button>
             <button class="mistral-send-btn" data-id="${escH(r.id)}" data-email="${escH(r.email||'')}" data-name="${escH(r.fullName||'')}"
@@ -4358,21 +4367,27 @@ pageEvents.reports = function () {
               style="font-size:10.5px;font-weight:600;border:none;background:${r.email?'#1B3A6B':'#ccc'};color:#fff;border-radius:5px;padding:3px 9px;cursor:${r.email?'pointer':'not-allowed'};font-family:inherit;">
               Send Form</button>
           </td>
-          <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11px;">
+          <td style="padding:6px 8px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11px;position:sticky;left:160px;z-index:2;background:var(--card-bg,#fff);min-width:80px;">
             ${fmtMistralSent(r.id)}
           </td>
-          ${MISTRAL_COLUMNS.map(c =>
-            `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;">${escH(cleanVal(r[c.field]))}</td>`).join('')}
+          ${MISTRAL_COLUMNS.map(c => {
+            const sticky = c.sticky
+              ? `position:sticky;left:240px;z-index:2;background:var(--card-bg,#fff);font-weight:600;min-width:160px;box-shadow:2px 0 4px rgba(0,0,0,0.06);`
+              : '';
+            return `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;${sticky}">${escH(cleanVal(r[c.field]))}</td>`;
+          }).join('')}
         </tr>`).join('')
       : `<tr><td colspan="${MISTRAL_COLUMNS.length+3}" style="padding:32px;text-align:center;color:var(--text-muted,#aaa);font-size:12px;">No matching seafarers.</td></tr>`;
     wrap.innerHTML = `
       <div style="padding:10px 16px;font-size:12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border,#eee);">
         <strong style="color:var(--text);">${rows.length}</strong> seafarer${rows.length!==1?'s':''} pending Mistral ID
       </div>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>${header}</thead>
-        <tbody id="mistralBody">${bodyHtml}</tbody>
-      </table>`;
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:1200px;">
+          <thead style="position:sticky;top:0;z-index:5;">${header}</thead>
+          <tbody id="mistralBody">${bodyHtml}</tbody>
+        </table>
+      </div>`;
 
     initMS(wrap);
     // Restore text-filter values so typing doesn't reset on each keypress
