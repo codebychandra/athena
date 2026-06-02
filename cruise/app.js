@@ -614,9 +614,64 @@ pages.task = async function () {
     <div class="task-layout">
       <nav class="task-tabbar">
         <button class="task-sub-link active" data-section="duplicate">Duplicate Checker</button>
+        <button class="task-sub-link" data-section="rts">Check Report to Ship</button>
       </nav>
 
       <div class="task-content">
+
+        <!-- ═══ Check Report to Ship ═══ -->
+        <section class="task-section" data-section="rts" style="display:none;">
+          <div class="card" style="padding:22px 26px;">
+            <div style="margin-bottom:16px;">
+              <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px;">Check Report to Ship</div>
+              <div style="font-size:12.5px;color:var(--text-muted,#888);">
+                Seafarers whose sign-on date has passed but onboarding status is not yet Report to Ship.
+              </div>
+            </div>
+
+            <!-- Filters -->
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;">Filter Sign On Date</span>
+              <select id="rtsMonthFilter"
+                style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:110px;
+                  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+                  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
+                <option value="">All Months</option>
+                ${['January','February','March','April','May','June','July','August','September','October','November','December']
+                  .map((m,i)=>`<option value="${i}">${m}</option>`).join('')}
+              </select>
+              <select id="rtsYearFilter"
+                style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:80px;
+                  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
+                  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
+                <option value="">All Years</option>
+                ${[2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===new Date().getFullYear()?'selected':''}>${y}</option>`).join('')}
+              </select>
+              <span id="rtsCount" style="font-size:12px;color:var(--text-muted,#888);margin-left:4px;"></span>
+            </div>
+
+            <!-- Table -->
+            <div style="overflow-x:auto;max-height:560px;overflow-y:auto;">
+              <table style="width:100%;border-collapse:collapse;min-width:1200px;" id="rtsTable">
+                <thead style="position:sticky;top:0;z-index:2;">
+                  <tr>
+                    ${['Employment Status','Onboarding Status','First Name','Last Name','Crew ID','Position Hired',
+                       'Joining Ship','Sign On Date','Sign On Port','Cruise Line','CTI Office','CTI Line Analytics']
+                      .map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+                        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+                        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap;">${h}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody id="rtsBody">
+                  <tr><td colspan="12" style="padding:32px;text-align:center;color:var(--text-muted,#888);font-size:13px;">
+                    Loading seafarer data…
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <section class="task-section" data-section="duplicate">
           <div class="card" id="dupCheckerCard" style="padding:28px 32px;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;
@@ -671,6 +726,96 @@ pages.task = async function () {
 };
 
 pageEvents.task = function () {
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.task-tabbar .task-sub-link[data-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.task-tabbar .task-sub-link[data-section]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.task-content .task-section[data-section]').forEach(sec => {
+        sec.style.display = sec.dataset.section === btn.dataset.section ? '' : 'none';
+      });
+      if (btn.dataset.section === 'rts') rtsApply();
+    });
+  });
+
+  // ── Check Report to Ship ───────────────────────────────────────────────────
+  const CTI_LINE_ANALYTICS = {
+    'CTI Group Bangkok':      'CTI Bangkok',
+    'CTI Group Myanmar':      'CTI Myanmar',
+    'CTI Group Vietnam':      'CTI Vietnam',
+    'CTI Group MCSI':         'CTI MCSI',
+    'CTI Partner Kendrick':   'CTI Indonesia',
+    'CTI Group South Africa': 'CTI Indonesia',
+  };
+
+  function getCtiLineAnalytics(ctiOffice) {
+    return CTI_LINE_ANALYTICS[ctiOffice] || (ctiOffice || '—');
+  }
+
+  function rtsApply() {
+    const tbody = document.getElementById('rtsBody');
+    const countEl = document.getElementById('rtsCount');
+    if (!tbody) return;
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const moVal = document.getElementById('rtsMonthFilter')?.value;
+    const yrVal = document.getElementById('rtsYearFilter')?.value;
+    const EXCLUDED = new Set(['report to ship','resign','resigned']);
+
+    const rows = _sfRows.filter(r => {
+      if (!r.signOnDate || r.signOnDate === '—') return false;
+      const d = new Date(r.signOnDate);
+      if (isNaN(d.getTime())) return false;
+      if (d >= today) return false; // only PAST sign-on dates
+      const onb = (r.onboardingStatus || '').trim().toLowerCase();
+      if (EXCLUDED.has(onb)) return false;
+      if (moVal !== '' && moVal !== undefined && d.getMonth() !== +moVal) return false;
+      if (yrVal && d.getFullYear() !== +yrVal) return false;
+      return true;
+    });
+
+    if (countEl) countEl.textContent = `${rows.length} record${rows.length !== 1 ? 's' : ''}`;
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="12" style="padding:32px;text-align:center;
+        color:var(--text-muted,#888);font-size:13px;">No overdue records found.</td></tr>`;
+      return;
+    }
+
+    const td = (v, extra='') =>
+      `<td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:12px;white-space:nowrap;${extra}">${v||'—'}</td>`;
+
+    tbody.innerHTML = rows.map(r => {
+      const onbColor = {'completing documents':'#D97706','rescheduled':'#B87A14'}[
+        (r.onboardingStatus||'').toLowerCase()] || '#6B7280';
+      return `<tr>
+        ${td(escH(r.employmentStatus||'—'))}
+        ${td(`<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;
+          background:${onbColor}20;color:${onbColor};border:1px solid ${onbColor}40;">
+          ${escH(r.onboardingStatus||'—')}</span>`)}
+        ${td(escH(r.firstName||'—'))}
+        ${td(escH(r.lastName||'—'))}
+        ${td(escH(r.seafarerIdNumber||'—'))}
+        ${td(escH(r.positionHired||'—'))}
+        ${td(escH(r.joiningShip||'—'))}
+        ${td(`<span style="color:#B01A18;font-weight:600;">${escH(r.signOnDate||'—')}</span>`)}
+        ${td(escH(r.signOnPort||'—'))}
+        ${td(sfCruiseBadge(r.cruiseLine))}
+        ${td(escH(r.ctiOffice||'—'))}
+        ${td(escH(getCtiLineAnalytics(r.ctiOffice)))}
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
+  document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
+
+  // Pre-load if data is already available
+  if (_sfRows.length) rtsApply();
+  else rtsApply(); // will show empty — data loads when user navigates there
+
+  // ── Duplicate Checker ──────────────────────────────────────────────────────
   const btn       = document.getElementById('dupRunBtn');
   const btnIcon   = document.getElementById('dupRunBtnIcon');
   const btnLabel  = document.getElementById('dupRunBtnLabel');
