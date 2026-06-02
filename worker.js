@@ -436,9 +436,16 @@ const SF = {
   height:             'Height',
   weight:             'Weight',
   city:               'City',
+  state:              'State',
   street:             'Street',
   postalCode:         'Zip_Code',
   gatewayAirport:     'Gateway_Airport',
+  // ── Next of Kin / Emergency Contact ──
+  relationshipToCrew:    'Relationship_to_Crew',
+  emergencyName:         'Emergency_Contact_Name',
+  emergencyPhone:        'Emergency_Contact',
+  emergencyCity:         'Emergency_Contact_City',
+  emergencyStreet:       'Emergency_Contact_Street_Address',
   signOffDate:        'Sign_Off_Date',            // confirmed
   signOnPort:         'Sign_On_Port',             // confirmed
   joiningShip:        'Joining_Ship',            // TODO: confirm field name via /api/cruise/debug/fields
@@ -707,9 +714,15 @@ function mapSeafarer(r) {
     height:              r[SF.height]              || '',
     weight:              r[SF.weight]              || '',
     city:                r[SF.city]                || '',
+    state:               r[SF.state]               || '',
     street:              r[SF.street]              || '',
     postalCode:          r[SF.postalCode]          || '',
     gatewayAirport:      r[SF.gatewayAirport]      || '',
+    relationshipToCrew:  r[SF.relationshipToCrew]  || '',
+    emergencyName:       r[SF.emergencyName]       || '',
+    emergencyPhone:      r[SF.emergencyPhone]      || '',
+    emergencyCity:       r[SF.emergencyCity]       || '',
+    emergencyStreet:     r[SF.emergencyStreet]     || '',
     signOffDate:         r[SF.signOffDate]         || null,
     signOnPort:          r[SF.signOnPort]          || '',
     joiningShip:         r[SF.joiningShip]         || '',

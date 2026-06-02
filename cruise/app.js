@@ -524,9 +524,16 @@ const MISTRAL_COLUMNS = [
   { label:'Weight',                field:'weight',              zoho:'Weight',               type:'number' },
   { label:'Country',               field:'country',             zoho:'Country' },
   { label:'City',                  field:'city',                zoho:'City' },
+  { label:'State/Province',        field:'state',               zoho:'State' },
   { label:'Street',                field:'street',              zoho:'Street' },
   { label:'Postal Code',           field:'postalCode',          zoho:'Zip_Code' },
   { label:'Gateway Airport',       field:'gatewayAirport',      zoho:'Gateway_Airport' },
+  // ── Next of Kin ──
+  { label:'Relationship to Seafarer',     field:'relationshipToCrew', zoho:'Relationship_to_Crew',          section:'Next of Kin' },
+  { label:'Emergency Contact Full Name',  field:'emergencyName',      zoho:'Emergency_Contact_Name' },
+  { label:'Emergency Contact Phone Number', field:'emergencyPhone',   zoho:'Emergency_Contact' },
+  { label:'Emergency Contact City',       field:'emergencyCity',      zoho:'Emergency_Contact_City' },
+  { label:'Emergency Contact Street Address', field:'emergencyStreet', zoho:'Emergency_Contact_Street_Address' },
 ];
 // Sticky-column offsets for the Mistral table.
 // Front fixed columns: Action (160px) + Last Sent (80px) = 240px before data columns.
@@ -4542,7 +4549,13 @@ pageEvents.reports = function () {
       const inputCss  = c.highlight
         ? 'border:1.5px solid #B01A18;background:#fffdfd;font-weight:700;color:#B01A18;'
         : 'border:1px solid var(--border,#ddd);background:var(--card-bg,#fff);color:var(--text);';
-      return `
+      // Optional section header (e.g. "Next of Kin") before this field
+      const sectionHdr = c.section
+        ? `<div style="padding:8px 12px;background:var(--bg-page,#f5f5f5);font-size:10px;font-weight:800;
+             letter-spacing:0.08em;text-transform:uppercase;color:#B01A18;border-top:1px solid var(--border,#eee);
+             border-bottom:1px solid var(--border,#eee);">${escH(c.section)}</div>`
+        : '';
+      return `${sectionHdr}
         <label style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border,#f3f3f3);${labelBg}">
           <span style="flex:0 0 150px;font-size:10.5px;font-weight:${c.highlight?'800':'600'};color:${c.highlight?'#B01A18':'var(--text-muted,#888)'};text-transform:uppercase;letter-spacing:0.04em;">${escH(c.label)}${c.highlight?' ★':''}</span>
           <input ${inputId ? `id="${inputId}" ` : ''}data-zoho="${escH(c.zoho)}" data-field="${escH(c.field)}" type="${inputType}" value="${escH(val)}"
