@@ -4124,8 +4124,16 @@ pageEvents.reports = function () {
   document.getElementById('rptBrand').addEventListener('change', regenerate);
   document.getElementById('rptDate').addEventListener('change', regenerate);
   document.getElementById('rptRegenBtn').addEventListener('click', async () => {
-    await fetchCruiseData(true);
-    regenerate();
+    const btn = document.getElementById('rptRegenBtn');
+    const orig = btn.textContent;
+    btn.textContent = 'Refreshing…'; btn.disabled = true;
+    try {
+      await safeJson(WORKER_URL + '/api/cache/clear').catch(() => {}); // clear KV cache
+      await fetchCruiseData(true);  // re-fetch with fresh Zoho data
+      regenerate();
+    } finally {
+      btn.textContent = orig; btn.disabled = false;
+    }
   });
   // ── Report password gate (SHA-256, never stored plain) ───────────────────
   const RPT_HASH = 'ef8e5b8012a7598cfa0f65069b44765ea6d3f10359b104c4e69504b93df5c40f';
@@ -4512,8 +4520,16 @@ pageEvents.reports = function () {
   }
 
   document.getElementById('mistralRefresh')?.addEventListener('click', async () => {
-    await fetchCruiseData(true);
-    reloadMistral();
+    const btn = document.getElementById('mistralRefresh');
+    const orig = btn?.textContent;
+    if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
+    try {
+      await safeJson(WORKER_URL + '/api/cache/clear').catch(() => {}); // clear KV cache
+      await fetchCruiseData(true);
+      reloadMistral();
+    } finally {
+      if (btn) { btn.textContent = orig; btn.disabled = false; }
+    }
   });
   document.getElementById('mistralApply')?.addEventListener('click', reloadMistral);
   document.getElementById('mistralDownload')?.addEventListener('click', () => {
