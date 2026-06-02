@@ -551,8 +551,16 @@ function mistralRequestRows(seafarers, opts = {}) {
   }).sort((a, b) => new Date(a.hiredDate) - new Date(b.hiredDate));
 }
 
-// ── Editable recruiting notes (per brand, this session) ──────────────────────
-const _reportNotes = {};   // brand -> raw textarea string
+// ── Editable recruiting notes — persisted to localStorage per brand ───────────
+const _RPT_NOTES_KEY = brand => `cti_cruise_rpt_notes_${brand.replace(/\s+/g,'_')}`;
+function _loadReportNote(brand) {
+  try { return localStorage.getItem(_RPT_NOTES_KEY(brand)) || null; } catch { return null; }
+}
+function _saveReportNote(brand, text) {
+  try { localStorage.setItem(_RPT_NOTES_KEY(brand), text); } catch {}
+}
+
+const _reportNotes = {};   // brand -> raw textarea string (runtime cache, backed by localStorage)
 function notesLines(str) {
   return (str || '').split('\n').map(s => s.trim()).filter(Boolean);
 }
@@ -3870,7 +3878,12 @@ pages.reports = async function () {
               <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date</div>
               <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
-            <div style="margin-left:auto;display:flex;gap:8px;">
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button id="rptNotesSaveBtn"
+                style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:none;
+                  background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;transition:background 0.15s;">
+                Notes Saved ✓
+              </button>
               <button id="rptRegenBtn" style="padding:9px 18px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Refresh</button>
               <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Download This Brand</button>
               <button id="rptDownloadAllBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download All Brands</button>
@@ -4064,8 +4077,11 @@ pageEvents.reports = function () {
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
       const { seafarers, finalInt } = await fetchCruiseData(false);
-      // Notes start blank by default — use the Auto-fill button to generate.
-      if (_reportNotes[brand] == null) _reportNotes[brand] = '';
+      // Load saved notes from localStorage; fall back to auto-generated.
+      if (_reportNotes[brand] == null) {
+        const saved = _loadReportNote(brand);
+        _reportNotes[brand] = saved ?? '';   // empty string = not yet auto-filled
+      }
       const notes = notesLines(_reportNotes[brand]);
       preview.innerHTML = buildReportHTML(brand, date, seafarers, finalInt, notes, true) +
         buildDataStatusBadge(brand, seafarers, finalInt);
@@ -4073,11 +4089,37 @@ pageEvents.reports = function () {
       // Wire the inline editable notes textarea (lives inside the report)
       const inline = document.getElementById('rptNotesInline');
       if (inline) {
-        inline.addEventListener('input', () => { _reportNotes[brand] = inline.value; });
+        inline.addEventListener('input', () => {
+          _reportNotes[brand] = inline.value;
+          // Mark unsaved
+          const saveBtn = document.getElementById('rptNotesSaveBtn');
+          if (saveBtn) { saveBtn.style.background = '#B01A18'; saveBtn.textContent = 'Save Notes'; }
+        });
       }
+
+      // Save Notes button
+      const saveBtn = document.getElementById('rptNotesSaveBtn');
+      if (saveBtn) {
+        // Reflect current state (green if already saved, red if unsaved)
+        const saved = _loadReportNote(brand);
+        saveBtn.style.background = saved === _reportNotes[brand] ? '#2D7A55' : '#B01A18';
+        saveBtn.textContent = saved === _reportNotes[brand] ? 'Notes Saved ✓' : 'Save Notes';
+
+        saveBtn.addEventListener('click', () => {
+          const latest = document.getElementById('rptNotesInline')?.value ?? _reportNotes[brand];
+          _reportNotes[brand] = latest;
+          _saveReportNote(brand, latest);
+          saveBtn.textContent = 'Notes Saved ✓';
+          saveBtn.style.background = '#2D7A55';
+        });
+      }
+
       document.getElementById('rptNotesAuto')?.addEventListener('click', async () => {
         const fresh = await fetchCruiseData(false);
         _reportNotes[brand] = computeAutoNotes(brand, fresh.seafarers, fresh.finalInt, date).join('\n');
+        // Mark unsaved after auto-fill
+        const sb = document.getElementById('rptNotesSaveBtn');
+        if (sb) { sb.style.background = '#B01A18'; sb.textContent = 'Save Notes'; }
         regenerate();
       });
     } catch (e) {
