@@ -5355,9 +5355,9 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       const ovrKey = _pendingOvrKey(brand, mk, p);
       const hasOvr = Object.prototype.hasOwnProperty.call(pendingOvr, ovrKey);
       const pendingVal = hasOvr ? pendingOvr[ovrKey] : a.pending;
-      // Demand Remaining stays at the auto-calculated value — NOT affected by
-      // manual pending edits (remaining is independent of pending overrides).
-      const remainingVal = a.remaining;
+      // Demand Remaining recalculates with the (possibly overridden) pending so
+      // the row always reconciles: Demand = Hired + Pending + Remaining.
+      const remainingVal = Math.max(0, a.dem - a.hired - pendingVal);
       sub.dem+=a.dem; sub.remaining+=remainingVal; sub.hired+=a.hired;
       sub.male+=a.male; sub.female+=a.female; sub.pending+=pendingVal;
       const pendingCell = editable
@@ -5374,7 +5374,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
         <tr>
           <td class="rpt-td">${escH(p)}</td>
           <td class="rpt-td rpt-num">${a.dem}</td>
-          <td class="rpt-td rpt-num">${a.remaining}</td>
+          <td class="rpt-td rpt-num">${remainingVal}</td>
           <td class="rpt-td rpt-num">${a.hired}</td>
           <td class="rpt-td rpt-num">${a.male}</td>
           <td class="rpt-td rpt-num">${a.female}</td>
