@@ -1147,11 +1147,9 @@ export default {
       // Microsoft Graph (cti-it-team@cti-usa.com as sender).
       if (method === 'POST' && path === '/api/cruise/send-rts-followup') {
         const body = await request.json().catch(() => ({}));
-        const { to: _to, cruiseLines, monthYear, count } = body;
-        if (!_to || !cruiseLines?.length || !monthYear || !count)
+        const { to, cruiseLines, monthYear, count } = body;
+        if (!to || !cruiseLines?.length || !monthYear || !count)
           return json({ error: 'Missing required fields: to, cruiseLines, monthYear, count' }, 400, ch);
-        // ── TEST OVERRIDE — reroute all RTS emails to test inbox ──────────
-        const to = 'agus.chandra.cti@gmail.com'; // remove this line when testing is done
 
         const token = await getMSToken(env);
 
