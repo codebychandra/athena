@@ -5204,17 +5204,26 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   tpPositions.forEach(p => demandPositions.delete(p));   // avoid double-count with TP block
 
   // alloc[pos][mk] = { dem, hired, pending, male, female, remaining }
+  // Sort helper: IDs first, then hire date ascending
+  const idFirst = (a, b) => {
+    const d = (b.hasId ? 1 : 0) - (a.hasId ? 1 : 0);
+    if (d !== 0) return d;
+    const da = String(a.hiredDate || ''), db = String(b.hiredDate || '');
+    return da < db ? -1 : da > db ? 1 : 0;
+  };
+
   const alloc = {};
   demandPositions.forEach(pos => {
     alloc[pos] = {};
-    const recs = (agg.byPosition[pos.toLowerCase()] || []).slice();    // already date-sorted asc
+    const recs = (agg.byPosition[pos.toLowerCase()] || []).slice();
 
     if (DEMAND_BY_HIRE_MONTH.has(pos)) {
-      // Hotel Asst F&B exception: bucket each hire into the demand month
-      // matching its actual Hired_Date month.
+      // Hotel Asst F&B: bucket by actual hire month; within each bucket IDs first
       const monthRecs = {};
       allocMonthList.forEach(mk => {
-        monthRecs[mk] = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
+        monthRecs[mk] = recs
+          .filter(r => r.hiredDate && monthKey(r.hiredDate) === mk)
+          .sort(idFirst);
       });
       (DEMAND_REALLOCATIONS[pos] || []).forEach(({ from, to, count }) => {
         if (!monthRecs[from] || !monthRecs[to]) return;
@@ -5235,8 +5244,8 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       return;
     }
 
-    // All other positions: waterfall — fill oldest month first from shared pool,
-    // regardless of individual hire dates.
+    // All other positions: waterfall oldest-month-first, IDs prioritised
+    recs.sort(idFirst);
     let idx = 0;
     allocMonthList.forEach(mk => {
       const dem   = Number(monthly[mk]?.[pos] || 0);
