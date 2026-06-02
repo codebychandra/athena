@@ -5152,15 +5152,17 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   const monthly   = node.monthly    || {};
   const talentPool= node.talentPool || {};
 
-  // Demand months for the report year, latest month first (Dec → Jan)
-  const monthList = Object.keys(monthly)
+  // Allocation uses chronological order (Jan → Dec) so waterfall fills correctly
+  const allocMonthList = Object.keys(monthly)
     .filter(mk => mk.startsWith(String(year)))
-    .sort().reverse();
+    .sort();
+  // Display uses latest-first (Dec → Jan) per user preference
+  const monthList = [...allocMonthList].reverse();
 
   let rangeLabel = String(year);
-  if (monthList.length) {
-    const first = monthLabel(monthList[0]).split(' ')[0];
-    const last  = monthLabel(monthList[monthList.length-1]).split(' ')[0];
+  if (allocMonthList.length) {
+    const first = monthLabel(allocMonthList[0]).split(' ')[0];
+    const last  = monthLabel(allocMonthList[allocMonthList.length-1]).split(' ')[0];
     rangeLabel  = first === last ? `${first} ${year}` : `${first} - ${last} ${year}`;
   }
 
@@ -5198,7 +5200,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   // For each demand position, walk the months in order, taking up to that
   // month's demand from the (date-sorted) pool of hires.
   const demandPositions = new Set();
-  monthList.forEach(mk => Object.keys(monthly[mk] || {}).forEach(p => demandPositions.add(p)));
+  allocMonthList.forEach(mk => Object.keys(monthly[mk] || {}).forEach(p => demandPositions.add(p)));
   tpPositions.forEach(p => demandPositions.delete(p));   // avoid double-count with TP block
 
   // alloc[pos][mk] = { dem, hired, pending, male, female, remaining }
@@ -5211,7 +5213,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       // Special case: bucket each hire into the demand month matching its
       // actual Hired_Date month (not the waterfall).
       const monthRecs = {};   // mk -> [records]
-      monthList.forEach(mk => {
+      allocMonthList.forEach(mk => {
         monthRecs[mk] = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
       });
       // Apply manual reallocations (move surplus from one month to another)
@@ -5220,7 +5222,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
         const moved = monthRecs[from].splice(0, count);   // take from the front
         monthRecs[to] = monthRecs[to].concat(moved);
       });
-      monthList.forEach(mk => {
+      allocMonthList.forEach(mk => {
         const dem = Number(monthly[mk]?.[pos] || 0);
         // Cap the counted hires at the month's demand — surplus is ignored.
         const inMonth = (monthRecs[mk] || []).slice(0, dem);
@@ -5236,9 +5238,9 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       return;
     }
 
-    // Default: waterfall — fill each month's demand from the shared pool.
+    // Default: waterfall — fill each month's demand from the shared pool (chronological).
     let idx = 0;
-    monthList.forEach(mk => {
+    allocMonthList.forEach(mk => {
       const dem   = Number(monthly[mk]?.[pos] || 0);
       const take  = Math.max(0, Math.min(dem, recs.length - idx));
       const slice = recs.slice(idx, idx + take);
