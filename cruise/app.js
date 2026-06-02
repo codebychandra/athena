@@ -502,9 +502,9 @@ async function fetchCruiseData(forceRefresh) {
 const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 // Column definitions — each: { label, field, zoho (API name for save), filter? }
 const MISTRAL_COLUMNS = [
-  { label:'Seafarer Name',         field:'fullName',            zoho:null,                   sticky:true },        // frozen column
-  { label:'Onboarding Status',     field:'onboardingStatus',    zoho:null,                   filterMS:true },
-  { label:'Seafarer ID Number',    field:'seafarerIdNumber',    zoho:'Crew_ID_Number' },
+  { label:'Onboarding Status',     field:'onboardingStatus',    zoho:null,                   filterMS:true, sticky:true, w:130 },
+  { label:'Seafarer ID Number',    field:'seafarerIdNumber',    zoho:'Crew_ID_Number',                      sticky:true, w:120 },
+  { label:'Seafarer Name',         field:'fullName',            zoho:null,                                  sticky:true, w:160 },
   { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date' },
   { label:'Position Hired',        field:'positionHired',       zoho:'Position_Applied' },
   { label:'Cruise Line',           field:'cruiseLine',          zoho:'Cruise_Line',          filterMS:true },
@@ -528,6 +528,20 @@ const MISTRAL_COLUMNS = [
   { label:'Postal Code',           field:'postalCode',          zoho:'Zip_Code' },
   { label:'Gateway Airport',       field:'gatewayAirport',      zoho:'Gateway_Airport' },
 ];
+// Sticky-column offsets for the Mistral table.
+// Front fixed columns: Action (160px) + Last Sent (80px) = 240px before data columns.
+const MISTRAL_FRONT_WIDTH = 240;
+const _MISTRAL_STICKY = MISTRAL_COLUMNS.filter(c => c.sticky);
+const MISTRAL_LAST_STICKY = _MISTRAL_STICKY.length ? _MISTRAL_STICKY[_MISTRAL_STICKY.length - 1].field : null;
+function mistralStickyLeft(field) {
+  let left = MISTRAL_FRONT_WIDTH;
+  for (const c of MISTRAL_COLUMNS) {
+    if (!c.sticky) break;
+    if (c.field === field) return left;
+    left += c.w;
+  }
+  return left;
+}
 function cleanVal(v) {
   if (v == null) return '';
   const s = String(v).trim();
@@ -4322,11 +4336,15 @@ pageEvents.reports = function () {
     const frontFilter = `<th style="${TF}${STH}left:0;"></th><th style="${TF}${STH}left:160px;"></th>`;
 
     const thSort = MISTRAL_COLUMNS.map(c => {
-      const s = c.sticky ? `${STH}left:240px;box-shadow:2px 0 4px rgba(0,0,0,0.06);` : '';
+      const off = mistralStickyLeft(c.field);
+      const s = c.sticky
+        ? `${STH}left:${off}px;min-width:${c.w}px;` +
+          (c.field === MISTRAL_LAST_STICKY ? 'box-shadow:2px 0 4px rgba(0,0,0,0.06);' : '')
+        : '';
       return `<th data-field="${c.field}" class="sortable"
         style="${TH}${s}text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
           text-transform:uppercase;color:var(--text-muted,#888);white-space:nowrap;
-          cursor:pointer;user-select:none;${c.sticky?'min-width:160px;':''}">
+          cursor:pointer;user-select:none;">
         ${escH(c.label)} <span class="mistral-sort-icon">⇅</span>
       </th>`;
     }).join('');
@@ -4340,7 +4358,8 @@ pageEvents.reports = function () {
         cell = `<input class="mistral-col-f" data-field="${c.field}" type="text" placeholder="—"
           style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
       }
-      const s = c.sticky ? `${STH}left:240px;` : '';
+      const off = mistralStickyLeft(c.field);
+      const s = c.sticky ? `${STH}left:${off}px;` : '';
       return `<th style="${TF}${s}">${cell}</th>`;
     }).join('');
 
@@ -4371,8 +4390,10 @@ pageEvents.reports = function () {
             ${fmtMistralSent(r.id)}
           </td>
           ${MISTRAL_COLUMNS.map(c => {
+            const off = mistralStickyLeft(c.field);
             const sticky = c.sticky
-              ? `position:sticky;left:240px;z-index:2;background:var(--card-bg,#fff);font-weight:600;min-width:160px;box-shadow:2px 0 4px rgba(0,0,0,0.06);`
+              ? `position:sticky;left:${off}px;z-index:2;background:var(--card-bg,#fff);min-width:${c.w}px;` +
+                (c.field === MISTRAL_LAST_STICKY ? 'box-shadow:2px 0 4px rgba(0,0,0,0.06);' : '')
               : '';
             return `<td style="padding:8px 10px;border-bottom:1px solid var(--border,#f0f0f0);font-size:11.5px;white-space:nowrap;${sticky}">${escH(cleanVal(r[c.field]))}</td>`;
           }).join('')}
