@@ -803,14 +803,14 @@ pageEvents.task = function () {
     });
     if (!rows.length) { alert('No data to email with current filters.'); return; }
 
-    // Group by account manager email + cruise line
+    // Group by account manager email (one email per AM, listing all their cruise lines)
     const groups = {};
     rows.forEach(r => {
       const email = RTS_LINE_TO_EMAIL[r.cruiseLine];
       if (!email) return;
-      const key = email + '||' + (r.cruiseLine || '');
-      if (!groups[key]) groups[key] = { email, cruiseLine: r.cruiseLine, rows: [] };
-      groups[key].rows.push(r);
+      if (!groups[email]) groups[email] = { email, lineMap: {} };
+      if (!groups[email].lineMap[r.cruiseLine]) groups[email].lineMap[r.cruiseLine] = 0;
+      groups[email].lineMap[r.cruiseLine]++;
     });
     const unrouted = rows.filter(r => !RTS_LINE_TO_EMAIL[r.cruiseLine]);
 
@@ -832,16 +832,23 @@ pageEvents.task = function () {
     overlay.id = 'rtsEmailOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99995;display:flex;align-items:center;justify-content:center;font-family:inherit;';
 
-    const groupList = Object.values(groups).map(g =>
-      `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-bottom:8px;background:var(--card-bg,#fff);">
-        <div>
-          <div style="font-size:12px;font-weight:600;color:var(--text,#1A1A1A);">${escH(g.cruiseLine)}</div>
-          <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">${escH(g.email)} · ${g.rows.length} seafarer${g.rows.length!==1?'s':''}</div>
+    const groupList = Object.values(groups).map(g => {
+      const totalCount = Object.values(g.lineMap).reduce((s,n)=>s+n,0);
+      const lineRows = Object.entries(g.lineMap).sort((a,b)=>b[1]-a[1])
+        .map(([l,n])=>`<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:2px 0;color:var(--text,#1A1A1A);">
+          <span>${escH(l)}</span><span style="font-weight:600;">${n} pending</span></div>`).join('');
+      const statusKey = btoa(g.email).replace(/[^a-z0-9]/gi,'');
+      return `<div style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px 14px;margin-bottom:8px;background:var(--card-bg,#fff);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text,#1A1A1A);">${escH(g.email)}</div>
+            <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">${totalCount} seafarer${totalCount!==1?'s':''} across ${Object.keys(g.lineMap).length} cruise line${Object.keys(g.lineMap).length!==1?'s':''}</div>
+          </div>
+          <span id="rts-status-${statusKey}" style="font-size:11px;color:var(--text-muted,#888);flex-shrink:0;">Pending</span>
         </div>
-        <span id="rts-status-${btoa(g.email+'||'+g.cruiseLine).replace(/[^a-z0-9]/gi,'')}"
-          style="font-size:11px;color:var(--text-muted,#888);">Pending</span>
-      </div>`
-    ).join('');
+        <div style="border-top:1px solid var(--border,#f0f0f0);padding-top:8px;">${lineRows}</div>
+      </div>`;
+    }).join('');
 
     overlay.innerHTML = `
       <div style="background:var(--card-bg,#fff);border-radius:14px;padding:24px 26px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.22);">
@@ -869,14 +876,18 @@ pageEvents.task = function () {
 
       let sent = 0, failed = 0;
       for (const g of Object.values(groups)) {
-        const statusId = 'rts-status-' + btoa(g.email + '||' + g.cruiseLine).replace(/[^a-z0-9]/gi,'');
-        const statusEl = document.getElementById(statusId);
+        const statusKey = btoa(g.email).replace(/[^a-z0-9]/gi,'');
+        const statusEl = document.getElementById('rts-status-' + statusKey);
         if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.color = '#D97706'; }
+        // Build cruise lines array [{name, count}]
+        const cruiseLines = Object.entries(g.lineMap).sort((a,b)=>b[1]-a[1])
+          .map(([name, count]) => ({ name, count }));
+        const totalCount = cruiseLines.reduce((s,c)=>s+c.count, 0);
         try {
           const res = await fetch(WORKER_URL + '/api/cruise/send-rts-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: g.email, cruiseLine: g.cruiseLine, monthYear, count: g.rows.length }),
+            body: JSON.stringify({ to: g.email, cruiseLines, monthYear, count: totalCount }),
           });
           const data = await res.json();
           if (data.ok) {

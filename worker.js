@@ -1147,9 +1147,9 @@ export default {
       // Microsoft Graph (cti-it-team@cti-usa.com as sender).
       if (method === 'POST' && path === '/api/cruise/send-rts-followup') {
         const body = await request.json().catch(() => ({}));
-        const { to, cruiseLine, monthYear, count } = body;
-        if (!to || !cruiseLine || !monthYear || !count)
-          return json({ error: 'Missing required fields: to, cruiseLine, monthYear, count' }, 400, ch);
+        const { to, cruiseLines, monthYear, count } = body;
+        if (!to || !cruiseLines?.length || !monthYear || !count)
+          return json({ error: 'Missing required fields: to, cruiseLines, monthYear, count' }, 400, ch);
 
         const token = await getMSToken(env);
 
@@ -1180,12 +1180,26 @@ export default {
         <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear team,</p>
         <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.7;">
           We would like to follow up regarding the <strong>Report to Ship (RTS)</strong> status for the seafarers
-          assigned to <strong style="color:#B01A18;">${escHTML(cruiseLine)}</strong> for
-          <strong>${escHTML(monthYear)}</strong>.
+          assigned to your cruise line${cruiseLines.length > 1 ? 's' : ''} for <strong>${escHTML(monthYear)}</strong>.
         </p>
+        <p style="margin:0 0 10px;font-size:14px;color:#1A1A1A;line-height:1.7;">
+          Our records indicate the following seafarers have not yet been updated with their RTS status:
+        </p>
+        <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+          <tr style="background:#f5f5f5;">
+            <th style="padding:8px 12px;text-align:left;font-size:12px;font-weight:700;color:#555;border:1px solid #e0e0e0;">Cruise Line</th>
+            <th style="padding:8px 12px;text-align:center;font-size:12px;font-weight:700;color:#555;border:1px solid #e0e0e0;width:120px;">Pending Seafarers</th>
+          </tr>
+          ${cruiseLines.map(c => `<tr>
+            <td style="padding:8px 12px;font-size:13px;color:#1A1A1A;border:1px solid #e0e0e0;">${escHTML(c.name)}</td>
+            <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#B01A18;text-align:center;border:1px solid #e0e0e0;">${escHTML(String(c.count))}</td>
+          </tr>`).join('')}
+          <tr style="background:#fff8f8;">
+            <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#1A1A1A;border:1px solid #e0e0e0;">Total</td>
+            <td style="padding:8px 12px;font-size:13px;font-weight:700;color:#B01A18;text-align:center;border:1px solid #e0e0e0;">${escHTML(String(count))}</td>
+          </tr>
+        </table>
         <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.7;">
-          Our records indicate that <strong style="color:#B01A18;">${escHTML(String(count))}</strong>
-          seafarer${count !== 1 ? 's have' : ' has'} not yet been updated with their RTS status.
           Please review and update their status in the system as soon as possible.
         </p>
         <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;line-height:1.7;">
@@ -1210,7 +1224,7 @@ export default {
 
         const mail = {
           message: {
-            subject: `Follow-up Required: Report to Ship Status Update ${escHTML(monthYear)}`,
+            subject: `Follow-up Required: Report to Ship Status Update — ${escHTML(monthYear)}`,
             body: { contentType: 'HTML', content: html },
             toRecipients: [{ emailAddress: { address: to } }],
           },
