@@ -5082,10 +5082,10 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   const monthly   = node.monthly    || {};
   const talentPool= node.talentPool || {};
 
-  // Demand months for the report year, chronological
+  // Demand months for the report year, latest month first (Dec → Jan)
   const monthList = Object.keys(monthly)
     .filter(mk => mk.startsWith(String(year)))
-    .sort();
+    .sort().reverse();
 
   let rangeLabel = String(year);
   if (monthList.length) {
