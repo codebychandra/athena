@@ -4398,6 +4398,19 @@ pageEvents.reports = function () {
       b.addEventListener('click', () => openMistralDetail(b.dataset.id));
     });
 
+    // Toast helper for Mistral section (cruise portal has no global toast)
+    const mistralToast = (msg, ok) => {
+      const t = document.createElement('div');
+      t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99998;padding:10px 18px;
+        border-radius:8px;font-size:13px;font-weight:500;color:#fff;
+        background:${ok ? '#2D7A55' : '#B01A18'};box-shadow:0 4px 16px rgba(0,0,0,0.2);
+        opacity:0;transition:opacity 0.2s;font-family:inherit;`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => { t.style.opacity = '1'; });
+      setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 200); }, 3500);
+    };
+
     // Send Form buttons
     document.querySelectorAll('.mistral-send-btn').forEach(btn => {
       if (!btn.dataset.email) return;
@@ -4405,31 +4418,27 @@ pageEvents.reports = function () {
         const id    = btn.dataset.id;
         const email = btn.dataset.email;
         const name  = btn.dataset.name;
-        if (!email) { showToast('No email address for this seafarer.', 'error'); return; }
+        if (!email) { mistralToast('No email address for this seafarer.', false); return; }
         const orig = btn.textContent;
         btn.textContent = 'Sending…'; btn.disabled = true;
+        let success = false;
         try {
-          const res = await fetch(WORKER_URL + '/api/cruise/send-mistral-form', {
+          const res  = await fetch(WORKER_URL + '/api/cruise/send-mistral-form', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ to: email, name }),
           });
           const data = await res.json();
-          if (data.ok) {
-            _mistralSentIds.set(id, { ok: true, ts: new Date().toISOString() });
-            showToast(`Email sent to ${name}`, 'success');
-          } else {
-            _mistralSentIds.set(id, { ok: false, ts: new Date().toISOString() });
-            showToast(`Failed to send: ${data.error || 'Unknown error'}`, 'error');
-          }
+          success = !!data.ok;
+          _mistralSentIds.set(id, { ok: success, ts: new Date().toISOString() });
           _saveMistralSent(_mistralSentIds);
-          renderMistralTable();
+          mistralToast(success ? `Email sent to ${name}` : `Failed: ${data.error || 'Unknown error'}`, success);
         } catch (err) {
           _mistralSentIds.set(id, { ok: false, ts: new Date().toISOString() });
           _saveMistralSent(_mistralSentIds);
-          showToast('Network error. Please try again.', 'error');
-          renderMistralTable();
+          mistralToast('Network error. Please try again.', false);
         }
+        renderMistralTable();
       });
     });
   }

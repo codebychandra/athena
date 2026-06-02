@@ -1224,7 +1224,8 @@ export default {
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(mail),
         });
-        if (sendRes.status === 202) return json({ ok: true }, 200, ch);
+        if (sendRes.status === 202 || sendRes.status === 200 || sendRes.status === 204)
+          return json({ ok: true }, 200, ch);
         const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
         return json({ ok: false, error: errText }, 200, ch);
       }
