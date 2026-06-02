@@ -792,7 +792,7 @@ pageEvents.task = function () {
   const RTS_LINE_TO_EMAIL = {};
   Object.entries(RTS_AM_EMAIL).forEach(([email, lines]) => lines.forEach(l => RTS_LINE_TO_EMAIL[l] = email));
 
-  function rtsEmail() {
+  async function rtsEmail() {
     const base = getRtsBaseRows();
     const rows = base.filter(r => {
       for (const [f, v] of Object.entries(rtsColFilters)) {
@@ -803,94 +803,99 @@ pageEvents.task = function () {
     });
     if (!rows.length) { alert('No data to email with current filters.'); return; }
 
-    // Group by account manager email
+    // Group by account manager email + cruise line
     const groups = {};
     rows.forEach(r => {
       const email = RTS_LINE_TO_EMAIL[r.cruiseLine];
       if (!email) return;
-      if (!groups[email]) groups[email] = [];
-      groups[email].push(r);
+      const key = email + '||' + (r.cruiseLine || '');
+      if (!groups[key]) groups[key] = { email, cruiseLine: r.cruiseLine, rows: [] };
+      groups[key].rows.push(r);
     });
-
     const unrouted = rows.filter(r => !RTS_LINE_TO_EMAIL[r.cruiseLine]);
-    if (unrouted.length && !Object.keys(groups).length) {
+
+    if (!Object.keys(groups).length) {
       alert('No account manager email found for the selected cruise lines.'); return;
     }
 
-    // Show preview modal
+    // Get month/year label from filters
+    const moVal = document.getElementById('rtsMonthFilter')?.value;
+    const yrVal = document.getElementById('rtsYearFilter')?.value;
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthYear = [
+      moVal !== '' && moVal != null ? MONTHS[+moVal] : null,
+      yrVal || null,
+    ].filter(Boolean).join(' ') || new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
+
+    // Show confirm modal
     const overlay = document.createElement('div');
     overlay.id = 'rtsEmailOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99995;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99995;display:flex;align-items:center;justify-content:center;font-family:inherit;';
 
-    const groupsHtml = Object.entries(groups).map(([email, rws]) => {
-      const lines = [...new Set(rws.map(r => r.cruiseLine))].sort();
-      const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-      const subject = `Follow-up Required: Report to Ship Status Update — ${lines.join(', ')} — ${today}`;
-
-      const bodyRows = rws.map(r =>
-        `${r.firstName||''} ${r.lastName||''} | ${r.seafarerIdNumber||'—'} | ${r.positionHired||'—'} | ${r.joiningShip||'—'} | ${r.signOnDate||'—'} | ${r.cruiseLine||'—'}`
-      ).join('\n');
-
-      const body =
-`Dear Team,
-
-Please follow up with the seafarers below whose sign-on date has passed but their onboarding status has not yet been updated to "Report to Ship" in Zoho Recruit.
-
-Seafarers requiring update (${rws.length}):
-Name | Crew ID | Position | Joining Ship | Sign On Date | Cruise Line
-${bodyRows}
-
-Kindly update their onboarding status to "Report to Ship" in Zoho Recruit at your earliest convenience.
-
-Thank you,
-CTI Group`;
-
-      const mailto = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-      return `
-        <div style="border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--card-bg,#fff);">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:3px;">Account Manager</div>
-              <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);">${escH(email)}</div>
-              <div style="font-size:11.5px;color:var(--text-muted,#888);margin-top:3px;">${lines.map(l=>`<span style="background:var(--bg-page,#f5f5f5);padding:1px 7px;border-radius:8px;margin-right:4px;font-size:11px;">${escH(l)}</span>`).join('')}</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-              <span style="font-size:12px;color:var(--text-muted,#888);">${rws.length} seafarer${rws.length!==1?'s':''}</span>
-              <a href="${escH(mailto)}" target="_blank"
-                style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:600;
-                  border:none;border-radius:7px;background:#1B3A6B;color:#fff;text-decoration:none;cursor:pointer;
-                  transition:opacity 0.15s;"
-                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-                Open Email
-              </a>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
+    const groupList = Object.values(groups).map(g =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-bottom:8px;background:var(--card-bg,#fff);">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text,#1A1A1A);">${escH(g.cruiseLine)}</div>
+          <div style="font-size:11px;color:var(--text-muted,#888);margin-top:2px;">${escH(g.email)} · ${g.rows.length} seafarer${g.rows.length!==1?'s':''}</div>
+        </div>
+        <span id="rts-status-${btoa(g.email+'||'+g.cruiseLine).replace(/[^a-z0-9]/gi,'')}"
+          style="font-size:11px;color:var(--text-muted,#888);">Pending</span>
+      </div>`
+    ).join('');
 
     overlay.innerHTML = `
-      <div style="background:var(--card-bg,#fff);border-radius:14px;padding:26px 28px;width:580px;max-height:80vh;overflow-y:auto;
-        box-shadow:0 12px 40px rgba(0,0,0,0.22);font-family:inherit;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-          <div>
-            <div style="font-size:15px;font-weight:700;color:var(--text,#1A1A1A);">Send Follow-up Emails</div>
-            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">${rows.length} seafarers · ${Object.keys(groups).length} account manager${Object.keys(groups).length!==1?'s':''}</div>
-          </div>
-          <button id="rtsEmailClose" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#ddd);
-            background:transparent;cursor:pointer;font-size:16px;color:var(--text-muted,#888);display:flex;align-items:center;justify-content:center;">×</button>
+      <div style="background:var(--card-bg,#fff);border-radius:14px;padding:24px 26px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.22);">
+        <div style="font-size:15px;font-weight:700;color:var(--text,#1A1A1A);margin-bottom:4px;">Send Follow-up Emails</div>
+        <div style="font-size:12px;color:var(--text-muted,#888);margin-bottom:16px;">
+          Period: <strong>${escH(monthYear)}</strong> · ${rows.length} seafarers · ${Object.keys(groups).length} email${Object.keys(groups).length!==1?'s':''}
         </div>
-        ${groupsHtml}
-        ${unrouted.length ? `<div style="font-size:11.5px;color:#D97706;margin-top:8px;">⚠ ${unrouted.length} record${unrouted.length!==1?'s':''} have no mapped account manager email.</div>` : ''}
+        ${groupList}
+        ${unrouted.length ? `<div style="font-size:11.5px;color:#D97706;margin-bottom:12px;">⚠ ${unrouted.length} record${unrouted.length!==1?'s':''} have no mapped account manager.</div>` : ''}
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border,#eee);">
+          <button id="rtsEmailClose" style="padding:7px 16px;font-size:12px;font-weight:600;border:1px solid var(--border,#ddd);border-radius:7px;background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Cancel</button>
+          <button id="rtsEmailConfirm" style="padding:7px 20px;font-size:12px;font-weight:600;border:none;border-radius:7px;background:#1B3A6B;color:#fff;cursor:pointer;font-family:inherit;">Send All Emails</button>
+        </div>
       </div>`;
 
     document.body.appendChild(overlay);
     document.getElementById('rtsEmailClose').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    document.getElementById('rtsEmailConfirm').addEventListener('click', async () => {
+      const confirmBtn = document.getElementById('rtsEmailConfirm');
+      const cancelBtn  = document.getElementById('rtsEmailClose');
+      confirmBtn.textContent = 'Sending…'; confirmBtn.disabled = true;
+      cancelBtn.disabled = true;
+
+      let sent = 0, failed = 0;
+      for (const g of Object.values(groups)) {
+        const statusId = 'rts-status-' + btoa(g.email + '||' + g.cruiseLine).replace(/[^a-z0-9]/gi,'');
+        const statusEl = document.getElementById(statusId);
+        if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.color = '#D97706'; }
+        try {
+          const res = await fetch(WORKER_URL + '/api/cruise/send-rts-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: g.email, cruiseLine: g.cruiseLine, monthYear, count: g.rows.length }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            sent++;
+            if (statusEl) { statusEl.textContent = '✓ Sent'; statusEl.style.color = '#2D7A55'; }
+          } else {
+            failed++;
+            if (statusEl) { statusEl.textContent = '✗ Failed'; statusEl.style.color = '#B01A18'; }
+          }
+        } catch (_) {
+          failed++;
+          if (statusEl) { statusEl.textContent = '✗ Error'; statusEl.style.color = '#B01A18'; }
+        }
+      }
+
+      confirmBtn.textContent = `Done — ${sent} sent${failed?' · '+failed+' failed':''}`;
+      confirmBtn.style.background = failed ? '#B01A18' : '#2D7A55';
+      setTimeout(() => { if (document.body.contains(overlay)) overlay.remove(); }, 3000);
+    });
   }
 
   // Column definitions

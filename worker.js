@@ -1142,6 +1142,90 @@ export default {
         return json({ ok: false, error: errText }, 200, ch);
       }
 
+      // ── POST /api/cruise/send-rts-followup ────────────────────────────
+      // Sends a Report-to-Ship follow-up email to an account manager via
+      // Microsoft Graph (cti-it-team@cti-usa.com as sender).
+      if (method === 'POST' && path === '/api/cruise/send-rts-followup') {
+        const body = await request.json().catch(() => ({}));
+        const { to, cruiseLine, monthYear, count } = body;
+        if (!to || !cruiseLine || !monthYear || !count)
+          return json({ error: 'Missing required fields: to, cruiseLine, monthYear, count' }, 400, ch);
+
+        const token = await getMSToken(env);
+
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;">
+  <tr><td>
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#B01A18 !important;border-radius:8px 8px 0 0;overflow:hidden;" bgcolor="#B01A18">
+      <tr>
+        <td style="padding:22px 28px;background:#B01A18 !important;" bgcolor="#B01A18">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td><img src="https://codebychandra.github.io/athena/logo.png" width="48" height="48" alt="CTI Group"
+                     style="display:block;border:0;"></td>
+            <td style="padding-left:12px;">
+              <div style="color:#fff;font-size:18px;font-weight:700;">CTI Group</div>
+              <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;">Worldwide Services, Inc.</div>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr><td style="height:4px;background:#8B1210;" bgcolor="#8B1210"></td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
+      <tr><td style="padding:32px 28px;">
+        <p style="margin:0 0 16px;font-size:15px;color:#1A1A1A;">Dear team,</p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.7;">
+          We would like to follow up regarding the <strong>Report to Ship (RTS)</strong> status for the seafarers
+          assigned to <strong style="color:#B01A18;">${escHTML(cruiseLine)}</strong> for
+          <strong>${escHTML(monthYear)}</strong>.
+        </p>
+        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A;line-height:1.7;">
+          Our records indicate that <strong style="color:#B01A18;">${escHTML(String(count))}</strong>
+          seafarer${count !== 1 ? 's have' : ' has'} not yet been updated with their RTS status.
+          Please review and update their status in the system as soon as possible.
+        </p>
+        <p style="margin:0 0 24px;font-size:14px;color:#1A1A1A;line-height:1.7;">
+          Thank you for your cooperation.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="border-top:1px solid #eee;padding-top:20px;">
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
+              Best regards,<br>
+              <strong>CTI Group Worldwide Services, Inc.</strong>
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <p style="text-align:center;font-size:11px;color:#aaa;margin:14px 0 0;">
+      This is an automated message from CTI Group Worldwide Services, Inc.
+    </p>
+  </td></tr>
+</table>
+</body></html>`;
+
+        const mail = {
+          message: {
+            subject: `Follow-up Required: Report to Ship Status Update ${escHTML(monthYear)}`,
+            body: { contentType: 'HTML', content: html },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        };
+        const sendRes = await fetch(`${MS_GRAPH_API}/users/${SA_SEND_FROM}/sendMail`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(mail),
+        });
+        if (sendRes.status === 202) return json({ ok: true }, 200, ch);
+        const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
+        return json({ ok: false, error: errText }, 200, ch);
+      }
+
       // ── GET /api/knowledge ────────────────────────────────────────────
       // Returns all knowledge entries from KV.
       if (method === 'GET' && path === '/api/knowledge') {
