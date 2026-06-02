@@ -640,14 +640,7 @@ pages.task = async function () {
             <!-- Filters + Export -->
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
               <span style="font-size:11px;font-weight:600;color:var(--text-muted,#888);text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;">Sign On Date</span>
-              <select id="rtsMonthFilter"
-                style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:110px;
-                  background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
-                  background-size:8px;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;">
-                <option value="">All Months</option>
-                ${['January','February','March','April','May','June','July','August','September','October','November','December']
-                  .map((m,i)=>`<option value="${i}">${m}</option>`).join('')}
-              </select>
+              ${buildMS('rtsMonthFilter','Month',['January','February','March','April','May','June','July','August','September','October','November','December'])}
               <select id="rtsYearFilter"
                 style="height:30px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 20px 0 8px;font-size:11px;font-family:inherit;min-width:80px;
                   background:var(--card-bg,#fff) url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6%22 fill=%22%23888%22/></svg>') no-repeat right 6px center;
@@ -819,11 +812,10 @@ pageEvents.task = function () {
     }
 
     // Get month/year label from filters
-    const moVal = document.getElementById('rtsMonthFilter')?.value;
-    const yrVal = document.getElementById('rtsYearFilter')?.value;
-    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const moVals = msGetVals('rtsMonthFilter');
+    const yrVal  = document.getElementById('rtsYearFilter')?.value;
     const monthYear = [
-      moVal !== '' && moVal != null ? MONTHS[+moVal] : null,
+      moVals.length ? moVals.join(', ') : null,
       yrVal || null,
     ].filter(Boolean).join(' ') || new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
 
@@ -937,18 +929,20 @@ pageEvents.task = function () {
   const TXT_STYLE = 'width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);' +
     'border-radius:4px;background:var(--card-bg,#fff);color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;';
 
+  const RTS_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
   function getRtsBaseRows() {
     const today   = new Date(); today.setHours(0,0,0,0);
-    const moVal   = document.getElementById('rtsMonthFilter')?.value;
+    const moVals  = msGetVals('rtsMonthFilter').map(m => RTS_MONTH_NAMES.indexOf(m)).filter(i => i !== -1);
     const yrVal   = document.getElementById('rtsYearFilter')?.value;
-    const clVals  = msGetVals('rtsCruiseFilter'); // multi-select
+    const clVals  = msGetVals('rtsCruiseFilter');
     const EXCL    = new Set(['report to ship','resign','resigned']);
     return _sfRows.filter(r => {
       if (!r.signOnDate || r.signOnDate === '—') return false;
       const d = new Date(r.signOnDate);
       if (isNaN(d.getTime()) || d >= today) return false;
       if (EXCL.has((r.onboardingStatus||'').trim().toLowerCase())) return false;
-      if (moVal !== '' && moVal != null && d.getMonth() !== +moVal) return false;
+      if (moVals.length && !moVals.includes(d.getMonth())) return false;
       if (yrVal && d.getFullYear() !== +yrVal) return false;
       if (clVals.length && !clVals.includes(r.cruiseLine)) return false;
       return true;
@@ -1107,9 +1101,9 @@ pageEvents.task = function () {
     }).join('');
   }
 
-  initMS(); // initialize multiselects in Task page (including rtsCruiseFilter)
+  initMS(); // initialize multiselects in Task page
   msOnChange('rtsCruiseFilter', rtsApply);
-  document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
+  msOnChange('rtsMonthFilter', rtsApply);
   document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsExportBtn')?.addEventListener('click', rtsExport);
   document.getElementById('rtsEmailBtn')?.addEventListener('click', rtsEmail);
