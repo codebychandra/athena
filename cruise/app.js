@@ -777,9 +777,9 @@ pageEvents.task = function () {
 
   // ── Account Manager email routing ─────────────────────────────────────────
   const RTS_AM_EMAIL = {
-    'stri.ratna@cti-usa.com':    ['Carnival Cruise Line','Marella Cruises','Norwegian Cruise Line','Oceania Cruises','Regent Seven Seas','Viking Cruises','Virgin Voyages'],
+    'stri.ratna@cti-usa.com':    ['Carnival Cruise Line','Marella Cruises','Norwegian Cruise Line','Oceania Cruises','Regent Seven Seas','Viking Cruises','Virgin Voyages','TUI River Cruises','Margaritaville at Sea'],
     'cuk-onboarding@cti-usa.com':['CUK Maritime','Cunard Line','P&O Cruises'],
-    'thailand@cti-usa.com':      ['Holland America Line','Four Seasons Yachts','Heinemann Americas','Margaritaville at Sea','Seabourn','TUI River Cruises'],
+    'thailand@cti-usa.com':      ['Holland America Line','Four Seasons Yachts','Heinemann Americas','Seabourn'],
   };
   // Reverse map: cruise line → email
   const RTS_LINE_TO_EMAIL = {};
