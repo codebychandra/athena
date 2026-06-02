@@ -5355,7 +5355,10 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       const ovrKey = _pendingOvrKey(brand, mk, p);
       const hasOvr = Object.prototype.hasOwnProperty.call(pendingOvr, ovrKey);
       const pendingVal = hasOvr ? pendingOvr[ovrKey] : a.pending;
-      sub.dem+=a.dem; sub.remaining+=a.remaining; sub.hired+=a.hired;
+      // Demand Remaining stays at the auto-calculated value — NOT affected by
+      // manual pending edits (remaining is independent of pending overrides).
+      const remainingVal = a.remaining;
+      sub.dem+=a.dem; sub.remaining+=remainingVal; sub.hired+=a.hired;
       sub.male+=a.male; sub.female+=a.female; sub.pending+=pendingVal;
       const pendingCell = editable
         ? `<td class="rpt-td rpt-num">
@@ -5419,9 +5422,9 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
         <thead>
           <tr>
             <th class="rpt-th">DEMAND POSITIONS</th>
-            <th class="rpt-th rpt-num">DEMAND<br>YEAR TO DATE</th>
+            <th class="rpt-th rpt-num">DEMAND</th>
             <th class="rpt-th rpt-num">DEMAND<br>REMAINING</th>
-            <th class="rpt-th rpt-num">HIRED<br>YEAR TO DATE</th>
+            <th class="rpt-th rpt-num">HIRED</th>
             <th class="rpt-th rpt-num">MALE<br>HEADCOUNT</th>
             <th class="rpt-th rpt-num">FEMALE<br>HEADCOUNT</th>
             <th class="rpt-th rpt-num">PENDING<br>MISTRAL ID</th>
