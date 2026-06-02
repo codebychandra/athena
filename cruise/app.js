@@ -485,17 +485,19 @@ async function fetchCruiseData(forceRefresh) {
   if (needSF || needFI) {
     const [sfRes, fiRes] = await Promise.all([
       needSF
-        ? safeJson(WORKER_URL + '/api/cruise/seafarers').catch(e => { console.error('Seafarers fetch failed:', e); return {}; })
+        ? safeJson(WORKER_URL + '/api/cruise/seafarers').catch(e => { console.error('Seafarers fetch failed:', e); return null; })
         : Promise.resolve(null),
       needFI
-        ? safeJson(WORKER_URL + '/api/cruise/final-interview').catch(e => { console.error('Final Interview fetch failed:', e); return {}; })
+        ? safeJson(WORKER_URL + '/api/cruise/final-interview').catch(e => { console.error('Final Interview fetch failed:', e); return null; })
         : Promise.resolve(null),
     ]);
-    if (needSF) _seafarersCache = sfRes?.data || [];
-    if (needFI) _finalIntCache  = fiRes?.data || [];
+    // Only cache a non-empty result — an empty/failed fetch is NOT cached so
+    // the next call retries instead of permanently showing "No Seafarers".
+    if (needSF && sfRes?.data?.length) _seafarersCache = sfRes.data;
+    if (needFI && fiRes?.data?.length) _finalIntCache  = fiRes.data;
   }
 
-  return { seafarers: _seafarersCache, finalInt: _finalIntCache };
+  return { seafarers: _seafarersCache || [], finalInt: _finalIntCache || [] };
 }
 
 // ── CUK Mistral Request report ───────────────────────────────────────────────
