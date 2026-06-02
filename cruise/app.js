@@ -5211,10 +5211,12 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
 
     if (DEMAND_BY_HIRE_MONTH.has(pos)) {
       // Hotel Asst F&B exception: bucket each hire into the demand month
-      // matching its actual Hired_Date month.
+      // matching its actual Hired_Date month. Within each bucket, IDs first.
       const monthRecs = {};
       allocMonthList.forEach(mk => {
-        monthRecs[mk] = recs.filter(r => r.hiredDate && monthKey(r.hiredDate) === mk);
+        monthRecs[mk] = recs
+          .filter(r => r.hiredDate && monthKey(r.hiredDate) === mk)
+          .sort((a, b) => (b.hasId ? 1 : 0) - (a.hasId ? 1 : 0));
       });
       (DEMAND_REALLOCATIONS[pos] || []).forEach(({ from, to, count }) => {
         if (!monthRecs[from] || !monthRecs[to]) return;
@@ -5235,8 +5237,10 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       return;
     }
 
-    // All other positions: waterfall — fill oldest month first from shared pool,
-    // regardless of individual hire dates.
+    // All other positions: waterfall — fill oldest month first.
+    // Sort pool: ID-confirmed first, then by hire date (pending last).
+    recs.sort((a, b) => (b.hasId ? 1 : 0) - (a.hasId ? 1 : 0)
+      || (a.hiredDate||'').localeCompare(b.hiredDate||''));
     let idx = 0;
     allocMonthList.forEach(mk => {
       const dem   = Number(monthly[mk]?.[pos] || 0);
