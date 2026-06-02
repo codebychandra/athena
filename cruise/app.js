@@ -502,7 +502,8 @@ async function fetchCruiseData(forceRefresh) {
 const CUK_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 // Column definitions — each: { label, field, zoho (API name for save), filter? }
 const MISTRAL_COLUMNS = [
-  { label:'Crew ID Number',        field:'candidateId',         zoho:null },           // autonumber, read-only
+  { label:'Onboarding Status',     field:'onboardingStatus',    zoho:null,                   filterMS:true },
+  { label:'Seafarer ID Number',    field:'seafarerIdNumber',    zoho:'Crew_ID_Number' },
   { label:'Hired Date',            field:'hiredDate',           zoho:'Hired_Date',           type:'date' },
   { label:'Seafarer Name',         field:'fullName',            zoho:null },                                       // computed
   { label:'Position Hired',        field:'positionHired',       zoho:'Position_Applied' },
