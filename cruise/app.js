@@ -674,6 +674,18 @@ pages.task = async function () {
                 </svg>
                 Export Excel
               </button>
+              <button id="rtsEmailBtn"
+                style="display:inline-flex;align-items:center;gap:7px;padding:7px 16px;font-size:12px;font-weight:600;
+                  border:none;border-radius:7px;background:#1B3A6B;color:#fff;cursor:pointer;font-family:inherit;
+                  flex-shrink:0;transition:opacity 0.15s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                Send Follow-up Email
+              </button>
             </div>
 
             <!-- Table (header + body injected by rtsApply) -->
@@ -768,6 +780,117 @@ pageEvents.task = function () {
   };
   function getCtiAnal(ctiOffice) {
     return CTI_LINE_ANALYTICS[ctiOffice] || (ctiOffice || '—');
+  }
+
+  // ── Account Manager email routing ─────────────────────────────────────────
+  const RTS_AM_EMAIL = {
+    'stri.ratna@cti-usa.com':    ['Carnival Cruise Line','Marella Cruises','Norwegian Cruise Line','Oceania Cruises','Regent Seven Seas','Viking Cruises','Virgin Voyages'],
+    'cuk-onboarding@cti-usa.com':['CUK Maritime','Cunard Line','P&O Cruises'],
+    'thailand@cti-usa.com':      ['Holland America Line','Four Seasons Yachts','Heinemann Americas','Margaritaville at Sea','Seabourn','TUI River Cruises'],
+  };
+  // Reverse map: cruise line → email
+  const RTS_LINE_TO_EMAIL = {};
+  Object.entries(RTS_AM_EMAIL).forEach(([email, lines]) => lines.forEach(l => RTS_LINE_TO_EMAIL[l] = email));
+
+  function rtsEmail() {
+    const base = getRtsBaseRows();
+    const rows = base.filter(r => {
+      for (const [f, v] of Object.entries(rtsColFilters)) {
+        if (!v) continue;
+        if (!String(r[f]||'').toLowerCase().includes(v.toLowerCase())) return false;
+      }
+      return true;
+    });
+    if (!rows.length) { alert('No data to email with current filters.'); return; }
+
+    // Group by account manager email
+    const groups = {};
+    rows.forEach(r => {
+      const email = RTS_LINE_TO_EMAIL[r.cruiseLine];
+      if (!email) return;
+      if (!groups[email]) groups[email] = [];
+      groups[email].push(r);
+    });
+
+    const unrouted = rows.filter(r => !RTS_LINE_TO_EMAIL[r.cruiseLine]);
+    if (unrouted.length && !Object.keys(groups).length) {
+      alert('No account manager email found for the selected cruise lines.'); return;
+    }
+
+    // Show preview modal
+    const overlay = document.createElement('div');
+    overlay.id = 'rtsEmailOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99995;display:flex;align-items:center;justify-content:center;';
+
+    const groupsHtml = Object.entries(groups).map(([email, rws]) => {
+      const lines = [...new Set(rws.map(r => r.cruiseLine))].sort();
+      const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      const subject = `Follow-up Required: Report to Ship Status Update — ${lines.join(', ')} — ${today}`;
+
+      const bodyRows = rws.map(r =>
+        `${r.firstName||''} ${r.lastName||''} | ${r.seafarerIdNumber||'—'} | ${r.positionHired||'—'} | ${r.joiningShip||'—'} | ${r.signOnDate||'—'} | ${r.cruiseLine||'—'}`
+      ).join('\n');
+
+      const body =
+`Dear Team,
+
+Please follow up with the seafarers below whose sign-on date has passed but their onboarding status has not yet been updated to "Report to Ship" in Zoho Recruit.
+
+Seafarers requiring update (${rws.length}):
+Name | Crew ID | Position | Joining Ship | Sign On Date | Cruise Line
+${bodyRows}
+
+Kindly update their onboarding status to "Report to Ship" in Zoho Recruit at your earliest convenience.
+
+Thank you,
+CTI Group`;
+
+      const mailto = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      return `
+        <div style="border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--card-bg,#fff);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:3px;">Account Manager</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text,#1A1A1A);">${escH(email)}</div>
+              <div style="font-size:11.5px;color:var(--text-muted,#888);margin-top:3px;">${lines.map(l=>`<span style="background:var(--bg-page,#f5f5f5);padding:1px 7px;border-radius:8px;margin-right:4px;font-size:11px;">${escH(l)}</span>`).join('')}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <span style="font-size:12px;color:var(--text-muted,#888);">${rws.length} seafarer${rws.length!==1?'s':''}</span>
+              <a href="${escH(mailto)}" target="_blank"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:600;
+                  border:none;border-radius:7px;background:#1B3A6B;color:#fff;text-decoration:none;cursor:pointer;
+                  transition:opacity 0.15s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                Open Email
+              </a>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    overlay.innerHTML = `
+      <div style="background:var(--card-bg,#fff);border-radius:14px;padding:26px 28px;width:580px;max-height:80vh;overflow-y:auto;
+        box-shadow:0 12px 40px rgba(0,0,0,0.22);font-family:inherit;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--text,#1A1A1A);">Send Follow-up Emails</div>
+            <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">${rows.length} seafarers · ${Object.keys(groups).length} account manager${Object.keys(groups).length!==1?'s':''}</div>
+          </div>
+          <button id="rtsEmailClose" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#ddd);
+            background:transparent;cursor:pointer;font-size:16px;color:var(--text-muted,#888);display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+        ${groupsHtml}
+        ${unrouted.length ? `<div style="font-size:11.5px;color:#D97706;margin-top:8px;">⚠ ${unrouted.length} record${unrouted.length!==1?'s':''} have no mapped account manager email.</div>` : ''}
+      </div>`;
+
+    document.body.appendChild(overlay);
+    document.getElementById('rtsEmailClose').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
   // Column definitions
@@ -973,6 +1096,7 @@ pageEvents.task = function () {
   document.getElementById('rtsMonthFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsYearFilter')?.addEventListener('change', rtsApply);
   document.getElementById('rtsExportBtn')?.addEventListener('click', rtsExport);
+  document.getElementById('rtsEmailBtn')?.addEventListener('click', rtsEmail);
   rtsApply();
 
   // ── Duplicate Checker ──────────────────────────────────────────────────────
