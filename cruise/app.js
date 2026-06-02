@@ -5369,7 +5369,12 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
                  background:${hasOvr ? 'rgba(176,26,24,0.05)' : 'var(--card-bg,#fff)'};
                  color:${hasOvr ? '#B01A18' : 'var(--text)'};font-family:inherit;font-weight:${hasOvr?'700':'400'};">
            </td>`
-        : `<td class="rpt-td rpt-num">${pendingVal}</td>`;
+        : (hasOvr
+            ? `<td class="rpt-td rpt-num">
+                 <span style="display:inline-block;min-width:30px;padding:2px 8px;border:1px solid #B01A18;
+                   border-radius:4px;color:#B01A18;font-weight:700;background:rgba(176,26,24,0.05);">${pendingVal}</span>
+               </td>`
+            : `<td class="rpt-td rpt-num">${pendingVal}</td>`);
       return `
         <tr>
           <td class="rpt-td">${escH(p)}</td>
