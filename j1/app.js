@@ -1603,7 +1603,7 @@ pageEvents.j1visa = function () {
           options: ['Pending','Approved','Rejected 1st Attempt','Pending 2nd Interview','Rejected 2nd Attempt','Pending 3rd Interview','Rejected 3rd Attempt'] },
         { key: 'visaNumber',       label: 'J1 Visa Number',               type: 'text' },
         { key: 'visaExpiredDate',  label: 'J1 Visa Expired Date',         type: 'date' },
-        { key: 'refLetterStatus',  label: 'Visa Supporting Letter Status', type: 'select', options: refLetters },
+        { key: 'refLetterStatus',  label: 'Visa Supporting Letter Status', type: 'select', options: ZP_REF_LETTER },
       ], () => { refresh(); });
     };
   }
