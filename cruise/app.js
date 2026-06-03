@@ -519,6 +519,7 @@ const MISTRAL_COLUMNS = [
   { label:'Passport Number',       field:'passportNumber',      zoho:'Passport_Number' },
   { label:'Passport Issued Date',  field:'passportIssuedDate',  zoho:'Passport_Issued_Date', type:'date' },
   { label:'Passport Expired Date', field:'passportExpiredDate', zoho:'Passport_Expired_Date',type:'date' },
+  { label:'Passport Issued Place', field:'passportIssuedPlace', zoho:'Passport_Issued_Place' },
   { label:'Passport Issued Nation',field:'passportIssuedNation',zoho:'Passport_Issued_Country' },
   { label:'Hair Color',            field:'hairColor',           zoho:'Hair_Color' },
   { label:'Height',                field:'height',              zoho:'Height',               type:'number' },
