@@ -4498,7 +4498,7 @@ const HEATMAP_STYLES = `
 .hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
 .hm-tag { display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:0.05em; border:1.5px solid; border-radius:4px; padding:2px 8px; vertical-align:middle; }
 /* Executive summary per-parameter blocks */
-.hm-sum-item { margin:0 0 16px; padding:0 0 14px; border-bottom:1px solid #eee; page-break-inside:avoid; }
+.hm-sum-item { margin:0 0 16px; padding:0 0 14px; border-bottom:1px solid #eee; }
 .hm-sum-title { font-size:14px; font-weight:800; color:#1A1A1A; margin-bottom:6px; }
 .hm-sum-status { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
 .hm-sum-result { font-size:13px; font-weight:700; color:#1A1A1A; }
@@ -4511,23 +4511,28 @@ const HEATMAP_STYLES = `
 </style>
 `;
 
-// Compact overrides applied ONLY to the PDF export so the Parameter and
-// Performance pages each fit a single A4-landscape page.
+// PDF-only sizing. Tuned so the Parameter and Performance tables comfortably
+// FILL one A4-landscape page (readable type, minimal white space) without
+// spilling to a second page.
 const HEATMAP_PDF_STYLES = `
 <style>
-#hmPdfRoot .hm-doc { padding:16px 22px 12px; }
-#hmPdfRoot .rpt-logo { height:62px; }
-#hmPdfRoot .rpt-company { font-size:12px; }
-#hmPdfRoot .rpt-division { font-size:8.5px; }
-#hmPdfRoot .rpt-doc-type { font-size:9px; }
-#hmPdfRoot .hm-quarter { font-size:16px; }
-#hmPdfRoot .rpt-brandbar { margin-top:7px; }
-#hmPdfRoot .rpt-report-title { margin:8px 0 8px; }
-#hmPdfRoot .rpt-brand-name { font-size:15px; }
-#hmPdfRoot .hm-legend { font-size:8.5px; gap:16px; margin-bottom:8px; }
-#hmPdfRoot .hm-table .rpt-th { padding:4px 6px; font-size:8px; }
-#hmPdfRoot .hm-table .rpt-td { padding:3.5px 6px; font-size:8.6px; line-height:1.3; }
-#hmPdfRoot .rpt-footer { margin-top:10px; padding-top:7px; font-size:8.5px; }
+#hmPdfRoot .hm-doc { padding:24px 30px 16px; }
+#hmPdfRoot .rpt-logo { height:84px; }
+#hmPdfRoot .rpt-company { font-size:14px; }
+#hmPdfRoot .rpt-division { font-size:9.5px; }
+#hmPdfRoot .rpt-doc-type { font-size:10px; }
+#hmPdfRoot .hm-quarter { font-size:20px; }
+#hmPdfRoot .rpt-brandbar { margin-top:10px; }
+#hmPdfRoot .rpt-report-title { margin:16px 0 16px; }
+#hmPdfRoot .rpt-brand-name { font-size:18px; }
+#hmPdfRoot .hm-legend { font-size:11px; gap:24px; margin-bottom:18px; }
+#hmPdfRoot .hm-table .rpt-th { padding:10px 10px; font-size:10px; }
+#hmPdfRoot .hm-table .rpt-td { padding:13px 10px; font-size:11px; line-height:1.45; }
+/* Executive summary — denser, no forced single-item page breaks */
+#hmPdfRoot .hm-sum-item { margin:0 0 14px; padding:0 0 12px; }
+#hmPdfRoot .hm-sum-title { font-size:15px; }
+#hmPdfRoot .hm-para { font-size:12px; line-height:1.6; }
+#hmPdfRoot .rpt-footer { margin-top:18px; padding-top:10px; font-size:9.5px; }
 </style>
 `;
 
@@ -4689,7 +4694,7 @@ pageEvents.reports = function () {
             image:       { type:'jpeg', quality:0.98 },
             html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
-            pagebreak:   { mode:['css','legacy'] },
+            pagebreak:   { mode:['css'] },
           }).from(hidden.querySelector('#hmPdfRoot')).save();
         } finally {
           document.body.removeChild(hidden);
