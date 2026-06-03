@@ -4193,74 +4193,94 @@ function hmResolveRag(p, rec) {
   return rec.rag || '';
 }
 
-// Shared CTI-branded report header.
-function hmBrandHeader(qLabel) {
+// Per-quarter meta (editable overall commentary for the executive summary).
+function _hmGetMeta(qKey, field) { return (_hmQuarter(qKey).meta || {})[field]; }
+function _hmSetMeta(qKey, field, val) {
+  const all = _hmLoadAll();
+  all[qKey] = all[qKey] || { params:{}, wfa:{} };
+  all[qKey].meta = all[qKey].meta || {};
+  all[qKey].meta[field] = val;
+  _hmSaveAll(all);
+}
+
+// Branded header in the CUK Weekly Report style (real logo + company + doc type).
+function hmHeader(qLabel, pageTitle) {
   return `
-    <div style="display:flex;align-items:flex-end;gap:16px;border-bottom:3px solid #B01A18;padding-bottom:14px;margin-bottom:22px;font-family:'Montserrat','Open Sans',Arial,sans-serif;">
-      <div style="display:flex;flex-direction:column;line-height:1;">
-        <div style="display:flex;align-items:baseline;gap:8px;">
-          <span style="font-size:30px;font-weight:800;color:#B01A18;letter-spacing:-0.01em;">CT<span style="color:#1A1A1A;">i</span></span>
-          <span style="font-size:30px;font-weight:800;color:#1A1A1A;letter-spacing:0.02em;">GROUP</span>
+    <div class="rpt-brandhead">
+      <div class="rpt-brandhead-left">
+        <img src="../logo.jpg" class="rpt-logo" alt="CTI Group" onerror="this.style.display='none'">
+        <div class="rpt-brandhead-text">
+          <div class="rpt-company">CTI GROUP WORLDWIDE SERVICES, INC.</div>
+          <div class="rpt-division">Carnival UK Account</div>
         </div>
-        <div style="font-size:8.5px;font-weight:600;letter-spacing:0.22em;color:#1A1A1A;margin-top:4px;">WORLDWIDE SERVICES, INC.</div>
       </div>
-      <div style="margin-left:auto;text-align:right;">
-        <div style="font-size:19px;font-weight:800;color:#1A1A1A;letter-spacing:0.02em;">HEAT MAP REPORT</div>
-        <div style="font-size:12px;color:#B01A18;font-weight:700;margin-top:2px;">Carnival UK · ${escH(qLabel)}</div>
+      <div class="rpt-brandhead-right">
+        <div class="rpt-doc-type">HEAT MAP REPORT</div>
+        <div class="rpt-doc-date">${escH(qLabel)}</div>
       </div>
+    </div>
+    <div class="rpt-brandbar"></div>
+    <div class="rpt-report-title">
+      <span class="rpt-brand-name">Carnival UK</span>
+      <span class="rpt-report-sub">${escH(pageTitle)}</span>
+    </div>`;
+}
+
+function hmFooter(pageNum) {
+  const today = fmtReportDate(new Date());
+  return `
+    <div class="rpt-footer">
+      <span>DATE: ${today}</span>
+      <span>PAGE ${pageNum} OF 3</span>
+      <span>CTI GROUP WORLDWIDE SERVICES, INC.</span>
     </div>`;
 }
 
 function hmLegend() {
   return `
-    <div style="display:flex;gap:22px;align-items:center;margin-bottom:18px;font-size:11.5px;color:var(--text-muted,#777);flex-wrap:wrap;">
-      <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('red')} Red — below target / action required</span>
-      <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('amber')} Amber — borderline / monitor</span>
-      <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('green')} Green — meeting / exceeding target</span>
+    <div class="hm-legend">
+      <span>${hmRagDot('red')} Red — below target / action required</span>
+      <span>${hmRagDot('amber')} Amber — borderline / monitor</span>
+      <span>${hmRagDot('green')} Green — meeting / exceeding target</span>
     </div>`;
 }
-
-const HM_TH  = 'padding:11px 14px;font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#fff;text-align:left;background:#1A1A1A;border:1px solid #2b2b2b;';
-const HM_TD  = 'padding:11px 14px;font-size:12.5px;color:var(--text);border:1px solid var(--border,#e3e3e3);vertical-align:top;';
-const HM_CAP = 'font-size:15px;font-weight:700;color:var(--text);margin:0 0 4px;font-family:\'Montserrat\',Arial,sans-serif;';
-const HM_SUB = 'font-size:11.5px;color:var(--text-muted,#888);margin:0 0 14px;';
 
 // ── PAGE 1: Parameter Explanation (static reference) ──
 function hmBuildExplain(qKey) {
   const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
   const rows = HEATMAP_PARAMS.map(p => `
     <tr>
-      <td style="${HM_TD}font-weight:600;width:200px;">${escH(p.name)}</td>
-      <td style="${HM_TD}width:170px;color:var(--text-muted,#777);font-size:11.5px;">${escH(p.pic)}</td>
-      <td style="${HM_TD}font-size:11.5px;">${escH(p.explain)}</td>
-      <td style="${HM_TD}font-size:11.5px;background:rgba(214,69,69,0.06);">${escH(p.red)}</td>
-      <td style="${HM_TD}font-size:11.5px;background:rgba(232,163,61,0.07);">${escH(p.amber)}</td>
-      <td style="${HM_TD}font-size:11.5px;background:rgba(46,158,91,0.06);">${escH(p.green)}</td>
+      <td class="rpt-td" style="font-weight:700;width:170px;">${escH(p.name)}</td>
+      <td class="rpt-td" style="width:150px;color:#666;">${escH(p.pic)}</td>
+      <td class="rpt-td">${escH(p.explain)}</td>
+      <td class="rpt-td" style="background:rgba(214,69,69,0.08);">${escH(p.red)}</td>
+      <td class="rpt-td" style="background:rgba(232,163,61,0.10);">${escH(p.amber)}</td>
+      <td class="rpt-td" style="background:rgba(46,158,91,0.08);">${escH(p.green)}</td>
     </tr>`).join('');
   return `
-    <div style="padding:26px 28px;">
-      ${hmBrandHeader(q.label)}
+    <div class="rpt-doc hm-doc">
+      ${hmHeader(q.label, 'Parameter Explanation')}
       ${hmLegend()}
-      <p style="${HM_CAP}">1 · Parameter Explanation</p>
-      <p style="${HM_SUB}">Definition, person in charge and Red / Amber / Green threshold for each measured parameter.</p>
-      <table style="width:100%;border-collapse:collapse;">
+      <table class="rpt-table hm-table">
         <thead><tr>
-          <th style="${HM_TH}">Parameter</th>
-          <th style="${HM_TH}">Person in Charge</th>
-          <th style="${HM_TH}">Explanation</th>
-          <th style="${HM_TH}">Red</th>
-          <th style="${HM_TH}">Amber</th>
-          <th style="${HM_TH}">Green</th>
+          <th class="rpt-th">Parameter</th>
+          <th class="rpt-th">Person in Charge</th>
+          <th class="rpt-th">Explanation</th>
+          <th class="rpt-th">Red</th>
+          <th class="rpt-th">Amber</th>
+          <th class="rpt-th">Green</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
+      ${hmFooter(1)}
+    </div>
+    ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
 
 // ── PAGE 2: Performance Report (editable) ──
 function hmBuildPerformance(qKey, editable) {
   const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
-  const inputBase = 'width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border,#ddd);border-radius:6px;font-size:12.5px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);';
+  const inputBase = 'box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;background:#fff;color:#1A1A1A;';
 
   const rows = HEATMAP_PARAMS.map(p => {
     const rec = _hmGetParam(qKey, p.key);
@@ -4269,41 +4289,39 @@ function hmBuildPerformance(qKey, editable) {
     const rate = rec.rate != null ? rec.rate : '';
     const remarks = rec.remarks != null ? rec.remarks : '';
 
-    // Rate cell: numeric input (auto-colour) OR manual RAG select for non-numeric params.
     let rateCell;
     if (p.numeric) {
       rateCell = editable
         ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}"
-             placeholder="0" style="${inputBase}max-width:110px;text-align:center;font-weight:600;">
-           <div style="font-size:9.5px;color:var(--text-muted,#999);margin-top:3px;">${escH(p.unit||'')}</div>`
-        : `<span style="font-weight:700;">${rate === '' ? '—' : escH(String(rate))}</span>
-           <div style="font-size:9.5px;color:var(--text-muted,#999);">${escH(p.unit||'')}</div>`;
+             placeholder="0" style="${inputBase}width:90px;text-align:center;font-weight:700;">
+           <div style="font-size:8.5px;color:#999;margin-top:3px;">${escH(p.unit||'')}</div>`
+        : `<span style="font-weight:700;font-size:13px;">${rate === '' ? '—' : escH(String(rate))}</span>
+           <div style="font-size:8.5px;color:#999;">${escH(p.unit||'')}</div>`;
     } else {
       rateCell = editable
-        ? `<select class="hm-rag" data-pk="${p.key}" style="${inputBase}max-width:130px;">
-             <option value="">— set status —</option>
+        ? `<select class="hm-rag" data-pk="${p.key}" style="${inputBase}width:120px;">
+             <option value="">— status —</option>
              <option value="green"${rag==='green'?' selected':''}>Green</option>
              <option value="amber"${rag==='amber'?' selected':''}>Amber</option>
              <option value="red"${rag==='red'?' selected':''}>Red</option>
            </select>`
-        : `<span style="display:flex;align-items:center;gap:7px;">${hmRagDot(rag)} ${rag?escH(rag[0].toUpperCase()+rag.slice(1)):'—'}</span>`;
+        : `<span style="font-weight:700;">${rag?escH(rag[0].toUpperCase()+rag.slice(1)):'—'}</span>`;
     }
 
     const remarksCell = editable
       ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2"
-           placeholder="Type explanation / remarks…" style="${inputBase}resize:vertical;min-height:38px;">${escH(remarks)}</textarea>`
-      : `<span>${remarks ? escH(remarks) : '<span style="color:var(--text-muted,#bbb);">—</span>'}</span>`;
+           placeholder="Type explanation / remarks…" style="${inputBase}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
+      : `<span>${remarks ? escH(remarks) : '—'}</span>`;
 
     return `
       <tr>
-        <td style="${HM_TD}font-weight:600;width:210px;">${escH(p.name)}</td>
-        <td class="hm-cell-rate" data-pk="${p.key}" style="${HM_TD}width:150px;text-align:center;background:${bg};">${rateCell}</td>
-        <td style="${HM_TD}text-align:center;width:60px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
-        <td style="${HM_TD}">${remarksCell}</td>
+        <td class="rpt-td" style="font-weight:700;width:200px;">${escH(p.name)}</td>
+        <td class="rpt-td hm-cell-rate" data-pk="${p.key}" style="width:120px;text-align:center;background:${bg};">${rateCell}</td>
+        <td class="rpt-td" style="text-align:center;width:54px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
+        <td class="rpt-td">${remarksCell}</td>
       </tr>`;
   }).join('');
 
-  // Waiting-for-Assignment editable sub-table
   const wfaRows = HM_WFA_BRANDS.map(b => {
     const rec = _hmGetWfa(qKey, b);
     const comp = rec.comp != null ? rec.comp : '';
@@ -4311,136 +4329,165 @@ function hmBuildPerformance(qKey, editable) {
     const total = (parseInt(comp,10)||0) + (parseInt(non,10)||0);
     const numCell = (field, val) => editable
       ? `<input type="text" class="hm-wfa" data-brand="${escH(b)}" data-field="${field}" value="${escH(String(val))}"
-           placeholder="0" style="${inputBase}max-width:90px;text-align:center;">`
+           placeholder="0" style="${inputBase}width:80px;text-align:center;">`
       : `<span>${val===''?'—':escH(String(val))}</span>`;
     return `
       <tr>
-        <td style="${HM_TD}font-weight:600;">${escH(b)}</td>
-        <td style="${HM_TD}text-align:center;">${numCell('comp', comp)}</td>
-        <td style="${HM_TD}text-align:center;">${numCell('noncomp', non)}</td>
-        <td style="${HM_TD}text-align:center;font-weight:600;" class="hm-wfa-total" data-brand="${escH(b)}">${(comp===''&&non==='')?'—':total}</td>
+        <td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
+        <td class="rpt-td" style="text-align:center;">${numCell('comp', comp)}</td>
+        <td class="rpt-td" style="text-align:center;">${numCell('noncomp', non)}</td>
+        <td class="rpt-td hm-wfa-total" data-brand="${escH(b)}" style="text-align:center;font-weight:700;">${(comp===''&&non==='')?'—':total}</td>
       </tr>`;
   }).join('');
 
   return `
-    <div style="padding:26px 28px;">
-      ${hmBrandHeader(q.label)}
+    <div class="rpt-doc hm-doc">
+      ${hmHeader(q.label, 'Performance Report')}
       ${hmLegend()}
-      <p style="${HM_CAP}">2 · Performance Report</p>
-      <p style="${HM_SUB}">Type the result for each parameter — the cell colour updates automatically from the RAG threshold. Add a short explanation per row. Entries save automatically.</p>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
+      ${editable ? '<p class="hm-hint">Type the result for each parameter — the cell colour updates automatically from the RAG threshold. Entries save automatically.</p>' : ''}
+      <table class="rpt-table hm-table">
         <thead><tr>
-          <th style="${HM_TH}">Parameter</th>
-          <th style="${HM_TH}text-align:center;">Result</th>
-          <th style="${HM_TH}text-align:center;">RAG</th>
-          <th style="${HM_TH}">Explanation / Remarks</th>
+          <th class="rpt-th">Parameter</th>
+          <th class="rpt-th" style="text-align:center;">Result</th>
+          <th class="rpt-th" style="text-align:center;">RAG</th>
+          <th class="rpt-th">Explanation / Remarks</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
 
-      <p style="${HM_CAP}">Waiting for Assignment (New Hire)</p>
-      <p style="${HM_SUB}">Compliance vs non-compliance for new-hire seafarers pending their first assignment.</p>
-      <table style="width:60%;min-width:440px;border-collapse:collapse;">
+      <div class="hm-section-title">Waiting for Assignment (New Hire)</div>
+      <table class="rpt-table hm-table" style="width:60%;min-width:440px;">
         <thead><tr>
-          <th style="${HM_TH}">Brand</th>
-          <th style="${HM_TH}text-align:center;">Compliance</th>
-          <th style="${HM_TH}text-align:center;">Non-Compliance</th>
-          <th style="${HM_TH}text-align:center;">Total</th>
+          <th class="rpt-th">Brand</th>
+          <th class="rpt-th" style="text-align:center;">Compliance</th>
+          <th class="rpt-th" style="text-align:center;">Non-Compliance</th>
+          <th class="rpt-th" style="text-align:center;">Total</th>
         </tr></thead>
         <tbody>${wfaRows}</tbody>
       </table>
-    </div>`;
+      ${hmFooter(2)}
+    </div>
+    ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
 
-// ── PAGE 3: Executive Summary (derived from Performance data) ──
-function hmBuildSummary(qKey) {
+// Build one narrative sentence describing a parameter's result.
+function hmNarrative(p, qKey, prevQ) {
+  const rec = _hmGetParam(qKey, p.key);
+  const rag = hmResolveRag(p, rec);
+  const hasNum = p.numeric && rec.rate !== undefined && rec.rate !== '' && rec.rate !== null;
+  if (!rag && !hasNum) return null; // nothing entered
+  const ragWord = rag ? rag.toUpperCase() : 'UNRATED';
+  const ragCol  = HM_RAG_HEX[rag] || '#666';
+
+  let s = `<strong>${escH(p.name)}</strong> `;
+  if (hasNum) s += `was recorded at <strong>${escH(String(rec.rate))} ${escH(p.unit||'')}</strong> for the quarter`;
+  else        s += `was assessed for the quarter`;
+  s += `, rated <span class="hm-tag" style="color:${ragCol};border-color:${ragCol};">${ragWord}</span>`;
+
+  const ctx = { green:p.green, amber:p.amber, red:p.red }[rag];
+  if (ctx && ctx !== '—') s += ` — ${escH(ctx.replace(/\.$/,'').toLowerCase())}`;
+  s += `.`;
+
+  if (p.numeric && prevQ) {
+    const cur  = parseFloat(String(rec.rate).replace(/[^0-9.\-]/g,''));
+    const prev = parseFloat(String(_hmGetParam(prevQ.key, p.key).rate).replace(/[^0-9.\-]/g,''));
+    if (!isNaN(cur) && !isNaN(prev) && prev !== 0) {
+      const pct = ((cur - prev) / Math.abs(prev)) * 100;
+      const dir = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'unchanged');
+      s += pct === 0
+        ? ` This is unchanged versus the previous quarter.`
+        : ` This is <strong>${dir} ${Math.abs(pct).toFixed(1)}%</strong> versus the previous quarter (${escH(prevQ.label)}).`;
+    }
+  }
+  if (rec.remarks) s += ` ${escH(rec.remarks)}`;
+  return s;
+}
+
+// ── PAGE 3: Executive Summary (narrative text) ──
+function hmBuildSummary(qKey, editable) {
   const qIdx = HEATMAP_QUARTERS.findIndex(x => x.key === qKey);
   const q = HEATMAP_QUARTERS[qIdx] || HEATMAP_QUARTERS[0];
   const prevQ = qIdx > 0 ? HEATMAP_QUARTERS[qIdx-1] : null;
 
-  const rows = HEATMAP_PARAMS.filter(p => p.key !== 'waiting').map(p => {
-    const rec = _hmGetParam(qKey, p.key);
-    const rag = hmResolveRag(p, rec);
-    const bg  = HM_RAG_BG[rag] || 'transparent';
-    const result = (p.numeric && rec.rate !== undefined && rec.rate !== '')
-      ? escH(String(rec.rate)) + (p.unit ? ' <span style="color:var(--text-muted,#999);font-size:10.5px;">'+escH(p.unit)+'</span>' : '')
-      : (rag ? escH(rag[0].toUpperCase()+rag.slice(1)) : '<span style="color:var(--text-muted,#bbb);">—</span>');
+  // RAG roll-up
+  const tally = { red:0, amber:0, green:0 };
+  HEATMAP_PARAMS.filter(p => p.key !== 'waiting').forEach(p => {
+    const r = hmResolveRag(p, _hmGetParam(qKey, p.key));
+    if (tally[r] !== undefined) tally[r]++;
+  });
+  const overview = `
+    <div class="hm-rollup">
+      <span><span class="hm-pill" style="background:${HM_RAG_HEX.green}">${tally.green}</span> Green</span>
+      <span><span class="hm-pill" style="background:${HM_RAG_HEX.amber}">${tally.amber}</span> Amber</span>
+      <span><span class="hm-pill" style="background:${HM_RAG_HEX.red}">${tally.red}</span> Red</span>
+    </div>`;
 
-    // QoQ vs previous quarter (numeric params only)
-    let qoq = '—';
-    if (p.numeric && prevQ) {
-      const cur  = parseFloat(String(rec.rate).replace(/[^0-9.\-]/g,''));
-      const prev = parseFloat(String(_hmGetParam(prevQ.key, p.key).rate).replace(/[^0-9.\-]/g,''));
-      if (!isNaN(cur) && !isNaN(prev) && prev !== 0) {
-        const pct = ((cur - prev) / Math.abs(prev)) * 100;
-        const sign = pct > 0 ? '+' : '';
-        const col = pct === 0 ? 'var(--text-muted,#999)' : (pct > 0 ? '#2E9E5B' : '#D64545');
-        qoq = `<span style="color:${col};font-weight:600;">${sign}${pct.toFixed(1)}%</span>`;
-      }
-    }
-    return `
-      <tr>
-        <td style="${HM_TD}font-weight:600;width:230px;">${escH(p.name)}</td>
-        <td style="${HM_TD}text-align:center;width:60px;background:${bg};">${hmRagDot(rag)}</td>
-        <td style="${HM_TD}width:150px;background:${bg};font-weight:600;">${result}</td>
-        <td style="${HM_TD}">${rec.remarks ? escH(rec.remarks) : '<span style="color:var(--text-muted,#bbb);">—</span>'}</td>
-        <td style="${HM_TD}text-align:center;width:110px;">${qoq}</td>
-      </tr>`;
-  }).join('');
+  // Per-parameter narrative paragraphs
+  const paras = HEATMAP_PARAMS.filter(p => p.key !== 'waiting')
+    .map(p => hmNarrative(p, qKey, prevQ))
+    .filter(Boolean)
+    .map(t => `<p class="hm-para">${t}</p>`).join('');
 
-  // Waiting-for-assignment summary
-  const wfaRows = HM_WFA_BRANDS.map(b => {
+  // Waiting-for-assignment sentence
+  const wfaParts = HM_WFA_BRANDS.map(b => {
     const rec = _hmGetWfa(qKey, b);
     const comp = parseInt(rec.comp,10)||0, non = parseInt(rec.noncomp,10)||0;
-    const total = comp + non;
-    const has = !(rec.comp==null && rec.noncomp==null) && total>0;
-    return `
-      <tr>
-        <td style="${HM_TD}font-weight:600;">${escH(b)}</td>
-        <td style="${HM_TD}text-align:center;">${rec.comp!=null&&rec.comp!==''?comp:'—'}</td>
-        <td style="${HM_TD}text-align:center;">${rec.noncomp!=null&&rec.noncomp!==''?non:'—'}</td>
-        <td style="${HM_TD}text-align:center;font-weight:600;">${has?total:'—'}</td>
-      </tr>`;
-  }).join('');
+    if ((rec.comp==null||rec.comp==='') && (rec.noncomp==null||rec.noncomp==='')) return null;
+    return `${escH(b)} — ${comp} compliant, ${non} non-compliant`;
+  }).filter(Boolean);
+  const wfaPara = wfaParts.length
+    ? `<p class="hm-para"><strong>Waiting for Assignment (New Hire).</strong> ${wfaParts.join('; ')}.</p>`
+    : '';
+
+  const commentary = _hmGetMeta(qKey, 'summaryText') || '';
+  const commentaryBlock = editable
+    ? `<div class="hm-section-title">Overall Commentary</div>
+       <textarea id="hmSummaryText" rows="4" class="hm-commentary"
+         placeholder="Type the overall executive summary narrative for this quarter…">${escH(commentary)}</textarea>`
+    : (commentary
+        ? `<div class="hm-section-title">Overall Commentary</div><p class="hm-para">${escH(commentary).replace(/\n/g,'<br>')}</p>`
+        : '');
+
+  const body = (paras || wfaPara)
+    ? `${paras}${wfaPara}`
+    : `<p class="hm-para" style="color:#999;font-style:italic;">No data has been entered yet. Fill in the Performance Report to generate the executive summary narrative.</p>`;
 
   return `
-    <div style="padding:26px 28px;">
-      ${hmBrandHeader(q.label)}
-      ${hmLegend()}
-      <p style="${HM_CAP}">3 · Executive Summary</p>
-      <p style="${HM_SUB}">RAG status, result, CTI remarks and Quarter-on-Quarter change — derived from the Performance Report${prevQ ? ' (QoQ vs '+escH(prevQ.label)+')' : ''}.</p>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
-        <thead><tr>
-          <th style="${HM_TH}">Parameter</th>
-          <th style="${HM_TH}text-align:center;">RAG</th>
-          <th style="${HM_TH}">Result</th>
-          <th style="${HM_TH}">CTI Remarks</th>
-          <th style="${HM_TH}text-align:center;">QoQ Change</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-
-      <p style="${HM_CAP}">Waiting for Assignment (New Hire)</p>
-      <table style="width:60%;min-width:440px;border-collapse:collapse;margin-bottom:14px;">
-        <thead><tr>
-          <th style="${HM_TH}">Brand</th>
-          <th style="${HM_TH}text-align:center;">Compliance</th>
-          <th style="${HM_TH}text-align:center;">Non-Compliance</th>
-          <th style="${HM_TH}text-align:center;">Total</th>
-        </tr></thead>
-        <tbody>${wfaRows}</tbody>
-      </table>
-
-      <div style="font-size:10.5px;color:var(--text-muted,#aaa);margin-top:18px;font-style:italic;">
-        QoQ Change (%) = ((Current Quarter − Previous Quarter) ÷ Previous Quarter) × 100.
-      </div>
-    </div>`;
+    <div class="rpt-doc hm-doc">
+      ${hmHeader(q.label, 'Executive Summary')}
+      ${overview}
+      ${commentaryBlock}
+      <div class="hm-section-title">Performance Narrative</div>
+      ${body}
+      ${hmFooter(3)}
+    </div>
+    ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
+
+// Heat-map specific styles (layered on top of REPORT_STYLES).
+const HEATMAP_STYLES = `
+<style>
+.hm-doc { background:#fff; }
+.hm-legend { display:flex; gap:22px; align-items:center; margin:0 0 14px; font-size:10.5px; color:#666; flex-wrap:wrap; }
+.hm-legend span { display:flex; align-items:center; gap:7px; }
+.hm-table { font-size:10.5px; margin-bottom:6px; }
+.hm-table .rpt-td { font-size:10.5px; line-height:1.45; }
+.hm-hint { font-size:10.5px; color:#777; margin:0 0 12px; }
+.hm-section-title { font-size:12px; font-weight:800; letter-spacing:0.04em; color:#1A1A1A; text-transform:uppercase; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid #B01A18; }
+.hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
+.hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
+.hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
+.hm-tag { display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:0.05em; border:1.5px solid; border-radius:4px; padding:1px 6px; vertical-align:middle; }
+.hm-commentary { width:100%; box-sizing:border-box; padding:10px 12px; border:1px dashed #B01A18; border-radius:6px;
+  font-size:12px; line-height:1.6; font-family:inherit; color:#1A1A1A; background:#fffdfd; resize:vertical; margin-bottom:6px; }
+.hm-commentary:focus { outline:none; border-style:solid; box-shadow:0 0 0 2px rgba(176,26,24,0.12); }
+</style>
+`;
 
 // Dispatcher: render the requested heat-map page.
 function buildHeatMapHTML(view, qKey, editable) {
   if (view === 'performance') return hmBuildPerformance(qKey, editable !== false);
-  if (view === 'summary')     return hmBuildSummary(qKey);
+  if (view === 'summary')     return hmBuildSummary(qKey, editable !== false);
   return hmBuildExplain(qKey);
 }
 
@@ -4538,9 +4585,15 @@ pageEvents.reports = function () {
       });
     }
 
+    function attachSummaryHandlers() {
+      const ta = document.getElementById('hmSummaryText');
+      if (ta) ta.addEventListener('input', () => _hmSetMeta(sel.value, 'summaryText', ta.value));
+    }
+
     function renderHM() {
       prev.innerHTML = buildHeatMapHTML(view, sel.value, true);
       if (view === 'performance') attachPerformanceHandlers();
+      if (view === 'summary')     attachSummaryHandlers();
     }
 
     // Sub-nav (Parameter Explanation / Performance / Executive Summary)
@@ -4554,24 +4607,46 @@ pageEvents.reports = function () {
 
     sel.addEventListener('change', renderHM);
 
-    // PDF / print — exports all three pages for the selected quarter.
+    // PDF — A4 landscape, all three pages, CUK Weekly Report styling.
     const dlBtn = document.getElementById('hmDownloadBtn');
-    if (dlBtn) dlBtn.addEventListener('click', () => {
+    if (dlBtn) dlBtn.addEventListener('click', async () => {
       const q = HEATMAP_QUARTERS.find(x => x.key === sel.value) || HEATMAP_QUARTERS[0];
-      const w = window.open('', '_blank');
-      if (!w) return;
-      const pages =
-        buildHeatMapHTML('explain', sel.value, false) +
-        '<div style="page-break-before:always;"></div>' +
-        buildHeatMapHTML('performance', sel.value, false) +
-        '<div style="page-break-before:always;"></div>' +
-        buildHeatMapHTML('summary', sel.value, false);
-      w.document.write(`<html><head><title>Heat Map Report — ${escH(q.label)}</title>
-        <style>body{font-family:'Open Sans',Arial,sans-serif;margin:18px;color:#222;}
-        table{font-family:inherit;} @media print{button{display:none;}}</style></head>
-        <body>${pages}</body></html>`);
-      w.document.close();
-      setTimeout(() => w.print(), 400);
+      const orig = dlBtn.textContent;
+      dlBtn.textContent = 'Generating…'; dlBtn.disabled = true;
+      try {
+        await ensureHtml2Pdf();
+        const html =
+          `<div id="hmPdfRoot">` +
+          buildHeatMapHTML('explain', sel.value, false) +
+          buildHeatMapHTML('performance', sel.value, false) +
+          buildHeatMapHTML('summary', sel.value, false) +
+          `</div>` +
+          `<style>#hmPdfRoot .hm-doc{page-break-after:always;} #hmPdfRoot .hm-doc:last-child{page-break-after:auto;}</style>`;
+        const hidden = document.createElement('div');
+        hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
+        hidden.innerHTML = html;
+        document.body.appendChild(hidden);
+        try {
+          await Promise.all([...hidden.querySelectorAll('img')].map(img =>
+            img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
+          const fname = `CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`;
+          await window.html2pdf().set({
+            margin:      [8, 8, 8, 8],
+            filename:    fname,
+            image:       { type:'jpeg', quality:0.98 },
+            html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
+            jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
+            pagebreak:   { mode:['css','legacy'] },
+          }).from(hidden.querySelector('#hmPdfRoot')).save();
+        } finally {
+          document.body.removeChild(hidden);
+        }
+      } catch (e) {
+        console.error('Heat Map PDF failed', e);
+        alert('PDF generation failed — please try again.');
+      } finally {
+        dlBtn.textContent = orig; dlBtn.disabled = false;
+      }
     });
 
     renderHM();
