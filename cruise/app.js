@@ -3876,6 +3876,7 @@ pages.reports = async function () {
       <nav class="task-tabbar">
         <button class="task-sub-link active" data-section="generate">CUK Weekly Report</button>
         <button class="task-sub-link" data-section="mistral">CUK Mistral ID Request</button>
+        <button class="task-sub-link" data-section="heatmap">CUK Heat Map Report</button>
         <button class="task-sub-link" data-section="history">History</button>
       </nav>
 
@@ -4032,6 +4033,29 @@ pages.reports = async function () {
       </section>
 
       <!-- ═══ History ═══ -->
+      <!-- ═══ CUK Heat Map Report ═══ -->
+      <section class="task-section" data-section="heatmap" style="display:none;">
+        <div class="card" style="padding:22px 26px;margin-bottom:18px;">
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text);">CTI Group Heat Map Report</div>
+              <div style="font-size:12px;color:var(--text-muted,#888);margin-top:3px;">
+                Quarterly RAG performance scorecard for Carnival UK — 9 parameters &amp; executive summary.
+              </div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Quarter</div>
+                <select id="hmQuarter" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);min-width:240px;"></select>
+              </div>
+              <button id="hmDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="hmPreview" class="card" style="padding:0;overflow:auto;"></div>
+      </section>
+
       <section class="task-section" data-section="history" style="display:none;">
         <div class="card" style="padding:24px 28px;">
           <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Generated Reports</div>
@@ -4044,6 +4068,179 @@ pages.reports = async function () {
     </div><!-- /.task-layout -->
   `;
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CUK HEAT MAP REPORT
+// Layout-only for now (RAG thresholds + persons-in-charge are static config;
+// the per-quarter result numbers are placeholders to be wired to data later).
+// ═══════════════════════════════════════════════════════════════════════════
+const HEATMAP_QUARTERS = [
+  { key: 'q1-2026', label: 'Quarter 1 (Dec 2025 – Feb 2026)' },
+  { key: 'q2-2026', label: 'Quarter 2 (Mar 2026 – May 2026)' },
+  { key: 'q3-2026', label: 'Quarter 3 (Jun 2026 – Aug 2026)' },
+  { key: 'q4-2026', label: 'Quarter 4 (Sep 2026 – Nov 2026)' },
+];
+
+// The 9 RAG parameters — definitions are fixed (from the CUK Heat Map spec).
+const HEATMAP_PARAMS = [
+  { key:'supplier',  name:'Supplier Relationship Management', pic:'Robert Upchurch, Jordan Eliades',
+    explain:'Measured from FPO team feedback on the working relationship.',
+    red:'Lack of engagement / unwillingness to partner on issues.',
+    amber:'Repeat feedback on the same subject, or not rectified in a timely manner.',
+    green:'Strong working relationship across all teams.' },
+  { key:'monthlyAudit', name:'Monthly Audit', pic:'Upchurch, Eliades, Marcos Xavier, Jasmine Debora',
+    explain:'Meetings to discuss areas requiring focused support.',
+    red:'Met', amber:'N/A', green:'Not Met' },
+  { key:'annualAudit', name:'Annual Audit', pic:'Galang Surya',
+    explain:'Compliance Department annual MLC audit.',
+    red:'MLC audit failure — non-conformity not rectified within the agreed 30-day timeframe.',
+    amber:'MLC nonconformity currently being rectified.',
+    green:'No nonconformities, or all addressed with no outstanding actions.' },
+  { key:'invoice', name:'Monthly Invoice', pic:'Jordan Eliades, Harold Danier, Agus Yudana',
+    explain:'Accuracy of monthly invoices submitted to CUK.',
+    red:'More than 2 months submitting erroneous invoices.',
+    amber:'A month of submitting erroneous invoices.',
+    green:'No errors on monthly invoices.' },
+  { key:'demand', name:'Demand Delivery', pic:'Herry Wahyudi',
+    explain:'Monthly demand vs monthly hired.',
+    red:'Below 90% met.', amber:'90–95%, or more than 110% of demand issued (over-supply).',
+    green:'95–100%.' },
+  { key:'attrition', name:'Attrition — 11.2 Rolling Turnover', pic:'Marcos Xavier, Jasmine Debora',
+    explain:'% rolling turnover (quarterly) and % attrition vs overall establishment.',
+    red:'Over 5% attrition against overall establishment.',
+    amber:'3–5% of establishment, or rolling-turnover increase of more than 1.5% over the quarter.',
+    green:'Less than 3% of overall establishment.' },
+  { key:'rejoiners', name:'New Hires vs Re-Joiners', pic:'Marcos Xavier, Jasmine Debora',
+    explain:'% of seafarers on their second-plus contract (re-joiners).',
+    red:'Below 85%.', amber:'85–90%.', green:'Above 90%.' },
+  { key:'absconders', name:'Absconders', pic:'Galang Surya',
+    explain:'Number of seafarers who absconded in the period.',
+    red:'Absconders recorded.', amber:'N/A', green:'No absconders.' },
+  { key:'waiting', name:'Waiting for Assignment', pic:'Carnival UK',
+    explain:'New-hire seafarers pending their first assignment — compliance vs non-compliance.',
+    red:'—', amber:'—', green:'—' },
+];
+
+// Executive-summary rows — `result`, `rag`, `remarks`, `qoq` are placeholders
+// until we wire the calculations. rag: 'red' | 'amber' | 'green' | '' (blank).
+const HEATMAP_SUMMARY = [
+  { key:'demand',     name:'Demand Delivery' },
+  { key:'attrition',  name:'Attrition (Rolling Turnover)' },
+  { key:'rejoiners',  name:'New Hires vs Re-Joiners' },
+  { key:'absconders', name:'Absconders' },
+  { key:'invoice',    name:'Monthly Invoice' },
+  { key:'waiting',    name:'Waiting for Assignment' },
+];
+
+function hmRagDot(rag) {
+  const map = { red:'#D64545', amber:'#E8A33D', green:'#2E9E5B' };
+  const c = map[rag] || 'transparent';
+  const border = rag ? c : 'var(--border,#ccc)';
+  return `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c};border:1px solid ${border};vertical-align:middle;"></span>`;
+}
+
+function buildHeatMapHTML(quarterKey) {
+  const q = HEATMAP_QUARTERS.find(x => x.key === quarterKey) || HEATMAP_QUARTERS[0];
+  const th = 'padding:11px 14px;font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#fff;text-align:left;background:#1f2937;border:1px solid #2b3543;';
+  const td = 'padding:11px 14px;font-size:12.5px;color:var(--text);border:1px solid var(--border,#e3e3e3);vertical-align:top;';
+  const cap = 'font-size:15px;font-weight:700;color:var(--text);margin:0 0 4px;';
+  const sub = 'font-size:11.5px;color:var(--text-muted,#888);margin:0 0 14px;';
+
+  // ── RAG Heat Map parameter table ──
+  const paramRows = HEATMAP_PARAMS.map(p => `
+    <tr>
+      <td style="${td}font-weight:600;width:200px;">${escH(p.name)}</td>
+      <td style="${td}width:170px;color:var(--text-muted,#777);font-size:11.5px;">${escH(p.pic)}</td>
+      <td style="${td}font-size:11.5px;">${escH(p.explain)}</td>
+      <td style="${td}font-size:11.5px;background:rgba(214,69,69,0.06);">${escH(p.red)}</td>
+      <td style="${td}font-size:11.5px;background:rgba(232,163,61,0.07);">${escH(p.amber)}</td>
+      <td style="${td}font-size:11.5px;background:rgba(46,158,91,0.06);">${escH(p.green)}</td>
+      <td style="${td}text-align:center;width:70px;">${hmRagDot('')}</td>
+    </tr>`).join('');
+
+  // ── Executive summary table (placeholders) ──
+  const sumRows = HEATMAP_SUMMARY.map(s => `
+    <tr>
+      <td style="${td}font-weight:600;width:230px;">${escH(s.name)}</td>
+      <td style="${td}text-align:center;width:70px;">${hmRagDot('')}</td>
+      <td style="${td}width:140px;color:var(--text-muted,#aaa);">—</td>
+      <td style="${td}color:var(--text-muted,#aaa);">—</td>
+      <td style="${td}width:120px;text-align:center;color:var(--text-muted,#aaa);">—</td>
+    </tr>`).join('');
+
+  // ── Waiting-for-assignment sub-table (placeholders) ──
+  const WFA_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
+  const wfaRows = WFA_BRANDS.map(b => `
+    <tr>
+      <td style="${td}font-weight:600;">${escH(b)}</td>
+      <td style="${td}text-align:center;color:var(--text-muted,#aaa);">—</td>
+      <td style="${td}text-align:center;color:var(--text-muted,#aaa);">—</td>
+      <td style="${td}text-align:center;color:var(--text-muted,#aaa);">—</td>
+    </tr>`).join('');
+
+  return `
+    <div style="padding:26px 28px;">
+      <!-- Title block -->
+      <div style="text-align:center;border-bottom:2px solid #B01A18;padding-bottom:14px;margin-bottom:22px;">
+        <div style="font-size:20px;font-weight:800;color:var(--text);letter-spacing:0.01em;">CTI Group Heat Map Report</div>
+        <div style="font-size:13px;color:var(--text-muted,#888);margin-top:4px;">Carnival UK · ${escH(q.label)}</div>
+      </div>
+
+      <!-- Legend -->
+      <div style="display:flex;gap:22px;align-items:center;margin-bottom:18px;font-size:11.5px;color:var(--text-muted,#777);">
+        <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('red')} Red — below target / action required</span>
+        <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('amber')} Amber — borderline / monitor</span>
+        <span style="display:flex;align-items:center;gap:7px;">${hmRagDot('green')} Green — meeting / exceeding target</span>
+      </div>
+
+      <!-- RAG parameters -->
+      <p style="${cap}">RAG Heat Map — Parameters</p>
+      <p style="${sub}">Definitions and thresholds for each measured parameter. Status dots fill once data is wired.</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
+        <thead><tr>
+          <th style="${th}">Parameter</th>
+          <th style="${th}">Person in Charge</th>
+          <th style="${th}">Explanation</th>
+          <th style="${th}">Red</th>
+          <th style="${th}">Amber</th>
+          <th style="${th}">Green</th>
+          <th style="${th}text-align:center;">Status</th>
+        </tr></thead>
+        <tbody>${paramRows}</tbody>
+      </table>
+
+      <!-- Executive summary -->
+      <p style="${cap}">Executive Summary</p>
+      <p style="${sub}">Quarter results with RAG status, CTI remarks and Quarter-on-Quarter change.</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
+        <thead><tr>
+          <th style="${th}">Parameter</th>
+          <th style="${th}text-align:center;">RAG</th>
+          <th style="${th}">Result</th>
+          <th style="${th}">CTI Remarks</th>
+          <th style="${th}text-align:center;">QoQ Change</th>
+        </tr></thead>
+        <tbody>${sumRows}</tbody>
+      </table>
+
+      <!-- Waiting for assignment -->
+      <p style="${cap}">Waiting for Assignment (New Hire)</p>
+      <p style="${sub}">Compliance vs non-compliance for new-hire seafarers pending first assignment.</p>
+      <table style="width:60%;min-width:420px;border-collapse:collapse;margin-bottom:14px;">
+        <thead><tr>
+          <th style="${th}">Brand</th>
+          <th style="${th}text-align:center;">Compliance</th>
+          <th style="${th}text-align:center;">Non-Compliance</th>
+          <th style="${th}text-align:center;">Total</th>
+        </tr></thead>
+        <tbody>${wfaRows}</tbody>
+      </table>
+
+      <div style="font-size:10.5px;color:var(--text-muted,#aaa);margin-top:18px;font-style:italic;">
+        QoQ Change (%) = ((Current Quarter − Previous Quarter) ÷ Previous Quarter) × 100. Result figures are placeholders pending data calculation.
+      </div>
+    </div>`;
+}
 
 pageEvents.reports = function () {
   // Relocate the Requisition Setup markup into the CUK Weekly Report tab
@@ -4081,6 +4278,30 @@ pageEvents.reports = function () {
       if (sp) sp.style.display = sub === 'setup'  ? '' : 'none';
     });
   });
+
+  // ── CUK Heat Map Report wiring ─────────────────────────────────────────────
+  (function initHeatMap() {
+    const sel = document.getElementById('hmQuarter');
+    const prev = document.getElementById('hmPreview');
+    if (!sel || !prev) return;
+    sel.innerHTML = HEATMAP_QUARTERS.map(q =>
+      `<option value="${escH(q.key)}">${escH(q.label)}</option>`).join('');
+    const renderHM = () => { prev.innerHTML = buildHeatMapHTML(sel.value); };
+    sel.addEventListener('change', renderHM);
+    const dlBtn = document.getElementById('hmDownloadBtn');
+    if (dlBtn) dlBtn.addEventListener('click', () => {
+      const q = HEATMAP_QUARTERS.find(x => x.key === sel.value) || HEATMAP_QUARTERS[0];
+      const w = window.open('', '_blank');
+      if (!w) return;
+      w.document.write(`<html><head><title>Heat Map Report — ${escH(q.label)}</title>
+        <style>body{font-family:'Open Sans',Arial,sans-serif;margin:24px;color:#222;}
+        table{font-family:inherit;} @media print{button{display:none;}}</style></head>
+        <body>${buildHeatMapHTML(sel.value)}</body></html>`);
+      w.document.close();
+      setTimeout(() => w.print(), 350);
+    });
+    renderHM();
+  })();
 
   // Default report date = today (or the nearest Tuesday)
   const dateEl  = document.getElementById('rptDate');
