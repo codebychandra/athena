@@ -4437,17 +4437,26 @@ function hmBuildSummary(qKey, editable) {
         ? `<div class="hm-section-title">Overall Commentary</div><p class="hm-para">${escH(commentary).replace(/\n/g,'<br>')}</p>`
         : '');
 
-  // One block per parameter: title → heat-map status → explanation
+  // One block per parameter: title → heat-map status → editable explanation text area
   const items = HEATMAP_PARAMS.filter(p => p.key !== 'waiting').map(p => {
     const rec = _hmGetParam(qKey, p.key);
     const rag = hmResolveRag(p, rec);
     const hasNum = p.numeric && rec.rate !== undefined && rec.rate !== '' && rec.rate !== null;
-    if (!rag && !hasNum) return null; // skip parameters with no data
     const ragCol = HM_RAG_HEX[rag] || '#888';
-    const ragWord = rag ? rag.toUpperCase() : 'UNRATED';
+    const ragWord = rag ? rag.toUpperCase() : 'NOT SET';
     const resultStr = hasNum ? `${escH(String(rec.rate))} ${escH(p.unit||'')}` : '';
-    const explain = hmExplainText(p, qKey, prevQ) ||
-      '<span style="color:#999;font-style:italic;">No explanation recorded.</span>';
+
+    // Saved explanation text persists in localStorage. If empty, offer the
+    // auto-generated draft (plain text) as a starting point.
+    const saved = rec.summaryText;
+    const autoDraft = (hmExplainText(p, qKey, prevQ) || '').replace(/<[^>]+>/g, '');
+    const textVal = (saved != null && saved !== '') ? saved : autoDraft;
+
+    const explainBlock = editable
+      ? `<textarea class="hm-sum-text" data-pk="${p.key}" rows="3"
+           placeholder="Type the explanation for ${escH(p.name)}…">${escH(textVal)}</textarea>`
+      : `<p class="hm-para">${textVal ? escH(textVal).replace(/\n/g,'<br>') : '<span style="color:#999;font-style:italic;">No explanation recorded.</span>'}</p>`;
+
     return `
       <div class="hm-sum-item">
         <div class="hm-sum-title">${escH(p.name)}</div>
@@ -4455,12 +4464,11 @@ function hmBuildSummary(qKey, editable) {
           <span class="hm-tag" style="color:${ragCol};border-color:${ragCol};background:${HM_RAG_BG[rag]||'transparent'};">${ragWord}</span>
           ${resultStr ? `<span class="hm-sum-result">${resultStr}</span>` : ''}
         </div>
-        <p class="hm-para">${explain}</p>
+        ${explainBlock}
       </div>`;
-  }).filter(Boolean).join('');
+  }).join('');
 
-  const body = items ||
-    `<p class="hm-para" style="color:#999;font-style:italic;">No data has been entered yet. Fill in the Performance Report to generate the executive summary.</p>`;
+  const body = items;
 
   return `
     <div class="rpt-doc hm-doc">
@@ -4494,6 +4502,9 @@ const HEATMAP_STYLES = `
 .hm-sum-title { font-size:14px; font-weight:800; color:#1A1A1A; margin-bottom:6px; }
 .hm-sum-status { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
 .hm-sum-result { font-size:13px; font-weight:700; color:#1A1A1A; }
+.hm-sum-text { width:100%; box-sizing:border-box; padding:9px 11px; border:1px dashed #B01A18; border-radius:6px;
+  font-size:12px; line-height:1.6; font-family:inherit; color:#1A1A1A; background:#fffdfd; resize:vertical; min-height:54px; }
+.hm-sum-text:focus { outline:none; border-style:solid; box-shadow:0 0 0 2px rgba(176,26,24,0.12); }
 .hm-commentary { width:100%; box-sizing:border-box; padding:10px 12px; border:1px dashed #B01A18; border-radius:6px;
   font-size:12px; line-height:1.6; font-family:inherit; color:#1A1A1A; background:#fffdfd; resize:vertical; margin-bottom:6px; }
 .hm-commentary:focus { outline:none; border-style:solid; box-shadow:0 0 0 2px rgba(176,26,24,0.12); }
@@ -4624,6 +4635,11 @@ pageEvents.reports = function () {
     function attachSummaryHandlers() {
       const ta = document.getElementById('hmSummaryText');
       if (ta) ta.addEventListener('input', () => _hmSetMeta(sel.value, 'summaryText', ta.value));
+      // Per-parameter explanation text areas — persist to localStorage.
+      prev.querySelectorAll('.hm-sum-text').forEach(area => {
+        area.addEventListener('input', () =>
+          _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value));
+      });
     }
 
     function renderHM() {
