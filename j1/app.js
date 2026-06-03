@@ -1662,6 +1662,13 @@ const PAR_STATUSES = [
   'Stage 1','Stage 2','Stage 3','Stage 4','USA Onboard','Program Completed',
 ];
 const PAR_PLACEMENT_STATUSES = new Set(['USA Onboard','Program Completed']);
+// Status options for the Participant edit dropdown — includes terminal
+// statuses so staff can move a participant TO Archived / Unqualified in Zoho.
+// (NOT added to PAR_STATUSES so the active list filter is unchanged.)
+const PAR_STATUS_EDIT_OPTS = [
+  ...PAR_STATUSES,
+  'Withdrawal','Archived Participant','Unqualified Participant',
+];
 
 // ── Real Zoho picklist values (sourced from Zoho Recruit field metadata) ──
 const ZP_PROGRAM_SOURCES   = ['CTI Bali','CTI Bangkok','CTI Indonesia','CTI MCSI','CTI USA','CTI Vietnam','Dhyana Pura Bali','Indiana School','Mediterranean Bali','OTC Bali','SITPRAM','Undiksha Bali'];
@@ -3145,7 +3152,7 @@ pageEvents.participant = function () {
     if (_parEditBtn) _parEditBtn.onclick = () => {
       const isCRM = r._source === 'crm';
       const editFields = isCRM ? [
-        { key: 'placementStatus',        label: 'J1 Application Status',    type: 'select', options: PAR_STATUSES },
+        { key: 'placementStatus',        label: 'J1 Application Status',    type: 'select', options: PAR_STATUS_EDIT_OPTS },
         { key: 'programSource',          label: 'J1 Program Sources',       type: 'select', options: sources },
         { key: 'firstName',              label: 'First Name',               type: 'text' },
         { key: 'lastName',               label: 'Last Name',                type: 'text' },
@@ -3164,7 +3171,7 @@ pageEvents.participant = function () {
         { key: 'consultationCallNotes',  label: 'Consultation Call Notes',  type: 'textarea', full: true },
         { key: 'ctiUsaReview',           label: "CTI USA's Review",         type: 'text',   full: true },
       ] : [
-        { key: 'placementStatus',   label: 'J1 Application Status',  type: 'select', options: PAR_STATUSES },
+        { key: 'placementStatus',   label: 'J1 Application Status',  type: 'select', options: PAR_STATUS_EDIT_OPTS },
         { key: 'programSource',     label: 'J1 Program Sources',     type: 'select', options: sources },
         { key: 'firstName',         label: 'First Name',             type: 'text' },
         { key: 'lastName',          label: 'Last Name',              type: 'text' },
