@@ -4359,8 +4359,7 @@ function hmHeader(qLabel, pageTitle) {
     </div>
     <div class="rpt-brandbar"></div>
     <div class="rpt-report-title">
-      <span class="rpt-brand-name">Carnival UK</span>
-      <span class="rpt-report-sub">${escH(pageTitle)}</span>
+      <span class="hm-section-name">${escH(pageTitle)}</span>
     </div>`;
 }
 
@@ -4375,11 +4374,12 @@ function hmFooter(sectionLabel) {
 }
 
 function hmLegend() {
+  const chip = c => `<span class="hm-legend-chip" style="background:${c};"></span>`;
   return `
-    <div class="hm-legend">
-      <span>${hmRagDot('red')} Red — below target / action required</span>
-      <span>${hmRagDot('amber')} Amber — borderline / monitor</span>
-      <span>${hmRagDot('green')} Green — meeting / exceeding target</span>
+    <div class="hm-legend hm-legend-bottom">
+      <span>${chip(HM_RAG_HEX.red)} Red — below target / action required</span>
+      <span>${chip(HM_RAG_HEX.amber)} Amber — borderline / monitor</span>
+      <span>${chip(HM_RAG_HEX.green)} Green — meeting / exceeding target</span>
     </div>`;
 }
 
@@ -4398,7 +4398,6 @@ function hmBuildExplain(qKey) {
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Parameter Definitions')}
-      ${hmLegend()}
       <table class="rpt-table hm-table">
         <thead><tr>
           <th class="rpt-th">Parameter</th>
@@ -4410,6 +4409,7 @@ function hmBuildExplain(qKey) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${hmLegend()}
       ${hmFooter('Parameter Definitions')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4466,7 +4466,6 @@ function hmBuildScorecard(qKey, editable) {
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Executive Scorecard')}
-      ${hmLegend()}
       ${editable ? '<p class="hm-hint">Enter the success rate (numeric cells auto-colour by RAG threshold), CTI remarks, QoQ change and previous-quarter score. Saves automatically.</p>' : ''}
       <table class="rpt-table hm-table">
         <thead><tr>
@@ -4479,6 +4478,7 @@ function hmBuildScorecard(qKey, editable) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${hmLegend()}
       ${hmFooter('Executive Scorecard')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4571,6 +4571,7 @@ function hmBuildDetail(qKey, editable) {
       <div class="hm-section-title">Monthly Invoicing</div>
       ${narr('invoicingNarr', 'Monthly invoicing accuracy commentary…')}
 
+      ${hmLegend()}
       ${hmFooter('Performance Detail')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4732,6 +4733,7 @@ function hmBuildSummary(qKey, editable) {
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
       ${conclusionBlock}
+      ${hmLegend()}
       ${hmFooter('Executive Summary')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4741,9 +4743,12 @@ function hmBuildSummary(qKey, editable) {
 const HEATMAP_STYLES = `
 <style>
 .hm-doc { background:#fff; }
-.hm-quarter { font-size:18px; font-weight:800; color:#B01A18; letter-spacing:0.01em; margin-top:3px; }
-.hm-legend { display:flex; gap:22px; align-items:center; margin:0 0 14px; font-size:10.5px; color:#666; flex-wrap:wrap; }
-.hm-legend span { display:flex; align-items:center; gap:7px; }
+.hm-quarter { font-size:23px; font-weight:800; color:#B01A18; letter-spacing:0.02em; margin-top:4px; text-transform:uppercase; }
+.hm-section-name { font-size:18px; font-weight:800; color:#1A1A1A; letter-spacing:-0.01em; }
+.hm-legend { display:flex; gap:26px; align-items:center; font-size:10.5px; color:#444; flex-wrap:wrap; }
+.hm-legend span { display:flex; align-items:center; gap:8px; }
+.hm-legend-chip { display:inline-block; width:18px; height:12px; border-radius:2px; vertical-align:middle; }
+.hm-legend-bottom { margin-top:22px; padding-top:12px; border-top:1px solid #e3e3e3; justify-content:flex-start; }
 .hm-table { font-size:10.5px; margin-bottom:6px; }
 .hm-table .rpt-td { font-size:10.5px; line-height:1.45; }
 .hm-hint { font-size:10.5px; color:#777; margin:0 0 12px; }
@@ -4778,11 +4783,12 @@ const HEATMAP_PDF_STYLES = `
 #hmPdfRoot .rpt-company { font-size:14px; }
 #hmPdfRoot .rpt-division { font-size:9.5px; }
 #hmPdfRoot .rpt-doc-type { font-size:10px; }
-#hmPdfRoot .hm-quarter { font-size:20px; }
+#hmPdfRoot .hm-quarter { font-size:26px; }
 #hmPdfRoot .rpt-brandbar { margin-top:10px; }
 #hmPdfRoot .rpt-report-title { margin:16px 0 16px; }
-#hmPdfRoot .rpt-brand-name { font-size:18px; }
-#hmPdfRoot .hm-legend { font-size:11px; gap:24px; margin-bottom:18px; }
+#hmPdfRoot .hm-section-name { font-size:20px; }
+#hmPdfRoot .hm-legend { font-size:11px; gap:28px; }
+#hmPdfRoot .hm-legend-bottom { margin-top:26px; }
 #hmPdfRoot .hm-table .rpt-th { padding:10px 10px; font-size:10px; }
 #hmPdfRoot .hm-table .rpt-td { padding:13px 10px; font-size:11px; line-height:1.45; }
 /* Executive summary — denser, no forced single-item page breaks */
@@ -4965,7 +4971,7 @@ pageEvents.reports = function () {
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
             // Keep rows and narrative blocks intact so page breaks never slice
             // through the middle of text; tables break cleanly between rows.
-            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead'] },
+            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend'] },
           }).from(hidden.querySelector('#hmPdfRoot')).save();
         } finally {
           document.body.removeChild(hidden);
