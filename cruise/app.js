@@ -4497,23 +4497,56 @@ const HM_DEPARTMENTS  = ['Bar', 'Housekeeping', 'Galley', 'Restaurant', 'General
 const HM_ATTR_REASONS = ['Resignation', 'Disciplinary', 'Compassionate', 'Medical', 'Not Re-Joining', 'Other'];
 const HM_REJOIN_ROWS  = ['Embarked', 'New Hire', 'Re-Joiner'];
 const HM_WAIT_ROWS    = ['Compliance', 'Non-Compliance'];
+const HM_DETAIL_DEFAULTS = {
+  demand:    HM_DEPARTMENTS,
+  talent:    HM_DEPARTMENTS,
+  attrition: HM_ATTR_REASONS,
+  rejoin:    HM_REJOIN_ROWS,
+  waiting:   HM_WAIT_ROWS,
+};
 
-// A matrix table: row label column + one column per cruise line (editable cells).
-function hmMatrix(qKey, editable, sec, rowHeader, rows) {
+// Editable row config (label list) per section, persisted. Cells are keyed by a
+// stable row id so renaming a label never loses its data.
+function _hmGetRows(qKey, sec, defaults) {
+  const r = _hmGetMeta(qKey, sec + '__rows');
+  if (Array.isArray(r) && r.length) return r;
+  return defaults.map(d => ({ id: d, label: d }));
+}
+function _hmSetRows(qKey, sec, rows) { _hmSetMeta(qKey, sec + '__rows', rows); }
+
+// A matrix table: editable row-label column + one column per cruise line.
+// All data columns share equal width (table-layout:fixed); an extra narrow
+// action column (delete) shows only in edit mode.
+function hmMatrix(qKey, editable, sec, rowHeader, defaults) {
+  const rows = _hmGetRows(qKey, sec, defaults);
   const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
-  const head = `<tr><th class="rpt-th">${escH(rowHeader)}</th>${
-    HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}</tr>`;
+  const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
+
+  const head = `<tr>
+      <th class="rpt-th">${escH(rowHeader)}</th>${
+    HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}${
+    editable ? '<th class="rpt-th hm-actcol"></th>' : ''}
+    </tr>`;
+
   const body = rows.map(r => `<tr>
-      <td class="rpt-td" style="font-weight:700;">${escH(r)}</td>${
+      <td class="rpt-td">${editable
+        ? `<input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}">`
+        : `<span style="font-weight:700;">${escH(r.label)||'—'}</span>`}</td>${
     HM_CRUISE_LINES.map(c => {
-      const v = _hmMetaCell(qKey, sec, r, c);
+      const v = _hmMetaCell(qKey, sec, r.id, c);
       const val = v == null ? '' : v;
       return `<td class="rpt-td" style="text-align:center;">${editable
-        ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(r)}" data-field="${escH(c)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
+        ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(r.id)}" data-field="${escH(c)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
         : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
-    }).join('')}
+    }).join('')}${
+    editable ? `<td class="rpt-td hm-actcol" style="text-align:center;"><button type="button" class="hm-row-del" data-sec="${sec}" data-id="${escH(r.id)}" title="Remove row">×</button></td>` : ''}
     </tr>`).join('');
-  return `<table class="rpt-table hm-table hm-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+  const addBtn = editable
+    ? `<button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button>`
+    : '';
+
+  return `<table class="rpt-table hm-table hm-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>${addBtn}`;
 }
 
 // ── SECTION 3: Performance Detail — 2-column (matrix table | explanation) ──
@@ -4562,7 +4595,6 @@ function hmBuildDetail(qKey, editable) {
       <div class="hm-section-title">Monthly Invoicing</div>
       ${narr('invoicingNarr', 'Monthly invoicing accuracy commentary…')}
 
-      ${hmLegend()}
       ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4724,7 +4756,6 @@ function hmBuildSummary(qKey, editable) {
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
       ${conclusionBlock}
-      ${hmLegend()}
       ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4751,8 +4782,15 @@ const HEATMAP_STYLES = `
 .hm-detail-table { flex:1 1 58%; min-width:0; }
 .hm-detail-explain { flex:1 1 42%; min-width:0; }
 .hm-detail-explain .hm-commentary { margin-bottom:0; }
-.hm-matrix { width:100%; }
+.hm-matrix { width:100%; table-layout:fixed; }
 .hm-matrix .rpt-td input { box-sizing:border-box; }
+.hm-matrix .hm-actcol { width:26px; }
+.hm-row-del { width:20px; height:20px; line-height:1; border:1px solid #e0b4b4; background:#fff5f5; color:#B01A18;
+  border-radius:5px; cursor:pointer; font-size:13px; font-weight:700; padding:0; }
+.hm-row-del:hover { background:#B01A18; color:#fff; border-color:#B01A18; }
+.hm-row-add { margin-top:6px; font-size:10.5px; font-weight:700; color:#B01A18; background:#fff;
+  border:1px dashed #B01A18; border-radius:6px; padding:5px 12px; cursor:pointer; font-family:inherit; }
+.hm-row-add:hover { background:#B01A18; color:#fff; }
 .hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
 .hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
 .hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
@@ -4889,16 +4927,45 @@ pageEvents.reports = function () {
     }
 
     function attachDetailHandlers() {
-      // Structured detail cells (demand / talent / attrition / rejoin / wfa)
+      // Matrix value cells (keyed by row id + cruise line)
       prev.querySelectorAll('.hm-dcell').forEach(inp => {
         inp.addEventListener('input', () => {
-          const sec = inp.dataset.sec, row = inp.dataset.row || '', field = inp.dataset.field;
-          const val = inp.value.trim();
-          if (sec === 'wfa') { _hmSetWfa(sel.value, row, field, val); return; }
+          const sec = inp.dataset.sec, row = inp.dataset.row, field = inp.dataset.field;
           const obj = { ...(_hmGetMeta(sel.value, sec) || {}) };
-          if (row) { obj[row] = { ...(obj[row] || {}) }; obj[row][field] = val; }
-          else obj[field] = val;
+          obj[row] = { ...(obj[row] || {}) };
+          obj[row][field] = inp.value.trim();
           _hmSetMeta(sel.value, sec, obj);
+        });
+      });
+      // Editable row labels (first column)
+      prev.querySelectorAll('.hm-dlabel').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const sec = inp.dataset.sec, id = inp.dataset.id;
+          const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || [])
+            .map(r => r.id === id ? { ...r, label: inp.value } : r);
+          _hmSetRows(sel.value, sec, rows);
+        });
+      });
+      // Add row
+      prev.querySelectorAll('.hm-row-add').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sec = btn.dataset.sec;
+          const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || []).slice();
+          rows.push({ id: 'r' + Math.random().toString(36).slice(2, 8), label: '' });
+          _hmSetRows(sel.value, sec, rows);
+          renderHM();
+        });
+      });
+      // Remove row (also drop its cell data)
+      prev.querySelectorAll('.hm-row-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sec = btn.dataset.sec, id = btn.dataset.id;
+          const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || []).filter(r => r.id !== id);
+          _hmSetRows(sel.value, sec, rows);
+          const obj = { ...(_hmGetMeta(sel.value, sec) || {}) };
+          delete obj[id];
+          _hmSetMeta(sel.value, sec, obj);
+          renderHM();
         });
       });
       // Detail narrative textareas
