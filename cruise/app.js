@@ -5091,7 +5091,7 @@ pageEvents.reports = function () {
             img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
           const fname = `CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`;
           await window.html2pdf().set({
-            margin:      [8, 8, 12, 8],
+            margin:      [8, 8, 15, 8],
             filename:    fname,
             image:       { type:'jpeg', quality:0.98 },
             html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
@@ -5099,28 +5099,34 @@ pageEvents.reports = function () {
             // Keep rows and narrative blocks intact so page breaks never slice
             // through the middle of text; tables break cleanly between rows.
             pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend', '.hm-detail-row'] },
-          }).from(hidden.querySelector('#hmPdfRoot')).toPdf().get('pdf').then(pdf => {
-            // Stamp the footer (rule line + date + page number + company) at the
-            // bottom of EVERY physical page. Uses the chosen report date, or
-            // falls back to today's date when none is chosen.
+          }).from(hidden.querySelector('#hmPdfRoot')).toPdf().get('pdf').then(async pdf => {
+            // Footer is RENDERED AS HTML (captured via html2canvas) so it matches
+            // the report's own font/style, then placed on every page.
             let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
             if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
             const total = pdf.internal.getNumberOfPages();
-            // Footer matching the original CTI report — two lines under a thin
-            // rule:  row1 = DATE (left) / PAGE (right),  row2 = company name.
+            const pw = pdf.internal.pageSize.getWidth();
+            const ph = pdf.internal.pageSize.getHeight();
+            const contentW = pw - 16;
             for (let i = 1; i <= total; i++) {
+              const fdiv = document.createElement('div');
+              fdiv.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
+              fdiv.innerHTML =
+                `<div style="font-family:'Inter',system-ui,sans-serif;">
+                   <div style="border-top:1px solid #333;padding-top:7px;display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:0.04em;color:#444;">
+                     <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
+                   </div>
+                   <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:#444;margin-top:3px;">CTI GROUP WORLDWIDE SERVICES, INC.</div>
+                 </div>`;
+              document.body.appendChild(fdiv);
+              let url, cw, chh;
+              try {
+                const fc = await window.html2canvas(fdiv.firstElementChild, { scale: 2, backgroundColor: '#ffffff' });
+                url = fc.toDataURL('image/png'); cw = fc.width; chh = fc.height;
+              } finally { document.body.removeChild(fdiv); }
+              const imgH = (chh / cw) * contentW;
               pdf.setPage(i);
-              const pw = pdf.internal.pageSize.getWidth();
-              const ph = pdf.internal.pageSize.getHeight();
-              pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
-              pdf.line(8, ph - 11, pw - 8, ph - 11);
-              pdf.setFont('helvetica', 'bold');
-              pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
-              pdf.setCharSpace(0.2);
-              pdf.text(`DATE: ${dateStr}`, 8, ph - 7);
-              pdf.text(`PAGE ${i} OF ${total}`, pw - 8, ph - 7, { align: 'right' });
-              pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', 8, ph - 3.5);
-              pdf.setCharSpace(0);
+              pdf.addImage(url, 'PNG', 8, ph - imgH - 3, contentW, imgH);
             }
           }).save();
         } finally {
