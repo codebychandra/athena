@@ -5106,22 +5106,20 @@ pageEvents.reports = function () {
             let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
             if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
             const total = pdf.internal.getNumberOfPages();
-            // Footer style matching the previous .rpt-footer: thin dark rule,
-            // gray semibold text with slight letter-spacing.
+            // Footer matching the original CTI report — two lines under a thin
+            // rule:  row1 = DATE (left) / PAGE (right),  row2 = company name.
             for (let i = 1; i <= total; i++) {
               pdf.setPage(i);
               const pw = pdf.internal.pageSize.getWidth();
               const ph = pdf.internal.pageSize.getHeight();
-              const ly = ph - 8.5;      // rule line position
-              const ty = ph - 4;        // text baseline
               pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
-              pdf.line(8, ly, pw - 8, ly);
+              pdf.line(8, ph - 11, pw - 8, ph - 11);
               pdf.setFont('helvetica', 'bold');
               pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
               pdf.setCharSpace(0.2);
-              pdf.text(`DATE: ${dateStr}`, 8, ty);
-              pdf.text(`Page ${i} of ${total}`, pw / 2, ty, { align: 'center' });
-              pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', pw - 8, ty, { align: 'right' });
+              pdf.text(`DATE: ${dateStr}`, 8, ph - 7);
+              pdf.text(`PAGE ${i} OF ${total}`, pw - 8, ph - 7, { align: 'right' });
+              pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', 8, ph - 3.5);
               pdf.setCharSpace(0);
             }
           }).save();
