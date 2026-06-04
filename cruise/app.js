@@ -4185,6 +4185,10 @@ pages.reports = async function () {
                 <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Quarter</div>
                 <select id="hmQuarter" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);min-width:240px;"></select>
               </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date</div>
+                <input type="date" id="hmReportDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
+              </div>
               <button id="hmDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
             </div>
           </div>
@@ -4409,7 +4413,6 @@ function hmBuildExplain(qKey) {
         <tbody>${rows}</tbody>
       </table>
       ${hmLegend()}
-      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4480,7 +4483,6 @@ function hmBuildScorecard(qKey, editable) {
         <tbody>${rows}</tbody>
       </table>
       ${hmLegend()}
-      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4605,8 +4607,6 @@ function hmBuildDetail(qKey, editable) {
       ${block('Waiting for Assignment (New Hire)',
         hmTable('Status', editable, hmRowsHtml(qKey, editable, 'waiting', HM_WAIT_ROWS)),
         'waitingNarr', 'Waiting-for-assignment commentary…')}
-
-      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4757,7 +4757,6 @@ function hmBuildSummary(qKey, editable) {
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
       ${conclusionBlock}
-      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4896,6 +4895,16 @@ pageEvents.reports = function () {
 
     let view = 'explain';
 
+    // Report date (chosen by the user, saved per quarter) — used in the footer.
+    const dateInp = document.getElementById('hmReportDate');
+    if (dateInp) dateInp.addEventListener('change', () => _hmSetMeta(sel.value, 'reportDate', dateInp.value));
+    function syncDate() { if (dateInp) dateInp.value = _hmGetMeta(sel.value, 'reportDate') || ''; }
+    function hmFmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso + 'T00:00:00');
+      return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+    }
+
     // Recolour a parameter cell live from its current value (no full re-render).
     function recolorParam(pk) {
       const p = HEATMAP_PARAMS.find(x => x.key === pk);
@@ -4994,6 +5003,7 @@ pageEvents.reports = function () {
     function autoGrow(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 
     function renderHM() {
+      syncDate();
       prev.innerHTML = buildHeatMapHTML(view, sel.value, true);
       if (view === 'scorecard') attachScorecardHandlers();
       if (view === 'detail')    attachDetailHandlers();
@@ -5053,14 +5063,22 @@ pageEvents.reports = function () {
             // through the middle of text; tables break cleanly between rows.
             pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend', '.hm-detail-row'] },
           }).from(hidden.querySelector('#hmPdfRoot')).toPdf().get('pdf').then(pdf => {
-            // Stamp a page number at the bottom-centre of every physical page.
+            // Stamp the footer (rule line + date + page number + company) at the
+            // bottom of EVERY physical page, using the chosen report date.
+            const dateStr = hmFmtDate(dateInp ? dateInp.value : '');
             const total = pdf.internal.getNumberOfPages();
             for (let i = 1; i <= total; i++) {
               pdf.setPage(i);
               const pw = pdf.internal.pageSize.getWidth();
               const ph = pdf.internal.pageSize.getHeight();
-              pdf.setFontSize(8); pdf.setTextColor(110);
-              pdf.text(`Page ${i} of ${total}`, pw / 2, ph - 4, { align: 'center' });
+              const ly = ph - 8;        // rule line position
+              const ty = ph - 4;        // text baseline
+              pdf.setDrawColor(176, 26, 24); pdf.setLineWidth(0.4);
+              pdf.line(8, ly, pw - 8, ly);
+              pdf.setFontSize(8); pdf.setTextColor(90);
+              if (dateStr) pdf.text(`DATE: ${dateStr}`, 8, ty);
+              pdf.text(`Page ${i} of ${total}`, pw / 2, ty, { align: 'center' });
+              pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', pw - 8, ty, { align: 'right' });
             }
           }).save();
         } finally {
