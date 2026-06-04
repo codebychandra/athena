@@ -4437,9 +4437,11 @@ function hmBuildScorecard(qKey, editable) {
         ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}" placeholder="0" style="${ib}width:78px;text-align:center;font-weight:700;"><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')}</div>`
         : `<span style="font-weight:700;font-size:13px;">${rate===''?'—':escH(String(rate))}</span>`;
     } else {
+      // In the PDF (non-editable) the RAG word is hidden — the colour + dot
+      // column already convey the status. The dropdown only shows on screen.
       rateCell = editable
         ? `<select class="hm-rag" data-pk="${p.key}" style="${ib}width:104px;"><option value="">— status —</option><option value="green"${rag==='green'?' selected':''}>Green</option><option value="amber"${rag==='amber'?' selected':''}>Amber</option><option value="red"${rag==='red'?' selected':''}>Red</option></select>`
-        : `<span style="font-weight:700;">${rag?escH(rag[0].toUpperCase()+rag.slice(1)):'—'}</span>`;
+        : '';
     }
     const remarksCell = editable
       ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2" placeholder="CTI remarks…" style="${ib}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
@@ -4514,19 +4516,26 @@ function _hmGetRows(qKey, sec, defaults) {
 }
 function _hmSetRows(qKey, sec, rows) { _hmSetMeta(qKey, sec + '__rows', rows); }
 
-// A matrix table: editable row-label column + one column per cruise line.
-// All data columns share equal width (table-layout:fixed); an extra narrow
-// action column (delete) shows only in edit mode.
-function hmMatrix(qKey, editable, sec, rowHeader, defaults) {
-  const rows = _hmGetRows(qKey, sec, defaults);
-  const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
-  const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
+// ── Composable matrix pieces (cruise lines = equal-width columns) ──
+function hmColCount(editable) { return 1 + HM_CRUISE_LINES.length + (editable ? 1 : 0); }
 
-  const head = `<tr>
+function hmHeadHtml(rowHeader, editable) {
+  return `<tr>
       <th class="rpt-th">${escH(rowHeader)}</th>${
     HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}${
     editable ? '<th class="rpt-th hm-actcol"></th>' : ''}
     </tr>`;
+}
+
+function hmDividerRow(label, editable) {
+  return `<tr class="hm-divider"><td colspan="${hmColCount(editable)}">${escH(label)}</td></tr>`;
+}
+
+// Data rows for one section + (in edit mode) an inline "+ Add row" row.
+function hmRowsHtml(qKey, editable, sec, defaults) {
+  const rows = _hmGetRows(qKey, sec, defaults);
+  const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
+  const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
 
   const body = rows.map(r => `<tr>
       <td class="rpt-td">${editable
@@ -4539,14 +4548,17 @@ function hmMatrix(qKey, editable, sec, rowHeader, defaults) {
         ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(r.id)}" data-field="${escH(c)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
         : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
     }).join('')}${
-    editable ? `<td class="rpt-td hm-actcol" style="text-align:center;"><button type="button" class="hm-row-del" data-sec="${sec}" data-id="${escH(r.id)}" title="Remove row">×</button></td>` : ''}
+    editable ? `<td class="rpt-td hm-actcol"><button type="button" class="hm-row-del" data-sec="${sec}" data-id="${escH(r.id)}" title="Remove row">×</button></td>` : ''}
     </tr>`).join('');
 
-  const addBtn = editable
-    ? `<button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button>`
+  const add = editable
+    ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable)}"><button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button></td></tr>`
     : '';
+  return body + add;
+}
 
-  return `<table class="rpt-table hm-table hm-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>${addBtn}`;
+function hmTable(rowHeader, editable, bodyHtml) {
+  return `<table class="rpt-table hm-table hm-matrix"><thead>${hmHeadHtml(rowHeader, editable)}</thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // ── SECTION 3: Performance Detail — 2-column (matrix table | explanation) ──
@@ -4568,32 +4580,31 @@ function hmBuildDetail(qKey, editable) {
       <div class="hm-detail-explain">${narr(field, ph)}</div>
     </div>`;
 
+  // Demand Delivery + Talent Pool combined into one table, split by a divider.
+  const demandTalentTable = hmTable('Department', editable,
+    hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS) +
+    hmDividerRow('Talent Pool', editable) +
+    hmRowsHtml(qKey, editable, 'talent', HM_DEPARTMENTS));
+
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Performance Detail')}
 
       ${block('Demand Delivery',
-        hmMatrix(qKey, editable, 'demand', 'Department', HM_DEPARTMENTS),
-        'demandNarr', 'Demand overview commentary…')}
-
-      ${block('Talent Pool',
-        hmMatrix(qKey, editable, 'talent', 'Department', HM_DEPARTMENTS),
-        'talentNarr', 'Talent pool commentary…')}
+        demandTalentTable,
+        'demandNarr', 'Demand & talent-pool commentary…')}
 
       ${block('Attrition',
-        hmMatrix(qKey, editable, 'attrition', 'Reason', HM_ATTR_REASONS),
+        hmTable('Reason', editable, hmRowsHtml(qKey, editable, 'attrition', HM_ATTR_REASONS)),
         'attritionNarr', 'How attrition is counted and the quarter trend…')}
 
       ${block('New Hires vs Re-Joiners',
-        hmMatrix(qKey, editable, 'rejoin', 'Metric', HM_REJOIN_ROWS),
+        hmTable('Metric', editable, hmRowsHtml(qKey, editable, 'rejoin', HM_REJOIN_ROWS)),
         'rejoinNarr', 'New-hire vs re-joiner split commentary…')}
 
       ${block('Waiting for Assignment (New Hire)',
-        hmMatrix(qKey, editable, 'waiting', 'Status', HM_WAIT_ROWS),
+        hmTable('Status', editable, hmRowsHtml(qKey, editable, 'waiting', HM_WAIT_ROWS)),
         'waitingNarr', 'Waiting-for-assignment commentary…')}
-
-      <div class="hm-section-title">Monthly Invoicing</div>
-      ${narr('invoicingNarr', 'Monthly invoicing accuracy commentary…')}
 
       ${hmFooter()}
     </div>
@@ -4696,15 +4707,6 @@ function hmBuildSummary(qKey, editable) {
         ? `<div class="hm-section-title">Overview</div><p class="hm-para">${escH(overviewTxt).replace(/\n/g,'<br>')}</p>`
         : '');
 
-  const commentary = _hmGetMeta(qKey, 'summaryText') || '';
-  const commentaryBlock = editable
-    ? `<div class="hm-section-title">Overall Commentary</div>
-       <textarea id="hmSummaryText" rows="3" class="hm-commentary"
-         placeholder="Optional overall commentary…">${escH(commentary)}</textarea>`
-    : (commentary
-        ? `<div class="hm-section-title">Overall Commentary</div><p class="hm-para">${escH(commentary).replace(/\n/g,'<br>')}</p>`
-        : '');
-
   const conclusionTxt = _hmGetMeta(qKey, 'conclusionText') || '';
   const conclusionBlock = editable
     ? `<div class="hm-section-title">Conclusion</div>
@@ -4752,7 +4754,6 @@ function hmBuildSummary(qKey, editable) {
       ${hmHeader(q.label, 'Executive Summary')}
       ${overview}
       ${overviewBlock}
-      ${commentaryBlock}
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
       ${conclusionBlock}
@@ -4783,13 +4784,18 @@ const HEATMAP_STYLES = `
 .hm-detail-explain { flex:1 1 42%; min-width:0; }
 .hm-detail-explain .hm-commentary { margin-bottom:0; }
 .hm-matrix { width:100%; table-layout:fixed; }
+.hm-matrix td, .hm-matrix th { vertical-align:middle; }
 .hm-matrix .rpt-td input { box-sizing:border-box; }
-.hm-matrix .hm-actcol { width:26px; }
-.hm-row-del { width:20px; height:20px; line-height:1; border:1px solid #e0b4b4; background:#fff5f5; color:#B01A18;
-  border-radius:5px; cursor:pointer; font-size:13px; font-weight:700; padding:0; }
+.hm-matrix .hm-actcol { width:30px; text-align:center; padding:4px 2px; }
+.hm-divider td { background:#1A1A1A; color:#fff; font-weight:800; text-align:center;
+  letter-spacing:0.10em; text-transform:uppercase; font-size:10px; padding:6px; }
+.hm-addrow td { padding:4px 6px; background:#fafafa; }
+.hm-row-del { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+  border:1px solid #e0b4b4; background:#fff5f5; color:#B01A18; border-radius:5px; cursor:pointer;
+  font-size:13px; font-weight:700; padding:0; }
 .hm-row-del:hover { background:#B01A18; color:#fff; border-color:#B01A18; }
-.hm-row-add { margin-top:6px; font-size:10.5px; font-weight:700; color:#B01A18; background:#fff;
-  border:1px dashed #B01A18; border-radius:6px; padding:5px 12px; cursor:pointer; font-family:inherit; }
+.hm-row-add { font-size:10.5px; font-weight:700; color:#B01A18; background:#fff;
+  border:1px dashed #B01A18; border-radius:6px; padding:4px 12px; cursor:pointer; font-family:inherit; }
 .hm-row-add:hover { background:#B01A18; color:#fff; }
 .hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
 .hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
@@ -4979,7 +4985,6 @@ pageEvents.reports = function () {
         if (el) el.addEventListener('input', () => _hmSetMeta(sel.value, field, el.value));
       };
       bind('hmOverviewText', 'overviewText');
-      bind('hmSummaryText', 'summaryText');
       bind('hmConclusionText', 'conclusionText');
       prev.querySelectorAll('.hm-sum-text').forEach(area =>
         area.addEventListener('input', () => _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value)));
