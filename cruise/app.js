@@ -483,6 +483,96 @@ async function hydrateDemand() {
   _demandHydrated = true;
   return false;
 }
+
+// ── Shared app state (live via Worker KV) ────────────────────────────────────
+// These stores used to be localStorage-only (per-device). They are now mirrored
+// to localStorage (offline cache) AND pushed to the worker so every user/device
+// shares them. An in-memory cache keeps the existing synchronous getters/setters
+// working; ensureSharedState() pulls the server copies once before the first
+// page renders. Personal preferences (theme/sidebar/page) and the per-device
+// download history are intentionally NOT shared.
+const SHARED_STORES = {
+  heatmap:           'cti_cruise_heatmap',
+  rpt_notes:         'cti_cruise_rpt_notes',
+  pending_overrides: 'cti_cruise_pending_overrides',
+  mistral_sent:      'cti_cruise_mistral_sent',
+  sa_sent:           'cti_cruise_sa_sent',
+};
+const _sharedCache = {};
+
+function _sharedLocalGet(store, fallback) {
+  try {
+    const raw = localStorage.getItem(SHARED_STORES[store]);
+    return raw != null ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+function sharedGet(store, fallback) {
+  if (store in _sharedCache) return _sharedCache[store];
+  const v = _sharedLocalGet(store, fallback);
+  _sharedCache[store] = v;
+  return v;
+}
+function sharedSet(store, value) {
+  _sharedCache[store] = value;
+  try { localStorage.setItem(SHARED_STORES[store], JSON.stringify(value)); } catch {}
+  try {
+    fetch(WORKER_URL + '/api/cruise/state', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: store, value }),
+    }).catch(() => {});
+  } catch {}
+}
+
+let _sharedHydratePromise = null;
+function ensureSharedState() {
+  if (!_sharedHydratePromise) _sharedHydratePromise = hydrateSharedState();
+  return _sharedHydratePromise;
+}
+// One-time: fold legacy per-brand note keys (cti_cruise_rpt_notes_<brand>) into
+// the consolidated cti_cruise_rpt_notes object so existing notes aren't lost.
+function _migrateLegacyRptNotes() {
+  try {
+    if (localStorage.getItem(SHARED_STORES.rpt_notes) != null) return;
+    const consolidated = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cti_cruise_rpt_notes_')) {
+        const slug  = k.slice('cti_cruise_rpt_notes_'.length);
+        const brand = (typeof CRUISE_BRANDS !== 'undefined' ? CRUISE_BRANDS : [])
+          .find(b => b.replace(/\s+/g, '_') === slug) || slug.replace(/_/g, ' ');
+        const val = localStorage.getItem(k);
+        if (val) consolidated[brand] = val;
+      }
+    }
+    if (Object.keys(consolidated).length) {
+      localStorage.setItem(SHARED_STORES.rpt_notes, JSON.stringify(consolidated));
+    }
+  } catch {}
+}
+
+async function hydrateSharedState() {
+  _migrateLegacyRptNotes();
+  await Promise.all(Object.keys(SHARED_STORES).map(async store => {
+    try {
+      const res = await fetch(WORKER_URL + '/api/cruise/state?key=' + encodeURIComponent(store), { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.value != null) {
+          _sharedCache[store] = data.value;
+          try { localStorage.setItem(SHARED_STORES[store], JSON.stringify(data.value)); } catch {}
+          return;
+        }
+      }
+      // Server empty → seed from local if this device has anything.
+      const local = _sharedLocalGet(store, null);
+      const hasData = local != null && (typeof local !== 'object' || Object.keys(local).length);
+      if (hasData) { _sharedCache[store] = local; sharedSet(store, local); }
+    } catch { /* offline — keep local cache */ }
+  }));
+  // Rebuild module-level maps that were built from local at load time.
+  _saSentIds = _loadSaSentIds();
+}
+
 function brandNode(d, brand) {
   d[brand] = d[brand] || { talentPool: {}, monthly: {} };
   d[brand].talentPool = d[brand].talentPool || {};
@@ -622,13 +712,16 @@ function mistralRequestRows(seafarers, opts = {}) {
   }).sort((a, b) => new Date(a.hiredDate) - new Date(b.hiredDate));
 }
 
-// ── Editable recruiting notes — persisted to localStorage per brand ───────────
-const _RPT_NOTES_KEY = brand => `cti_cruise_rpt_notes_${brand.replace(/\s+/g,'_')}`;
+// ── Editable recruiting notes — shared live (one object: brand → text) ────────
 function _loadReportNote(brand) {
-  try { return localStorage.getItem(_RPT_NOTES_KEY(brand)) || null; } catch { return null; }
+  const all = sharedGet('rpt_notes', {}) || {};
+  const v = all[brand];
+  return (v == null || v === '') ? null : v;
 }
 function _saveReportNote(brand, text) {
-  try { localStorage.setItem(_RPT_NOTES_KEY(brand), text); } catch {}
+  const all = { ...(sharedGet('rpt_notes', {}) || {}) };
+  all[brand] = text;
+  sharedSet('rpt_notes', all);
 }
 
 const _reportNotes = {};   // brand -> raw textarea string (runtime cache, backed by localStorage)
@@ -1448,15 +1541,13 @@ let _sfRows = [];   // all seafarers (resigned excluded), cached for filter re-u
 let _saRows = [];   // Attachment page subset: CTI Indonesia only (resigned excluded)
 let _vRows  = [];   // Visa page subset: CTI Indonesia, Report to Ship only
 let _depRows = [];  // Deployment page: raw rows from Zoho Sheet "Deployment" tab
-// seafarerId → ISO timestamp of last successful Send Form (persisted to localStorage)
-const _SA_SENT_KEY = 'cti_cruise_sa_sent';
+// seafarerId → ISO timestamp of last successful Send Form (shared live)
 function _loadSaSentIds() {
-  try { return new Map(Object.entries(JSON.parse(localStorage.getItem(_SA_SENT_KEY) || '{}'))); }
-  catch { return new Map(); }
+  const obj = sharedGet('sa_sent', {}) || {};
+  try { return new Map(Object.entries(obj)); } catch { return new Map(); }
 }
 function _saveSaSentIds() {
-  try { localStorage.setItem(_SA_SENT_KEY, JSON.stringify(Object.fromEntries(_saSentIds))); }
-  catch {}
+  sharedSet('sa_sent', Object.fromEntries(_saSentIds));
 }
 let _saSentIds = _loadSaSentIds();
 
@@ -4206,9 +4297,9 @@ function hmRagDot(rag) {
 }
 
 // ── Persistence: { [qKey]: { params:{[pk]:{rate,remarks,rag}}, wfa:{[brand]:{comp,noncomp}} } } ──
-const HM_STORE = 'cti_cruise_heatmap';
-function _hmLoadAll() { try { return JSON.parse(localStorage.getItem(HM_STORE)) || {}; } catch { return {}; } }
-function _hmSaveAll(o) { try { localStorage.setItem(HM_STORE, JSON.stringify(o)); } catch {} }
+// Stored live via the shared 'heatmap' store (Worker KV).
+function _hmLoadAll() { return sharedGet('heatmap', {}) || {}; }
+function _hmSaveAll(o) { sharedSet('heatmap', o); }
 function _hmQuarter(qKey) { const all=_hmLoadAll(); return all[qKey] || { params:{}, wfa:{} }; }
 function _hmGetParam(qKey, pk) { return (_hmQuarter(qKey).params || {})[pk] || {}; }
 function _hmSetParam(qKey, pk, field, val) {
@@ -4945,14 +5036,13 @@ pageEvents.reports = function () {
   let _mistralSortF  = null;
   let _mistralSortD  = 1;
 
-  // ── Mistral email sent tracking (localStorage) ─────────────────────────────
-  const _MISTRAL_SENT_KEY = 'cti_cruise_mistral_sent';
+  // ── Mistral email sent tracking (shared live) ──────────────────────────────
   function _loadMistralSent() {
-    try { return new Map(Object.entries(JSON.parse(localStorage.getItem(_MISTRAL_SENT_KEY) || '{}'))); }
-    catch { return new Map(); }
+    const obj = sharedGet('mistral_sent', {}) || {};
+    try { return new Map(Object.entries(obj)); } catch { return new Map(); }
   }
   function _saveMistralSent(map) {
-    try { localStorage.setItem(_MISTRAL_SENT_KEY, JSON.stringify(Object.fromEntries(map))); } catch {}
+    sharedSet('mistral_sent', Object.fromEntries(map));
   }
   let _mistralSentIds = _loadMistralSent(); // id → { ok, ts }
 
@@ -5887,16 +5977,15 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable) 
 // across the demand months in chronological order: fill January's demand
 // first, overflow into February, and so on.
 //   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
-// ── Manual pending-Mistral-ID overrides for monthly demand (localStorage) ─────
-const _PENDING_OVR_KEY = 'cti_cruise_pending_overrides';
+// ── Manual pending-Mistral-ID overrides for monthly demand (shared live) ──────
 function _loadPendingOverrides() {
-  try { return JSON.parse(localStorage.getItem(_PENDING_OVR_KEY) || '{}'); } catch { return {}; }
+  return sharedGet('pending_overrides', {}) || {};
 }
 function _savePendingOverride(key, val) {
-  const all = _loadPendingOverrides();
+  const all = { ...(_loadPendingOverrides()) };
   if (val === null || val === undefined || val === '') delete all[key];
   else all[key] = Number(val);
-  try { localStorage.setItem(_PENDING_OVR_KEY, JSON.stringify(all)); } catch {}
+  sharedSet('pending_overrides', all);
 }
 function _pendingOvrKey(brand, mk, pos) { return `${brand}||${mk}||${pos}`; }
 
@@ -6358,6 +6447,9 @@ async function navigate(page) {
   if (!content) return;
   content.style.opacity = '0';
   try {
+    // Pull shared live state (heat map, notes, overrides, sent-flags) once
+    // before the first render so every device shows the same data.
+    await ensureSharedState();
     content.innerHTML = await pages[page]();
     if (pageEvents[page]) pageEvents[page]();
   } catch (err) {

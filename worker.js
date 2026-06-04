@@ -1403,6 +1403,29 @@ export default {
         }
       }
 
+      // ── Shared cruise app-state (KV) ──────────────────────────────────
+      // Generic key/value store so per-device data (heat map, recruiting
+      // notes, pending overrides, sent-timestamps) is shared across all
+      // users/devices. Allowlisted keys only. No TTL → persists.
+      if ((method === 'GET' || method === 'POST') && path === '/api/cruise/state') {
+        const ALLOWED = ['heatmap', 'rpt_notes', 'pending_overrides', 'mistral_sent', 'sa_sent'];
+        if (method === 'GET') {
+          const key = url.searchParams.get('key') || '';
+          if (!ALLOWED.includes(key)) return json({ error: 'unknown key' }, 400, ch);
+          const data = await getCached(env, 'cruise-state:' + key);
+          return json({ value: data ? data.value : null }, 200, ch);
+        }
+        try {
+          const body = await request.json();
+          const key  = body && body.key;
+          if (!ALLOWED.includes(key)) return json({ ok: false, error: 'unknown key' }, 400, ch);
+          await env.TOKEN_CACHE.put('cruise-state:' + key, JSON.stringify({ value: body.value }));
+          return json({ ok: true }, 200, ch);
+        } catch (err) {
+          return json({ ok: false, error: err.message }, 500, ch);
+        }
+      }
+
       // ── POST /api/ai/chat ──────────────────────────────────────────────────
       // Proxies to Anthropic Claude API. Requires ANTHROPIC_API_KEY secret.
       if (method === 'POST' && path === '/api/ai/chat') {
