@@ -4192,8 +4192,9 @@ pages.reports = async function () {
           <!-- Inner sub-nav: the three pages -->
           <div class="rpt-subnav" style="margin-top:18px;margin-bottom:0;">
             <button class="hm-subnav-btn active" data-hm="explain">1 · Parameter</button>
-            <button class="hm-subnav-btn" data-hm="performance">2 · Performance Report</button>
-            <button class="hm-subnav-btn" data-hm="summary">3 · Executive Summary</button>
+            <button class="hm-subnav-btn" data-hm="scorecard">2 · Scorecard</button>
+            <button class="hm-subnav-btn" data-hm="detail">3 · Performance Detail</button>
+            <button class="hm-subnav-btn" data-hm="summary">4 · Executive Summary</button>
           </div>
         </div>
 
@@ -4363,12 +4364,12 @@ function hmHeader(qLabel, pageTitle) {
     </div>`;
 }
 
-function hmFooter(pageNum) {
+function hmFooter(sectionLabel) {
   const today = fmtReportDate(new Date());
   return `
     <div class="rpt-footer">
       <span>DATE: ${today}</span>
-      <span>PAGE ${pageNum} OF 3</span>
+      <span>${escH(sectionLabel || '')}</span>
       <span>CTI GROUP WORLDWIDE SERVICES, INC.</span>
     </div>`;
 }
@@ -4396,7 +4397,7 @@ function hmBuildExplain(qKey) {
     </tr>`).join('');
   return `
     <div class="rpt-doc hm-doc">
-      ${hmHeader(q.label, 'Parameter')}
+      ${hmHeader(q.label, 'Parameter Definitions')}
       ${hmLegend()}
       <table class="rpt-table hm-table">
         <thead><tr>
@@ -4409,71 +4410,168 @@ function hmBuildExplain(qKey) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      ${hmFooter(1)}
+      ${hmFooter('Parameter Definitions')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
 
-// ── PAGE 2: Performance Report (editable) ──
-function hmBuildPerformance(qKey, editable) {
-  const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
-  const inputBase = 'box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;background:#fff;color:#1A1A1A;';
+// ── SECTION 2: Executive Scorecard (matches the client PDF page 2) ──
+function hmBuildScorecard(qKey, editable) {
+  const qIdx  = HEATMAP_QUARTERS.findIndex(x => x.key === qKey);
+  const q     = HEATMAP_QUARTERS[qIdx] || HEATMAP_QUARTERS[0];
+  const prevQ = qIdx > 0 ? HEATMAP_QUARTERS[qIdx - 1] : null;
+  const prevShort = prevQ ? prevQ.label.replace(/\s*\(.*/, '') : '';
+  const ib = 'box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;background:#fff;color:#1A1A1A;';
 
   const rows = HEATMAP_PARAMS.map(p => {
-    const rec = _hmGetParam(qKey, p.key);
-    const rag = hmResolveRag(p, rec);
-    const bg  = HM_RAG_BG[rag] || 'transparent';
+    const rec  = _hmGetParam(qKey, p.key);
+    const rag  = hmResolveRag(p, rec);
+    const bg   = HM_RAG_BG[rag] || 'transparent';
     const rate = rec.rate != null ? rec.rate : '';
     const remarks = rec.remarks != null ? rec.remarks : '';
+    const qoq  = rec.qoq != null ? rec.qoq : '';
+    const prev = rec.prevScore != null ? rec.prevScore : '';
 
     let rateCell;
     if (p.numeric) {
       rateCell = editable
-        ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}"
-             placeholder="0" style="${inputBase}width:90px;text-align:center;font-weight:700;">
-           <div style="font-size:8.5px;color:#999;margin-top:3px;">${escH(p.unit||'')}</div>`
-        : `<span style="font-weight:700;font-size:13px;">${rate === '' ? '—' : escH(String(rate))}</span>
-           <div style="font-size:8.5px;color:#999;">${escH(p.unit||'')}</div>`;
+        ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}" placeholder="0" style="${ib}width:78px;text-align:center;font-weight:700;"><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')}</div>`
+        : `<span style="font-weight:700;font-size:13px;">${rate===''?'—':escH(String(rate))}</span>`;
     } else {
       rateCell = editable
-        ? `<select class="hm-rag" data-pk="${p.key}" style="${inputBase}width:120px;">
-             <option value="">— status —</option>
-             <option value="green"${rag==='green'?' selected':''}>Green</option>
-             <option value="amber"${rag==='amber'?' selected':''}>Amber</option>
-             <option value="red"${rag==='red'?' selected':''}>Red</option>
-           </select>`
+        ? `<select class="hm-rag" data-pk="${p.key}" style="${ib}width:104px;"><option value="">— status —</option><option value="green"${rag==='green'?' selected':''}>Green</option><option value="amber"${rag==='amber'?' selected':''}>Amber</option><option value="red"${rag==='red'?' selected':''}>Red</option></select>`
         : `<span style="font-weight:700;">${rag?escH(rag[0].toUpperCase()+rag.slice(1)):'—'}</span>`;
     }
-
     const remarksCell = editable
-      ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2"
-           placeholder="Type explanation / remarks…" style="${inputBase}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
-      : `<span>${remarks ? escH(remarks) : '—'}</span>`;
+      ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2" placeholder="CTI remarks…" style="${ib}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
+      : `<span>${remarks?escH(remarks):'—'}</span>`;
+    const qoqCell = editable
+      ? `<input type="text" class="hm-qoq" data-pk="${p.key}" value="${escH(String(qoq))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
+      : `<span>${qoq===''?'—':escH(String(qoq))}</span>`;
+    const prevCell = editable
+      ? `<input type="text" class="hm-prev" data-pk="${p.key}" value="${escH(String(prev))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
+      : `<span>${prev===''?'—':escH(String(prev))}</span>`;
 
     return `
       <tr>
-        <td class="rpt-td" style="font-weight:700;width:200px;">${escH(p.name)}</td>
-        <td class="rpt-td hm-cell-rate" data-pk="${p.key}" style="width:120px;text-align:center;background:${bg};">${rateCell}</td>
-        <td class="rpt-td" style="text-align:center;width:54px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
+        <td class="rpt-td" style="font-weight:700;width:150px;">${escH(p.name)}</td>
+        <td class="rpt-td hm-cell-rate" data-pk="${p.key}" style="width:92px;text-align:center;background:${bg};">${rateCell}</td>
+        <td class="rpt-td" style="text-align:center;width:44px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
         <td class="rpt-td">${remarksCell}</td>
+        <td class="rpt-td" style="text-align:center;width:96px;">${qoqCell}</td>
+        <td class="rpt-td" style="text-align:center;width:96px;">${prevCell}</td>
       </tr>`;
   }).join('');
 
   return `
     <div class="rpt-doc hm-doc">
-      ${hmHeader(q.label, 'Performance Report')}
+      ${hmHeader(q.label, 'Executive Scorecard')}
       ${hmLegend()}
-      ${editable ? '<p class="hm-hint">Type the result for each parameter — the cell colour updates automatically from the RAG threshold. Entries save automatically.</p>' : ''}
+      ${editable ? '<p class="hm-hint">Enter the success rate (numeric cells auto-colour by RAG threshold), CTI remarks, QoQ change and previous-quarter score. Saves automatically.</p>' : ''}
       <table class="rpt-table hm-table">
         <thead><tr>
           <th class="rpt-th">Parameter</th>
-          <th class="rpt-th" style="text-align:center;">Result</th>
+          <th class="rpt-th" style="text-align:center;">Success Rate</th>
           <th class="rpt-th" style="text-align:center;">RAG</th>
-          <th class="rpt-th">Explanation / Remarks</th>
+          <th class="rpt-th">CTI Remarks</th>
+          <th class="rpt-th" style="text-align:center;">QoQ Change%</th>
+          <th class="rpt-th" style="text-align:center;">Prev. Score${prevShort?`<br><span style="font-weight:400;">(${escH(prevShort)})</span>`:''}</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      ${hmFooter(2)}
+      ${hmFooter('Executive Scorecard')}
+    </div>
+    ${REPORT_STYLES}${HEATMAP_STYLES}`;
+}
+
+// Nested-meta cell accessor for the detail tables.
+function _hmMetaCell(qKey, sec, row, field) {
+  if (sec === 'wfa') { const r = _hmGetWfa(qKey, row); return r ? r[field] : undefined; }
+  const o = _hmGetMeta(qKey, sec) || {};
+  return row ? (o[row] || {})[field] : o[field];
+}
+
+// ── SECTION 3: Performance Detail (operational depth, per data-driven metric) ──
+function hmBuildDetail(qKey, editable) {
+  const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
+  const ib = 'box-sizing:border-box;padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:84px;';
+
+  const cell = (sec, row, field) => {
+    const v = _hmMetaCell(qKey, sec, row, field);
+    const val = v == null ? '' : v;
+    return editable
+      ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(row||'')}" data-field="${field}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
+      : `<span>${val===''?'—':escH(String(val))}</span>`;
+  };
+  const narr = (field, ph) => {
+    const v = _hmGetMeta(qKey, field) || '';
+    return editable
+      ? `<textarea class="hm-commentary hm-dnarr" data-field="${field}" rows="3" placeholder="${escH(ph)}">${escH(v)}</textarea>`
+      : (v ? `<p class="hm-para">${escH(v).replace(/\n/g,'<br>')}</p>` : '<p class="hm-para" style="color:#999;font-style:italic;">No commentary recorded.</p>');
+  };
+
+  const demandRows = HM_WFA_BRANDS.map(b => `
+    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'demand')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'hired')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'remaining')}</td></tr>`).join('');
+
+  const talentRows = HM_WFA_BRANDS.map(b => `
+    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'req')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'fulfilled')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'inProcess')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'remaining')}</td></tr>`).join('');
+
+  const wfaRows = HM_WFA_BRANDS.map(b => `
+    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('wfa', b, 'comp')}</td>
+      <td class="rpt-td" style="text-align:center;">${cell('wfa', b, 'noncomp')}</td></tr>`).join('');
+
+  const figRow = (sec, fields) => fields.map(f =>
+    `<td class="rpt-td" style="text-align:center;">${cell(sec, '', f.k)}</td>`).join('');
+
+  return `
+    <div class="rpt-doc hm-doc">
+      ${hmHeader(q.label, 'Performance Detail')}
+
+      <div class="hm-section-title">Demand Delivery</div>
+      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
+        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Demand</th><th class="rpt-th" style="text-align:center;">Hired</th><th class="rpt-th" style="text-align:center;">Remaining</th></tr></thead>
+        <tbody>${demandRows}</tbody>
+      </table>
+      <div class="hm-subhead">Talent Pool</div>
+      <table class="rpt-table hm-table" style="width:78%;min-width:520px;">
+        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Requisitions</th><th class="rpt-th" style="text-align:center;">Fulfilled</th><th class="rpt-th" style="text-align:center;">In Process</th><th class="rpt-th" style="text-align:center;">Remaining</th></tr></thead>
+        <tbody>${talentRows}</tbody>
+      </table>
+      ${narr('demandNarr', 'Demand overview commentary…')}
+
+      <div class="hm-section-title">Attrition</div>
+      <table class="rpt-table hm-table" style="width:78%;min-width:520px;">
+        <thead><tr><th class="rpt-th" style="text-align:center;">Total Establishment</th><th class="rpt-th" style="text-align:center;">Resignations</th><th class="rpt-th" style="text-align:center;">Prev-Qtr Resignations</th><th class="rpt-th" style="text-align:center;">Attrition Rate %</th></tr></thead>
+        <tbody><tr>${figRow('attrition',[{k:'establishment'},{k:'resignations'},{k:'prevResignations'},{k:'rate'}])}</tr></tbody>
+      </table>
+      ${narr('attritionNarr', 'How attrition is counted and the quarter trend…')}
+
+      <div class="hm-section-title">New Hires vs Re-Joiners</div>
+      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
+        <thead><tr><th class="rpt-th" style="text-align:center;">Embarked</th><th class="rpt-th" style="text-align:center;">New Hires</th><th class="rpt-th" style="text-align:center;">Re-Joiners</th></tr></thead>
+        <tbody><tr>${figRow('rejoin',[{k:'embarked'},{k:'newHires'},{k:'reJoiners'}])}</tr></tbody>
+      </table>
+      ${narr('rejoinNarr', 'New-hire vs re-joiner split commentary…')}
+
+      <div class="hm-section-title">Waiting for Assignment (New Hire)</div>
+      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
+        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Compliance</th><th class="rpt-th" style="text-align:center;">Non-Compliance</th></tr></thead>
+        <tbody>${wfaRows}</tbody>
+      </table>
+      ${narr('waitingNarr', 'Waiting-for-assignment commentary…')}
+
+      <div class="hm-section-title">Monthly Invoicing</div>
+      ${narr('invoicingNarr', 'Monthly invoicing accuracy commentary…')}
+
+      ${hmFooter('Performance Detail')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4565,13 +4663,31 @@ function hmBuildSummary(qKey, editable) {
       <span><span class="hm-pill" style="background:${HM_RAG_HEX.red}">${tally.red}</span> Red</span>
     </div>`;
 
+  const overviewTxt = _hmGetMeta(qKey, 'overviewText') || '';
+  const overviewBlock = editable
+    ? `<div class="hm-section-title">Overview</div>
+       <textarea id="hmOverviewText" rows="4" class="hm-commentary"
+         placeholder="Opening overview — overall operational performance for the quarter…">${escH(overviewTxt)}</textarea>`
+    : (overviewTxt
+        ? `<div class="hm-section-title">Overview</div><p class="hm-para">${escH(overviewTxt).replace(/\n/g,'<br>')}</p>`
+        : '');
+
   const commentary = _hmGetMeta(qKey, 'summaryText') || '';
   const commentaryBlock = editable
     ? `<div class="hm-section-title">Overall Commentary</div>
-       <textarea id="hmSummaryText" rows="4" class="hm-commentary"
-         placeholder="Type the overall executive summary narrative for this quarter…">${escH(commentary)}</textarea>`
+       <textarea id="hmSummaryText" rows="3" class="hm-commentary"
+         placeholder="Optional overall commentary…">${escH(commentary)}</textarea>`
     : (commentary
         ? `<div class="hm-section-title">Overall Commentary</div><p class="hm-para">${escH(commentary).replace(/\n/g,'<br>')}</p>`
+        : '');
+
+  const conclusionTxt = _hmGetMeta(qKey, 'conclusionText') || '';
+  const conclusionBlock = editable
+    ? `<div class="hm-section-title">Conclusion</div>
+       <textarea id="hmConclusionText" rows="4" class="hm-commentary"
+         placeholder="Closing conclusion — overall progress and outlook for next quarter…">${escH(conclusionTxt)}</textarea>`
+    : (conclusionTxt
+        ? `<div class="hm-section-title">Conclusion</div><p class="hm-para">${escH(conclusionTxt).replace(/\n/g,'<br>')}</p>`
         : '');
 
   // One block per parameter: title → heat-map status → editable explanation text area
@@ -4611,10 +4727,12 @@ function hmBuildSummary(qKey, editable) {
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Executive Summary')}
       ${overview}
+      ${overviewBlock}
       ${commentaryBlock}
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
-      ${hmFooter(3)}
+      ${conclusionBlock}
+      ${hmFooter('Executive Summary')}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4630,6 +4748,8 @@ const HEATMAP_STYLES = `
 .hm-table .rpt-td { font-size:10.5px; line-height:1.45; }
 .hm-hint { font-size:10.5px; color:#777; margin:0 0 12px; }
 .hm-section-title { font-size:12px; font-weight:800; letter-spacing:0.04em; color:#1A1A1A; text-transform:uppercase; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid #B01A18; }
+.hm-subhead { font-size:11px; font-weight:700; color:#444; margin:10px 0 5px; }
+.hm-dnarr { margin-bottom:6px; }
 .hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
 .hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
 .hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
@@ -4673,10 +4793,11 @@ const HEATMAP_PDF_STYLES = `
 </style>
 `;
 
-// Dispatcher: render the requested heat-map page.
+// Dispatcher: render the requested heat-map section.
 function buildHeatMapHTML(view, qKey, editable) {
-  if (view === 'performance') return hmBuildPerformance(qKey, editable !== false);
-  if (view === 'summary')     return hmBuildSummary(qKey, editable !== false);
+  if (view === 'scorecard') return hmBuildScorecard(qKey, editable !== false);
+  if (view === 'detail')    return hmBuildDetail(qKey, editable !== false);
+  if (view === 'summary')   return hmBuildSummary(qKey, editable !== false);
   return hmBuildExplain(qKey);
 }
 
@@ -4740,8 +4861,8 @@ pageEvents.reports = function () {
       if (dot) dot.innerHTML = hmRagDot(rag);
     }
 
-    function attachPerformanceHandlers() {
-      // Numeric result fields
+    function attachScorecardHandlers() {
+      // Numeric success-rate fields → auto-recolour
       prev.querySelectorAll('.hm-rate').forEach(inp => {
         inp.addEventListener('input', () => {
           _hmSetParam(sel.value, inp.dataset.pk, 'rate', inp.value.trim());
@@ -4755,39 +4876,49 @@ pageEvents.reports = function () {
           recolorParam(seln.dataset.pk);
         });
       });
-      // Remarks
-      prev.querySelectorAll('.hm-remarks').forEach(ta => {
-        ta.addEventListener('input', () => {
-          _hmSetParam(sel.value, ta.dataset.pk, 'remarks', ta.value);
-        });
-      });
-      // Waiting-for-Assignment numbers
-      prev.querySelectorAll('.hm-wfa').forEach(inp => {
+      prev.querySelectorAll('.hm-remarks').forEach(ta =>
+        ta.addEventListener('input', () => _hmSetParam(sel.value, ta.dataset.pk, 'remarks', ta.value)));
+      prev.querySelectorAll('.hm-qoq').forEach(inp =>
+        inp.addEventListener('input', () => _hmSetParam(sel.value, inp.dataset.pk, 'qoq', inp.value.trim())));
+      prev.querySelectorAll('.hm-prev').forEach(inp =>
+        inp.addEventListener('input', () => _hmSetParam(sel.value, inp.dataset.pk, 'prevScore', inp.value.trim())));
+    }
+
+    function attachDetailHandlers() {
+      // Structured detail cells (demand / talent / attrition / rejoin / wfa)
+      prev.querySelectorAll('.hm-dcell').forEach(inp => {
         inp.addEventListener('input', () => {
-          const brand = inp.dataset.brand, field = inp.dataset.field;
-          _hmSetWfa(sel.value, brand, field, inp.value.trim());
-          const rec = _hmGetWfa(sel.value, brand);
-          const total = (parseInt(rec.comp,10)||0) + (parseInt(rec.noncomp,10)||0);
-          const cell = prev.querySelector(`.hm-wfa-total[data-brand="${brand.replace(/"/g,'\\"')}"]`);
-          if (cell) cell.textContent = (rec.comp==null&&rec.noncomp==null) ? '—' : total;
+          const sec = inp.dataset.sec, row = inp.dataset.row || '', field = inp.dataset.field;
+          const val = inp.value.trim();
+          if (sec === 'wfa') { _hmSetWfa(sel.value, row, field, val); return; }
+          const obj = { ...(_hmGetMeta(sel.value, sec) || {}) };
+          if (row) { obj[row] = { ...(obj[row] || {}) }; obj[row][field] = val; }
+          else obj[field] = val;
+          _hmSetMeta(sel.value, sec, obj);
         });
       });
+      // Detail narrative textareas
+      prev.querySelectorAll('.hm-dnarr').forEach(ta =>
+        ta.addEventListener('input', () => _hmSetMeta(sel.value, ta.dataset.field, ta.value)));
     }
 
     function attachSummaryHandlers() {
-      const ta = document.getElementById('hmSummaryText');
-      if (ta) ta.addEventListener('input', () => _hmSetMeta(sel.value, 'summaryText', ta.value));
-      // Per-parameter explanation text areas — persist to localStorage.
-      prev.querySelectorAll('.hm-sum-text').forEach(area => {
-        area.addEventListener('input', () =>
-          _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value));
-      });
+      const bind = (id, field) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => _hmSetMeta(sel.value, field, el.value));
+      };
+      bind('hmOverviewText', 'overviewText');
+      bind('hmSummaryText', 'summaryText');
+      bind('hmConclusionText', 'conclusionText');
+      prev.querySelectorAll('.hm-sum-text').forEach(area =>
+        area.addEventListener('input', () => _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value)));
     }
 
     function renderHM() {
       prev.innerHTML = buildHeatMapHTML(view, sel.value, true);
-      if (view === 'performance') attachPerformanceHandlers();
-      if (view === 'summary')     attachSummaryHandlers();
+      if (view === 'scorecard') attachScorecardHandlers();
+      if (view === 'detail')    attachDetailHandlers();
+      if (view === 'summary')   attachSummaryHandlers();
     }
 
     // Sub-nav (Parameter Explanation / Performance / Executive Summary)
@@ -4812,7 +4943,8 @@ pageEvents.reports = function () {
         const html =
           `<div id="hmPdfRoot">` +
           buildHeatMapHTML('explain', sel.value, false) +
-          buildHeatMapHTML('performance', sel.value, false) +
+          buildHeatMapHTML('scorecard', sel.value, false) +
+          buildHeatMapHTML('detail', sel.value, false) +
           buildHeatMapHTML('summary', sel.value, false) +
           `</div>` +
           HEATMAP_PDF_STYLES +
