@@ -5072,6 +5072,7 @@ pageEvents.reports = function () {
       dlBtn.textContent = 'Generating…'; dlBtn.disabled = true;
       try {
         await ensureHtml2Pdf();
+        try { await ensureHtml2Canvas(); } catch (_) { /* fall back to drawn footer */ }
         const html =
           `<div id="hmPdfRoot">` +
           buildHeatMapHTML('explain', sel.value, false) +
@@ -6605,6 +6606,18 @@ async function ensureHtml2Pdf() {
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// html2pdf's bundle doesn't always expose html2canvas on window — load it
+// standalone so we can render the footer as HTML (captured) on every page.
+async function ensureHtml2Canvas() {
+  if (window.html2canvas) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
     s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
   });
