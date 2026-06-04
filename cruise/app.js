@@ -4363,12 +4363,11 @@ function hmHeader(qLabel, pageTitle) {
     </div>`;
 }
 
-function hmFooter(sectionLabel) {
+function hmFooter() {
   const today = fmtReportDate(new Date());
   return `
     <div class="rpt-footer">
       <span>DATE: ${today}</span>
-      <span>${escH(sectionLabel || '')}</span>
       <span>CTI GROUP WORLDWIDE SERVICES, INC.</span>
     </div>`;
 }
@@ -4410,7 +4409,7 @@ function hmBuildExplain(qKey) {
         <tbody>${rows}</tbody>
       </table>
       ${hmLegend()}
-      ${hmFooter('Parameter Definitions')}
+      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4479,7 +4478,7 @@ function hmBuildScorecard(qKey, editable) {
         <tbody>${rows}</tbody>
       </table>
       ${hmLegend()}
-      ${hmFooter('Executive Scorecard')}
+      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4491,88 +4490,80 @@ function _hmMetaCell(qKey, sec, row, field) {
   return row ? (o[row] || {})[field] : o[field];
 }
 
-// ── SECTION 3: Performance Detail (operational depth, per data-driven metric) ──
+// Cruise lines are the COLUMNS in every detail matrix, so all tables share the
+// same width. The row dimension varies per metric (department / reason / etc.).
+const HM_CRUISE_LINES = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
+const HM_DEPARTMENTS  = ['Bar', 'Housekeeping', 'Galley', 'Restaurant', 'General Admin', 'Provision', 'Entertainment', 'Purser', 'Laundry', 'Maritime'];
+const HM_ATTR_REASONS = ['Resignation', 'Disciplinary', 'Compassionate', 'Medical', 'Not Re-Joining', 'Other'];
+const HM_REJOIN_ROWS  = ['Embarked', 'New Hire', 'Re-Joiner'];
+const HM_WAIT_ROWS    = ['Compliance', 'Non-Compliance'];
+
+// A matrix table: row label column + one column per cruise line (editable cells).
+function hmMatrix(qKey, editable, sec, rowHeader, rows) {
+  const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
+  const head = `<tr><th class="rpt-th">${escH(rowHeader)}</th>${
+    HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}</tr>`;
+  const body = rows.map(r => `<tr>
+      <td class="rpt-td" style="font-weight:700;">${escH(r)}</td>${
+    HM_CRUISE_LINES.map(c => {
+      const v = _hmMetaCell(qKey, sec, r, c);
+      const val = v == null ? '' : v;
+      return `<td class="rpt-td" style="text-align:center;">${editable
+        ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(r)}" data-field="${escH(c)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
+        : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
+    }).join('')}
+    </tr>`).join('');
+  return `<table class="rpt-table hm-table hm-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+// ── SECTION 3: Performance Detail — 2-column (matrix table | explanation) ──
 function hmBuildDetail(qKey, editable) {
   const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
-  const ib = 'box-sizing:border-box;padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:84px;';
 
-  const cell = (sec, row, field) => {
-    const v = _hmMetaCell(qKey, sec, row, field);
-    const val = v == null ? '' : v;
-    return editable
-      ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(row||'')}" data-field="${field}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
-      : `<span>${val===''?'—':escH(String(val))}</span>`;
-  };
   const narr = (field, ph) => {
     const v = _hmGetMeta(qKey, field) || '';
     return editable
-      ? `<textarea class="hm-commentary hm-dnarr" data-field="${field}" rows="3" placeholder="${escH(ph)}">${escH(v)}</textarea>`
+      ? `<textarea class="hm-commentary hm-dnarr" data-field="${field}" rows="4" placeholder="${escH(ph)}">${escH(v)}</textarea>`
       : (v ? `<p class="hm-para">${escH(v).replace(/\n/g,'<br>')}</p>` : '<p class="hm-para" style="color:#999;font-style:italic;">No commentary recorded.</p>');
   };
 
-  const demandRows = HM_WFA_BRANDS.map(b => `
-    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'demand')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'hired')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('demand', b, 'remaining')}</td></tr>`).join('');
-
-  const talentRows = HM_WFA_BRANDS.map(b => `
-    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'req')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'fulfilled')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'inProcess')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('talent', b, 'remaining')}</td></tr>`).join('');
-
-  const wfaRows = HM_WFA_BRANDS.map(b => `
-    <tr><td class="rpt-td" style="font-weight:700;">${escH(b)}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('wfa', b, 'comp')}</td>
-      <td class="rpt-td" style="text-align:center;">${cell('wfa', b, 'noncomp')}</td></tr>`).join('');
-
-  const figRow = (sec, fields) => fields.map(f =>
-    `<td class="rpt-td" style="text-align:center;">${cell(sec, '', f.k)}</td>`).join('');
+  // One metric block: title, then table (left) + explanation (right).
+  const block = (title, table, field, ph) => `
+    <div class="hm-section-title">${escH(title)}</div>
+    <div class="hm-detail-row">
+      <div class="hm-detail-table">${table}</div>
+      <div class="hm-detail-explain">${narr(field, ph)}</div>
+    </div>`;
 
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Performance Detail')}
 
-      <div class="hm-section-title">Demand Delivery</div>
-      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
-        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Demand</th><th class="rpt-th" style="text-align:center;">Hired</th><th class="rpt-th" style="text-align:center;">Remaining</th></tr></thead>
-        <tbody>${demandRows}</tbody>
-      </table>
-      <div class="hm-subhead">Talent Pool</div>
-      <table class="rpt-table hm-table" style="width:78%;min-width:520px;">
-        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Requisitions</th><th class="rpt-th" style="text-align:center;">Fulfilled</th><th class="rpt-th" style="text-align:center;">In Process</th><th class="rpt-th" style="text-align:center;">Remaining</th></tr></thead>
-        <tbody>${talentRows}</tbody>
-      </table>
-      ${narr('demandNarr', 'Demand overview commentary…')}
+      ${block('Demand Delivery',
+        hmMatrix(qKey, editable, 'demand', 'Department', HM_DEPARTMENTS),
+        'demandNarr', 'Demand overview commentary…')}
 
-      <div class="hm-section-title">Attrition</div>
-      <table class="rpt-table hm-table" style="width:78%;min-width:520px;">
-        <thead><tr><th class="rpt-th" style="text-align:center;">Total Establishment</th><th class="rpt-th" style="text-align:center;">Resignations</th><th class="rpt-th" style="text-align:center;">Prev-Qtr Resignations</th><th class="rpt-th" style="text-align:center;">Attrition Rate %</th></tr></thead>
-        <tbody><tr>${figRow('attrition',[{k:'establishment'},{k:'resignations'},{k:'prevResignations'},{k:'rate'}])}</tr></tbody>
-      </table>
-      ${narr('attritionNarr', 'How attrition is counted and the quarter trend…')}
+      ${block('Talent Pool',
+        hmMatrix(qKey, editable, 'talent', 'Department', HM_DEPARTMENTS),
+        'talentNarr', 'Talent pool commentary…')}
 
-      <div class="hm-section-title">New Hires vs Re-Joiners</div>
-      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
-        <thead><tr><th class="rpt-th" style="text-align:center;">Embarked</th><th class="rpt-th" style="text-align:center;">New Hires</th><th class="rpt-th" style="text-align:center;">Re-Joiners</th></tr></thead>
-        <tbody><tr>${figRow('rejoin',[{k:'embarked'},{k:'newHires'},{k:'reJoiners'}])}</tr></tbody>
-      </table>
-      ${narr('rejoinNarr', 'New-hire vs re-joiner split commentary…')}
+      ${block('Attrition',
+        hmMatrix(qKey, editable, 'attrition', 'Reason', HM_ATTR_REASONS),
+        'attritionNarr', 'How attrition is counted and the quarter trend…')}
 
-      <div class="hm-section-title">Waiting for Assignment (New Hire)</div>
-      <table class="rpt-table hm-table" style="width:62%;min-width:440px;">
-        <thead><tr><th class="rpt-th">Brand</th><th class="rpt-th" style="text-align:center;">Compliance</th><th class="rpt-th" style="text-align:center;">Non-Compliance</th></tr></thead>
-        <tbody>${wfaRows}</tbody>
-      </table>
-      ${narr('waitingNarr', 'Waiting-for-assignment commentary…')}
+      ${block('New Hires vs Re-Joiners',
+        hmMatrix(qKey, editable, 'rejoin', 'Metric', HM_REJOIN_ROWS),
+        'rejoinNarr', 'New-hire vs re-joiner split commentary…')}
+
+      ${block('Waiting for Assignment (New Hire)',
+        hmMatrix(qKey, editable, 'waiting', 'Status', HM_WAIT_ROWS),
+        'waitingNarr', 'Waiting-for-assignment commentary…')}
 
       <div class="hm-section-title">Monthly Invoicing</div>
       ${narr('invoicingNarr', 'Monthly invoicing accuracy commentary…')}
 
       ${hmLegend()}
-      ${hmFooter('Performance Detail')}
+      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4734,7 +4725,7 @@ function hmBuildSummary(qKey, editable) {
       ${body}
       ${conclusionBlock}
       ${hmLegend()}
-      ${hmFooter('Executive Summary')}
+      ${hmFooter()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
 }
@@ -4743,7 +4734,7 @@ function hmBuildSummary(qKey, editable) {
 const HEATMAP_STYLES = `
 <style>
 .hm-doc { background:#fff; }
-.hm-quarter { font-size:23px; font-weight:800; color:#B01A18; letter-spacing:0.02em; margin-top:4px; text-transform:uppercase; }
+.hm-quarter { font-size:13px; font-weight:800; color:#B01A18; letter-spacing:0.03em; margin-top:4px; text-transform:uppercase; }
 .hm-section-name { font-size:18px; font-weight:800; color:#1A1A1A; letter-spacing:-0.01em; }
 .hm-legend { display:flex; gap:26px; align-items:center; font-size:10.5px; color:#444; flex-wrap:wrap; }
 .hm-legend span { display:flex; align-items:center; gap:8px; }
@@ -4755,6 +4746,13 @@ const HEATMAP_STYLES = `
 .hm-section-title { font-size:12px; font-weight:800; letter-spacing:0.04em; color:#1A1A1A; text-transform:uppercase; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid #B01A18; }
 .hm-subhead { font-size:11px; font-weight:700; color:#444; margin:10px 0 5px; }
 .hm-dnarr { margin-bottom:6px; }
+/* Performance Detail: table (left) + explanation (right) */
+.hm-detail-row { display:flex; gap:18px; align-items:flex-start; margin-bottom:8px; }
+.hm-detail-table { flex:1 1 58%; min-width:0; }
+.hm-detail-explain { flex:1 1 42%; min-width:0; }
+.hm-detail-explain .hm-commentary { margin-bottom:0; }
+.hm-matrix { width:100%; }
+.hm-matrix .rpt-td input { box-sizing:border-box; }
 .hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
 .hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
 .hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
@@ -4783,7 +4781,7 @@ const HEATMAP_PDF_STYLES = `
 #hmPdfRoot .rpt-company { font-size:14px; }
 #hmPdfRoot .rpt-division { font-size:9.5px; }
 #hmPdfRoot .rpt-doc-type { font-size:10px; }
-#hmPdfRoot .hm-quarter { font-size:26px; }
+#hmPdfRoot .hm-quarter { font-size:14px; }
 #hmPdfRoot .rpt-brandbar { margin-top:10px; }
 #hmPdfRoot .rpt-report-title { margin:16px 0 16px; }
 #hmPdfRoot .hm-section-name { font-size:20px; }
@@ -4920,11 +4918,21 @@ pageEvents.reports = function () {
         area.addEventListener('input', () => _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value)));
     }
 
+    // Auto-grow textareas so long text stays fully visible.
+    function autoGrow(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+
     function renderHM() {
       prev.innerHTML = buildHeatMapHTML(view, sel.value, true);
       if (view === 'scorecard') attachScorecardHandlers();
       if (view === 'detail')    attachDetailHandlers();
       if (view === 'summary')   attachSummaryHandlers();
+      // Make every textarea grow with its content (size to fit existing text now,
+      // and keep resizing as the user types).
+      prev.querySelectorAll('textarea').forEach(t => {
+        t.style.overflow = 'hidden';
+        autoGrow(t);
+        t.addEventListener('input', () => autoGrow(t));
+      });
     }
 
     // Sub-nav (Parameter Explanation / Performance / Executive Summary)
@@ -4964,15 +4972,25 @@ pageEvents.reports = function () {
             img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
           const fname = `CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`;
           await window.html2pdf().set({
-            margin:      [8, 8, 8, 8],
+            margin:      [8, 8, 12, 8],
             filename:    fname,
             image:       { type:'jpeg', quality:0.98 },
             html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
             // Keep rows and narrative blocks intact so page breaks never slice
             // through the middle of text; tables break cleanly between rows.
-            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend'] },
-          }).from(hidden.querySelector('#hmPdfRoot')).save();
+            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend', '.hm-detail-row'] },
+          }).from(hidden.querySelector('#hmPdfRoot')).toPdf().get('pdf').then(pdf => {
+            // Stamp a page number at the bottom-centre of every physical page.
+            const total = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= total; i++) {
+              pdf.setPage(i);
+              const pw = pdf.internal.pageSize.getWidth();
+              const ph = pdf.internal.pageSize.getHeight();
+              pdf.setFontSize(8); pdf.setTextColor(110);
+              pdf.text(`Page ${i} of ${total}`, pw / 2, ph - 4, { align: 'center' });
+            }
+          }).save();
         } finally {
           document.body.removeChild(hidden);
         }
