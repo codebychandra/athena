@@ -4963,7 +4963,9 @@ pageEvents.reports = function () {
             image:       { type:'jpeg', quality:0.98 },
             html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
-            pagebreak:   { mode:['css'] },
+            // Keep rows and narrative blocks intact so page breaks never slice
+            // through the middle of text; tables break cleanly between rows.
+            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead'] },
           }).from(hidden.querySelector('#hmPdfRoot')).save();
         } finally {
           document.body.removeChild(hidden);
