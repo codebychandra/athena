@@ -4557,7 +4557,8 @@ function hmDividerRow(label, editable) {
 }
 
 // Data rows for one section + (in edit mode) an inline "+ Add row" row.
-function hmRowsHtml(qKey, editable, sec, defaults) {
+// opts.talent → also show a "+ Add Talent Pool row" button.
+function hmRowsHtml(qKey, editable, sec, defaults, opts) {
   const rows = _hmGetRows(qKey, sec, defaults);
   const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
   const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
@@ -4577,7 +4578,10 @@ function hmRowsHtml(qKey, editable, sec, defaults) {
     </tr>`).join('');
 
   const add = editable
-    ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable)}"><button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button></td></tr>`
+    ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable)}">
+         <button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button>${
+       opts && opts.talent ? ` <button type="button" class="hm-row-add-tp" data-sec="${sec}">+ Add Talent Pool row</button>` : ''}
+       </td></tr>`
     : '';
   return body + add;
 }
@@ -4605,18 +4609,12 @@ function hmBuildDetail(qKey, editable) {
       <div class="hm-detail-explain">${narr(field, ph)}</div>
     </div>`;
 
-  // Demand Delivery + Talent Pool combined into one table, split by a divider.
-  const demandTalentTable = hmTable('Department', editable,
-    hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS) +
-    hmDividerRow('Talent Pool', editable) +
-    hmRowsHtml(qKey, editable, 'talent', HM_DEPARTMENTS));
-
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Performance Detail')}
 
       ${block('Demand Delivery',
-        demandTalentTable,
+        hmTable('Department', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true })),
         'demandNarr', 'Demand & talent-pool commentary…')}
 
       ${block('Attrition',
@@ -4998,16 +4996,17 @@ pageEvents.reports = function () {
           _hmSetRows(sel.value, sec, rows);
         });
       });
-      // Add row
-      prev.querySelectorAll('.hm-row-add').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const sec = btn.dataset.sec;
-          const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || []).slice();
-          rows.push({ id: 'r' + Math.random().toString(36).slice(2, 8), label: '' });
-          _hmSetRows(sel.value, sec, rows);
-          renderHM();
-        });
-      });
+      // Add row (blank) / Add Talent Pool row (pre-labelled "Talent Pool")
+      const addRow = (sec, label) => {
+        const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || []).slice();
+        rows.push({ id: 'r' + Math.random().toString(36).slice(2, 8), label });
+        _hmSetRows(sel.value, sec, rows);
+        renderHM();
+      };
+      prev.querySelectorAll('.hm-row-add').forEach(btn =>
+        btn.addEventListener('click', () => addRow(btn.dataset.sec, '')));
+      prev.querySelectorAll('.hm-row-add-tp').forEach(btn =>
+        btn.addEventListener('click', () => addRow(btn.dataset.sec, 'Talent Pool')));
       // Remove row (also drop its cell data)
       prev.querySelectorAll('.hm-row-del').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -5122,11 +5121,11 @@ pageEvents.reports = function () {
               const fdiv = document.createElement('div');
               fdiv.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
               fdiv.innerHTML =
-                `<div style="font-family:'Inter',system-ui,sans-serif;">
-                   <div style="border-top:1px solid #333;padding-top:7px;display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:0.04em;color:#444;">
+                `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
+                   <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
                      <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
                    </div>
-                   <div style="font-size:11px;font-weight:600;letter-spacing:0.04em;color:#444;margin-top:3px;">CTI GROUP WORLDWIDE SERVICES, INC.</div>
+                   <div style="font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;margin-top:3px;">CTI GROUP WORLDWIDE SERVICES, INC.</div>
                  </div>`;
               document.body.appendChild(fdiv);
               try {
