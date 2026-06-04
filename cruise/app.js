@@ -5126,7 +5126,6 @@ pageEvents.reports = function () {
                    <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
                      <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
                    </div>
-                   <div style="font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;margin-top:3px;">CTI GROUP WORLDWIDE SERVICES, INC.</div>
                  </div>`;
               document.body.appendChild(fdiv);
               try {
@@ -5142,9 +5141,8 @@ pageEvents.reports = function () {
               pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
               pdf.line(8, ph - 11, pw - 8, ph - 11);
               pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
-              pdf.text(`DATE: ${dateStr}`, 8, ph - 7);
-              pdf.text(`PAGE ${i} OF ${total}`, pw - 8, ph - 7, { align: 'right' });
-              pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', 8, ph - 3.5);
+              pdf.text(`DATE: ${dateStr}`, 8, ph - 5);
+              pdf.text(`PAGE ${i} OF ${total}`, pw - 8, ph - 5, { align: 'right' });
             }
           }
 
