@@ -4335,6 +4335,24 @@ function hmResolveRag(p, rec) {
   return rec.rag || '';
 }
 
+// QoQ change = ((current − previous) ÷ |previous|) × 100. Returns null if either
+// value is non-numeric or previous is 0.
+function hmComputeQoQ(cur, prev) {
+  const c = parseFloat(String(cur).replace(/[^0-9.\-]/g, ''));
+  const p = parseFloat(String(prev).replace(/[^0-9.\-]/g, ''));
+  if (isNaN(c) || isNaN(p) || p === 0) return null;
+  return ((c - p) / Math.abs(p)) * 100;
+}
+// Render the QoQ cell with an up / down / flat arrow.
+function hmQoQCellHtml(pct) {
+  if (pct === null || pct === undefined) return '<span style="color:#999;">—</span>';
+  const up = pct > 0, down = pct < 0;
+  const arrow = up ? '▲' : (down ? '▼' : '–');
+  const col   = up ? '#2E9E5B' : (down ? '#D64545' : '#888');
+  const sign  = up ? '+' : '';
+  return `<span style="color:${col};font-weight:700;white-space:nowrap;">${arrow} ${sign}${pct.toFixed(1)}%</span>`;
+}
+
 // Per-quarter meta (editable overall commentary for the executive summary).
 function _hmGetMeta(qKey, field) { return (_hmQuarter(qKey).meta || {})[field]; }
 function _hmSetMeta(qKey, field, val) {
@@ -4431,8 +4449,9 @@ function hmBuildScorecard(qKey, editable) {
     const bg   = HM_RAG_BG[rag] || 'transparent';
     const rate = rec.rate != null ? rec.rate : '';
     const remarks = rec.remarks != null ? rec.remarks : '';
-    const qoq  = rec.qoq != null ? rec.qoq : '';
     const prev = rec.prevScore != null ? rec.prevScore : '';
+    // QoQ is computed from Success Rate vs Previous Score (numeric params only).
+    const qoqPct = p.numeric ? hmComputeQoQ(rate, prev) : null;
 
     let rateCell;
     if (p.numeric) {
@@ -4449,9 +4468,7 @@ function hmBuildScorecard(qKey, editable) {
     const remarksCell = editable
       ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2" placeholder="CTI remarks…" style="${ib}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
       : `<span>${remarks?escH(remarks):'—'}</span>`;
-    const qoqCell = editable
-      ? `<input type="text" class="hm-qoq" data-pk="${p.key}" value="${escH(String(qoq))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
-      : `<span>${qoq===''?'—':escH(String(qoq))}</span>`;
+    const qoqCell = `<span class="hm-qoq-cell" data-pk="${p.key}">${hmQoQCellHtml(qoqPct)}</span>`;
     const prevCell = editable
       ? `<input type="text" class="hm-prev" data-pk="${p.key}" value="${escH(String(prev))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
       : `<span>${prev===''?'—':escH(String(prev))}</span>`;
@@ -4470,7 +4487,7 @@ function hmBuildScorecard(qKey, editable) {
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Executive Scorecard')}
-      ${editable ? '<p class="hm-hint">Enter the success rate (numeric cells auto-colour by RAG threshold), CTI remarks, QoQ change and previous-quarter score. Saves automatically.</p>' : ''}
+      ${editable ? '<p class="hm-hint">Enter the success rate (numeric cells auto-colour by RAG threshold), CTI remarks and the previous-quarter score. QoQ Change is calculated automatically. Saves automatically.</p>' : ''}
       <table class="rpt-table hm-table">
         <thead><tr>
           <th class="rpt-th">Parameter</th>
@@ -4482,6 +4499,12 @@ function hmBuildScorecard(qKey, editable) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <div class="hm-formula">
+        <strong>QoQ Change (%)</strong> = ((Current Success Rate − Previous Score) ÷ Previous Score) × 100
+        &nbsp;·&nbsp; <span style="color:#2E9E5B;font-weight:700;">▲</span> increase
+        &nbsp;·&nbsp; <span style="color:#D64545;font-weight:700;">▼</span> decrease
+        &nbsp;·&nbsp; <span style="color:#888;font-weight:700;">–</span> no change
+      </div>
       ${hmLegend()}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -4777,6 +4800,7 @@ const HEATMAP_STYLES = `
 .hm-section-title { font-size:12px; font-weight:800; letter-spacing:0.04em; color:#1A1A1A; text-transform:uppercase; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid #B01A18; }
 .hm-subhead { font-size:11px; font-weight:700; color:#444; margin:10px 0 5px; }
 .hm-dnarr { margin-bottom:6px; }
+.hm-formula { font-size:10px; color:#555; margin:10px 0 4px; padding:8px 10px; background:#f6f6f6; border-radius:6px; }
 /* Performance Detail: table (left) + explanation (right) */
 .hm-detail-row { display:flex; gap:18px; align-items:flex-start; margin-bottom:8px; }
 .hm-detail-table { flex:1 1 58%; min-width:0; }
@@ -4918,12 +4942,23 @@ pageEvents.reports = function () {
       if (dot) dot.innerHTML = hmRagDot(rag);
     }
 
+    // Recompute the QoQ cell live from the current Success Rate vs Previous Score.
+    function recomputeQoQ(pk) {
+      const p = HEATMAP_PARAMS.find(x => x.key === pk);
+      const cell = prev.querySelector(`.hm-qoq-cell[data-pk="${pk}"]`);
+      if (!cell) return;
+      const rec = _hmGetParam(sel.value, pk);
+      const pct = (p && p.numeric) ? hmComputeQoQ(rec.rate, rec.prevScore) : null;
+      cell.innerHTML = hmQoQCellHtml(pct);
+    }
+
     function attachScorecardHandlers() {
-      // Numeric success-rate fields → auto-recolour
+      // Numeric success-rate fields → auto-recolour + recompute QoQ
       prev.querySelectorAll('.hm-rate').forEach(inp => {
         inp.addEventListener('input', () => {
           _hmSetParam(sel.value, inp.dataset.pk, 'rate', inp.value.trim());
           recolorParam(inp.dataset.pk);
+          recomputeQoQ(inp.dataset.pk);
         });
       });
       // Manual RAG selects (non-numeric params)
@@ -4935,10 +4970,12 @@ pageEvents.reports = function () {
       });
       prev.querySelectorAll('.hm-remarks').forEach(ta =>
         ta.addEventListener('input', () => _hmSetParam(sel.value, ta.dataset.pk, 'remarks', ta.value)));
-      prev.querySelectorAll('.hm-qoq').forEach(inp =>
-        inp.addEventListener('input', () => _hmSetParam(sel.value, inp.dataset.pk, 'qoq', inp.value.trim())));
+      // Previous score → recompute QoQ
       prev.querySelectorAll('.hm-prev').forEach(inp =>
-        inp.addEventListener('input', () => _hmSetParam(sel.value, inp.dataset.pk, 'prevScore', inp.value.trim())));
+        inp.addEventListener('input', () => {
+          _hmSetParam(sel.value, inp.dataset.pk, 'prevScore', inp.value.trim());
+          recomputeQoQ(inp.dataset.pk);
+        }));
     }
 
     function attachDetailHandlers() {
