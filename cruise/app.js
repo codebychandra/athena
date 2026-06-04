@@ -414,28 +414,74 @@ function migratePositionNames(raw) {
   return changed;
 }
 
-function loadDemand() {
-  let raw;
-  try { raw = JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
-  catch (_) { raw = {}; }
-  // One-time migration: old shape stored months directly under brand
+// Requisition Setup config is shared LIVE via the Cloudflare Worker (KV) so
+// every user/device sees the same demand. localStorage is kept only as an
+// offline mirror. `_demandCache` is the in-memory source of truth that keeps
+// the many synchronous callers of loadDemand() working; it is hydrated from
+// the server by hydrateDemand() when the Report page loads.
+let _demandCache = null;
+let _demandHydrated = false;
+
+function _normalizeDemand(raw) {
+  raw = raw || {};
+  // Old shape stored months directly under brand → wrap in {talentPool,monthly}
   Object.keys(raw).forEach(brand => {
     const node = raw[brand];
     if (node && typeof node === 'object' && !node.monthly && !node.talentPool) {
       raw[brand] = { talentPool: {}, monthly: node };
-    } else {
+    } else if (node) {
       node.talentPool = node.talentPool || {};
       node.monthly    = node.monthly    || {};
     }
   });
-  // One-time migration: rename legacy abbreviated position keys
-  if (migratePositionNames(raw)) {
-    try { localStorage.setItem('cti-cruise-demand', JSON.stringify(raw)); } catch (_) {}
-  }
+  migratePositionNames(raw); // rename legacy abbreviated position keys
   return raw;
 }
+
+function loadDemand() {
+  if (_demandCache) return _demandCache;
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem('cti-cruise-demand') || '{}'); }
+  catch (_) { raw = {}; }
+  _demandCache = _normalizeDemand(raw);
+  return _demandCache;
+}
+
 function saveDemand(d) {
+  _demandCache = d;
   try { localStorage.setItem('cti-cruise-demand', JSON.stringify(d)); } catch (_) {}
+  // Push to the shared store (fire-and-forget) so other users see it.
+  try {
+    fetch(WORKER_URL + '/api/cruise/demand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ demand: d }),
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+// Pull the shared config from the worker once per page load. If the server is
+// empty but this device has a local config (the person who set it up), seed
+// the server from local so it becomes live for everyone.
+async function hydrateDemand() {
+  try {
+    const res = await fetch(WORKER_URL + '/api/cruise/demand', { cache: 'no-store' });
+    if (res.ok) {
+      const data   = await res.json();
+      const remote = data && data.demand;
+      if (remote && typeof remote === 'object' && Object.keys(remote).length) {
+        _demandCache = _normalizeDemand(remote);
+        try { localStorage.setItem('cti-cruise-demand', JSON.stringify(_demandCache)); } catch (_) {}
+        _demandHydrated = true;
+        return true;
+      }
+    }
+    // Server empty → seed from local if we have anything configured here.
+    const local = loadDemand();
+    if (local && Object.keys(local).length) saveDemand(local);
+  } catch (_) { /* offline — fall back to local cache */ }
+  _demandHydrated = true;
+  return false;
 }
 function brandNode(d, brand) {
   d[brand] = d[brand] || { talentPool: {}, monthly: {} };
@@ -4722,6 +4768,9 @@ pageEvents.reports = function () {
     const preview = document.getElementById('rptPreview');
     preview.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text-muted,#aaa);font-size:13px;">Loading data…</div>`;
     try {
+      // Pull the shared Requisition Setup config from the server once per load
+      // so the report reflects the live demand for everyone.
+      if (!_demandHydrated) { await hydrateDemand(); if (typeof renderDemandTable === 'function') renderDemandTable(); }
       const { seafarers, finalInt } = await fetchCruiseData(false);
       // Load saved notes from localStorage; fall back to auto-generated.
       if (_reportNotes[brand] == null) {

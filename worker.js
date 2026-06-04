@@ -1379,6 +1379,30 @@ export default {
         }
       }
 
+      // ── GET /api/cruise/demand ────────────────────────────────────────
+      // Shared Requisition Setup config (Talent Pool + Monthly Demand) so it
+      // is the same for every user/device. Stored in KV with no TTL.
+      if (method === 'GET' && path === '/api/cruise/demand') {
+        const data = await getCached(env, 'cruise-demand-config');
+        return json({ demand: (data && data.demand) || {} }, 200, ch);
+      }
+
+      // ── POST /api/cruise/demand ───────────────────────────────────────
+      // Body: { demand: {...} } — replaces the stored config.
+      if (method === 'POST' && path === '/api/cruise/demand') {
+        try {
+          const body   = await request.json();
+          const demand = body && body.demand;
+          if (!demand || typeof demand !== 'object') {
+            return json({ ok: false, error: 'demand object required' }, 400, ch);
+          }
+          await env.TOKEN_CACHE.put('cruise-demand-config', JSON.stringify({ demand }));
+          return json({ ok: true }, 200, ch);
+        } catch (err) {
+          return json({ ok: false, error: err.message }, 500, ch);
+        }
+      }
+
       // ── POST /api/ai/chat ──────────────────────────────────────────────────
       // Proxies to Anthropic Claude API. Requires ANTHROPIC_API_KEY secret.
       if (method === 'POST' && path === '/api/ai/chat') {
