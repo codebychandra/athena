@@ -5106,19 +5106,23 @@ pageEvents.reports = function () {
             let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
             if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
             const total = pdf.internal.getNumberOfPages();
+            // Footer style matching the previous .rpt-footer: thin dark rule,
+            // gray semibold text with slight letter-spacing.
             for (let i = 1; i <= total; i++) {
               pdf.setPage(i);
               const pw = pdf.internal.pageSize.getWidth();
               const ph = pdf.internal.pageSize.getHeight();
-              const ly = ph - 8;        // rule line position
+              const ly = ph - 8.5;      // rule line position
               const ty = ph - 4;        // text baseline
-              pdf.setDrawColor(176, 26, 24); pdf.setLineWidth(0.6);
+              pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
               pdf.line(8, ly, pw - 8, ly);
               pdf.setFont('helvetica', 'bold');
-              pdf.setFontSize(8.5); pdf.setTextColor(40);
+              pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
+              pdf.setCharSpace(0.2);
               pdf.text(`DATE: ${dateStr}`, 8, ty);
               pdf.text(`Page ${i} of ${total}`, pw / 2, ty, { align: 'center' });
               pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', pw - 8, ty, { align: 'right' });
+              pdf.setCharSpace(0);
             }
           }).save();
         } finally {
