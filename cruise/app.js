@@ -5044,7 +5044,7 @@ pageEvents.reports = function () {
           buildHeatMapHTML('summary', sel.value, false) +
           `</div>` +
           HEATMAP_PDF_STYLES +
-          `<style>#hmPdfRoot .hm-doc{page-break-after:always;} #hmPdfRoot .hm-doc:last-child{page-break-after:auto;}</style>`;
+          `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;}</style>`;
         const hidden = document.createElement('div');
         hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
         hidden.innerHTML = html;
@@ -5064,8 +5064,10 @@ pageEvents.reports = function () {
             pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend', '.hm-detail-row'] },
           }).from(hidden.querySelector('#hmPdfRoot')).toPdf().get('pdf').then(pdf => {
             // Stamp the footer (rule line + date + page number + company) at the
-            // bottom of EVERY physical page, using the chosen report date.
-            const dateStr = hmFmtDate(dateInp ? dateInp.value : '');
+            // bottom of EVERY physical page. Uses the chosen report date, or
+            // falls back to today's date when none is chosen.
+            let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
+            if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
             const total = pdf.internal.getNumberOfPages();
             for (let i = 1; i <= total; i++) {
               pdf.setPage(i);
@@ -5073,10 +5075,11 @@ pageEvents.reports = function () {
               const ph = pdf.internal.pageSize.getHeight();
               const ly = ph - 8;        // rule line position
               const ty = ph - 4;        // text baseline
-              pdf.setDrawColor(176, 26, 24); pdf.setLineWidth(0.4);
+              pdf.setDrawColor(176, 26, 24); pdf.setLineWidth(0.6);
               pdf.line(8, ly, pw - 8, ly);
-              pdf.setFontSize(8); pdf.setTextColor(90);
-              if (dateStr) pdf.text(`DATE: ${dateStr}`, 8, ty);
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(8.5); pdf.setTextColor(40);
+              pdf.text(`DATE: ${dateStr}`, 8, ty);
               pdf.text(`Page ${i} of ${total}`, pw / 2, ty, { align: 'center' });
               pdf.text('CTI GROUP WORLDWIDE SERVICES, INC.', pw - 8, ty, { align: 'right' });
             }
