@@ -4587,7 +4587,7 @@ function hmHeadHtml(rowHeader, editable, subCols) {
     editable ? '<th class="rpt-th hm-actcol" rowspan="2"></th>' : ''}
     </tr>
     <tr>${
-    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;width:24px;">${escH(s.label)}</th>`).join('')).join('')}
+    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;">${escH(s.label)}</th>`).join('')).join('')}
     </tr>`;
 }
 
@@ -4637,7 +4637,17 @@ function hmRowsHtml(qKey, editable, sec, defaults, opts) {
 }
 
 function hmTable(rowHeader, editable, bodyHtml, subCols) {
-  return `<table class="rpt-table hm-table hm-matrix"><thead>${hmHeadHtml(rowHeader, editable, subCols)}</thead><tbody>${bodyHtml}</tbody></table>`;
+  // With table-layout:fixed, column widths must come from a <colgroup> (the
+  // header's spanned cells can't set per-column widths). Position column is left
+  // auto so it absorbs the remaining width; sub-columns are kept narrow.
+  let colgroup = '';
+  if (subCols) {
+    const cols = ['<col>']; // Position — auto width (wide)
+    HM_CRUISE_LINES.forEach(() => subCols.forEach(() => cols.push('<col style="width:30px;">')));
+    if (editable) cols.push('<col style="width:28px;">'); // action column
+    colgroup = `<colgroup>${cols.join('')}</colgroup>`;
+  }
+  return `<table class="rpt-table hm-table hm-matrix">${colgroup}<thead>${hmHeadHtml(rowHeader, editable, subCols)}</thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // ── SECTION 3: Performance Detail — 2-column (matrix table | explanation) ──
