@@ -4559,14 +4559,32 @@ function _hmGetRows(qKey, sec, defaults) {
 }
 function _hmSetRows(qKey, sec, rows) { _hmSetMeta(qKey, sec + '__rows', rows); }
 
-// ── Composable matrix pieces (cruise lines = equal-width columns) ──
-function hmColCount(editable) { return 1 + HM_CRUISE_LINES.length + (editable ? 1 : 0); }
+// Demand Delivery splits each cruise line into two sub-columns.
+const DEMAND_SUBCOLS = [{ key: 'req', label: 'Requisition' }, { key: 'ful', label: 'Fulfilled' }];
 
-function hmHeadHtml(rowHeader, editable) {
+// ── Composable matrix pieces (cruise lines = equal-width columns) ──
+// subCols (optional) → each cruise line column is split into these sub-columns.
+function hmColCount(editable, subCols) {
+  const per = subCols ? subCols.length : 1;
+  return 1 + HM_CRUISE_LINES.length * per + (editable ? 1 : 0);
+}
+
+function hmHeadHtml(rowHeader, editable, subCols) {
+  if (!subCols) {
+    return `<tr>
+        <th class="rpt-th">${escH(rowHeader)}</th>${
+      HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}${
+      editable ? '<th class="rpt-th hm-actcol"></th>' : ''}
+      </tr>`;
+  }
+  // Two-level header: cruise lines on top (spanning), sub-columns below.
   return `<tr>
-      <th class="rpt-th">${escH(rowHeader)}</th>${
-    HM_CRUISE_LINES.map(c => `<th class="rpt-th" style="text-align:center;">${escH(c)}</th>`).join('')}${
-    editable ? '<th class="rpt-th hm-actcol"></th>' : ''}
+      <th class="rpt-th" rowspan="2">${escH(rowHeader)}</th>${
+    HM_CRUISE_LINES.map(c => `<th class="rpt-th" colspan="${subCols.length}" style="text-align:center;">${escH(c)}</th>`).join('')}${
+    editable ? '<th class="rpt-th hm-actcol" rowspan="2"></th>' : ''}
+    </tr>
+    <tr>${
+    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;">${escH(s.label)}</th>`).join('')).join('')}
     </tr>`;
 }
 
@@ -4578,28 +4596,36 @@ function hmDividerRow(label, editable) {
 // opts.talent → also show a "+ Add Talent Pool row" button.
 function hmRowsHtml(qKey, editable, sec, defaults, opts) {
   const rows = _hmGetRows(qKey, sec, defaults);
+  const subCols = opts && opts.subCols;
   const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
   const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
 
+  // One value cell for a given composite field key.
+  const valCell = (rowId, field) => {
+    const v = _hmMetaCell(qKey, sec, rowId, field);
+    const val = v == null ? '' : v;
+    return `<td class="rpt-td" style="text-align:center;">${editable
+      ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(rowId)}" data-field="${escH(field)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
+      : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
+  };
+
   const body = rows.map(r => {
     const tpBadge = r.tp ? `<span class="hm-tp-badge">TP</span>` : '';
+    const dataCells = HM_CRUISE_LINES.map(c =>
+      subCols
+        ? subCols.map(s => valCell(r.id, `${c}|${s.key}`)).join('')
+        : valCell(r.id, c)
+    ).join('');
     return `<tr>
       <td class="rpt-td">${editable
         ? `<div style="display:flex;align-items:center;gap:5px;"><input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}">${tpBadge}</div>`
-        : `<span style="font-weight:700;">${escH(r.label)||'—'}${tpBadge?' ':''}${tpBadge}</span>`}</td>${
-    HM_CRUISE_LINES.map(c => {
-      const v = _hmMetaCell(qKey, sec, r.id, c);
-      const val = v == null ? '' : v;
-      return `<td class="rpt-td" style="text-align:center;">${editable
-        ? `<input type="text" class="hm-dcell" data-sec="${sec}" data-row="${escH(r.id)}" data-field="${escH(c)}" value="${escH(String(val))}" placeholder="—" style="${ib}">`
-        : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
-    }).join('')}${
+        : `<span style="font-weight:700;">${escH(r.label)||'—'}${tpBadge?' ':''}${tpBadge}</span>`}</td>${dataCells}${
     editable ? `<td class="rpt-td hm-actcol"><button type="button" class="hm-row-del" data-sec="${sec}" data-id="${escH(r.id)}" title="Remove row">×</button></td>` : ''}
     </tr>`;
   }).join('');
 
   const add = editable
-    ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable)}">
+    ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable, subCols)}">
          <button type="button" class="hm-row-add" data-sec="${sec}">+ Add row</button>${
        opts && opts.talent ? ` <button type="button" class="hm-row-add-tp" data-sec="${sec}">+ Add Talent Pool row</button>` : ''}
        </td></tr>`
@@ -4607,8 +4633,8 @@ function hmRowsHtml(qKey, editable, sec, defaults, opts) {
   return body + add;
 }
 
-function hmTable(rowHeader, editable, bodyHtml) {
-  return `<table class="rpt-table hm-table hm-matrix"><thead>${hmHeadHtml(rowHeader, editable)}</thead><tbody>${bodyHtml}</tbody></table>`;
+function hmTable(rowHeader, editable, bodyHtml, subCols) {
+  return `<table class="rpt-table hm-table hm-matrix"><thead>${hmHeadHtml(rowHeader, editable, subCols)}</thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // ── SECTION 3: Performance Detail — 2-column (matrix table | explanation) ──
@@ -4635,7 +4661,7 @@ function hmBuildDetail(qKey, editable) {
       ${hmHeader(q.label, 'Performance Detail')}
 
       ${block('Demand Delivery',
-        hmTable('Department', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true })),
+        hmTable('Department', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
         'demandNarr', 'Demand & talent-pool commentary…')}
 
       ${block('Attrition',
