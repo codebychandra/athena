@@ -327,12 +327,13 @@ async function zohoUpdate(r, changes) {
   for (const [key, val] of Object.entries(changes)) {
     const zohoKey = fieldMap[key];
     if (zohoKey === undefined) continue;
-    if (val === '' || val === null || val === undefined) continue;
     // Skip unchanged values — compare as strings to handle type coercion
     const original = r[key];
     const origStr  = (original === null || original === undefined || original === '—') ? '' : String(original);
-    const newStr   = String(val);
+    const newStr   = (val === null || val === undefined) ? '' : String(val);
     if (newStr === origStr) continue;
+    // User blanked a field that had a value → send null to clear it in Zoho.
+    if (newStr === '') { payload[zohoKey] = null; continue; }
     // Format lookup fields as {id, name} — Zoho rejects plain strings for relational fields
     if (LOOKUP_FIELDS[key]) {
       const idKey = LOOKUP_FIELDS[key];
