@@ -4274,7 +4274,7 @@ const HEATMAP_PARAMS = [
     green:'95–100%.',
     numeric:true, unit:'% fulfilled',
     rule:n => n<90 ? 'red' : (n<95 ? 'amber' : (n<=110 ? 'green' : 'amber')) },
-  { key:'attrition', name:'Attrition — 11.2 Rolling Turnover', pic:'Marcos Xavier, Jasmine Debora',
+  { key:'attrition', name:'Attrition', pic:'Marcos Xavier, Jasmine Debora',
     explain:'% rolling turnover (quarterly) and % attrition vs overall establishment.',
     red:'Over 5% attrition against overall establishment.',
     amber:'3–5% of establishment, or rolling-turnover increase of more than 1.5% over the quarter.',
