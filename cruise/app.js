@@ -4203,7 +4203,10 @@ pages.reports = async function () {
               <button class="hm-subnav-btn" data-hm="detail">3 · Performance Detail</button>
               <button class="hm-subnav-btn" data-hm="summary">4 · Executive Summary</button>
             </div>
-            <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);white-space:nowrap;"></span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);white-space:nowrap;"></span>
+              <button id="hmSaveBtn" style="padding:7px 18px;font-size:12.5px;font-weight:700;border-radius:7px;border:none;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Save</button>
+            </div>
           </div>
         </div>
 
@@ -5115,6 +5118,17 @@ pageEvents.reports = function () {
     });
 
     sel.addEventListener('change', renderHM);
+
+    // Explicit Save button — force-pushes the whole Heat Map to the server.
+    const saveBtn = document.getElementById('hmSaveBtn');
+    if (saveBtn) saveBtn.addEventListener('click', () => {
+      const orig = saveBtn.textContent;
+      saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+      hmSaveStatus('saving');
+      const p = sharedSet('heatmap', _hmLoadAll());
+      const done = (ok) => { hmSaveStatus(ok ? 'saved' : 'error'); saveBtn.disabled = false; saveBtn.textContent = orig; };
+      if (p && p.then) p.then(res => done(res && res.ok)); else done(false);
+    });
 
     // PDF — A4 landscape, all three pages, CUK Weekly Report styling.
     const dlBtn = document.getElementById('hmDownloadBtn');
