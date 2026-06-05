@@ -1434,28 +1434,31 @@ export default {
           if (!apiKey) return json({ error: 'AI not configured — set ANTHROPIC_API_KEY secret in Cloudflare dashboard' }, 400, ch);
 
           const body = await request.json();
-          const messages = (body.messages || []).slice(-12);
-          const context  = String(body.context || '').slice(0, 4000); // cap context size
           // Optional overrides for structured tasks (e.g. Heat Map AI Autofill).
           const customSystem = body.system ? String(body.system).slice(0, 8000) : null;
           const maxTokens    = Math.min(Math.max(parseInt(body.max_tokens, 10) || 800, 100), 4000);
+          // Trim per-request size to stay within the input-token/minute rate limit.
+          // Structured tasks (customSystem) carry their own context, so skip the
+          // big knowledge base / page context for those.
+          const messages = (body.messages || []).slice(customSystem ? -2 : -6);
+          const context  = customSystem ? '' : String(body.context || '').slice(0, 2000);
 
-          // Load knowledge base for AI context
+          // Load knowledge base for AI context (chat only; capped).
           let knowledgeContext = '';
-          try {
-            const kb = (await getCached(env, 'ai-knowledge-base')) || { entries: [] };
-            if (kb.entries?.length) {
-              knowledgeContext = '\n\n--- KNOWLEDGE BASE ---\n' +
-                kb.entries.map(e => {
+          if (!customSystem) {
+            try {
+              const kb = (await getCached(env, 'ai-knowledge-base')) || { entries: [] };
+              if (kb.entries?.length) {
+                let kbText = kb.entries.map(e => {
                   let entry = `[${e.portal || e.category || 'General'} | ${e.type || 'Definition'}] ${e.title || e.topic}`;
                   entry += `\n${e.content}`;
-                  if (e.whereToFind) entry += `\nWhere to find: ${e.whereToFind}`;
-                  if (e.relatedTerms) entry += `\nRelated: ${e.relatedTerms}`;
                   return entry;
-                }).join('\n\n') +
-                '\n--- END KNOWLEDGE BASE ---';
-            }
-          } catch (_) {}
+                }).join('\n\n');
+                if (kbText.length > 2500) kbText = kbText.slice(0, 2500) + '…';
+                knowledgeContext = '\n\n--- KNOWLEDGE BASE ---\n' + kbText + '\n--- END KNOWLEDGE BASE ---';
+              }
+            } catch (_) {}
+          }
 
           // Detect which portal is active from context
           const isCruise = context.includes('SEAFARERS') || context.includes('DEPLOYMENT') ||
