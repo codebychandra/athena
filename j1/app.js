@@ -1153,9 +1153,10 @@ pages.j1visa = async function () {
   // Table headers
   const thSort = VISA_TABLE_COLS.map(col => {
     const w = col.minWidth ? `min-width:${col.minWidth};` : '';
+    const fz = col.journeycol ? ' j1-frozen-col' : '';
     return col.sortable
-      ? `<th data-visafield="${escH(col.field)}" class="sortable" style="cursor:pointer;user-select:none;white-space:nowrap;${w}">${col.label} <span class="req-sort-icon">⇅</span></th>`
-      : `<th style="white-space:nowrap;${w}">${col.label}</th>`;
+      ? `<th data-visafield="${escH(col.field)}" class="sortable${fz}" style="cursor:pointer;user-select:none;white-space:nowrap;${w}">${col.label} <span class="req-sort-icon">⇅</span></th>`
+      : `<th class="${fz.trim()}" style="white-space:nowrap;${w}">${col.label}</th>`;
   }).join('') + '<th style="width:52px;"></th>';
 
   const sources    = [...new Set(allRows.map(r=>r.programSource).filter(v=>v&&v!=='—'))].sort();
@@ -1191,7 +1192,7 @@ pages.j1visa = async function () {
       </div>
     </th>`;
     const opts = cfDropdowns[col.field];
-    return `<th>${opts
+    return `<th class="${col.journeycol ? 'j1-frozen-col' : ''}">${opts
       ? `<div id="visaCF_${col.field}" class="j1-multiselect req-cf-ms">
   <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
@@ -1430,7 +1431,7 @@ pageEvents.j1visa = function () {
   }
   function renderRows(rows) {
     if (!rows.length) return `<tr><td colspan="${VISA_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
-    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td>${cellContent(r,col)}</td>`).join('')}<td style="text-align:center;"><button class="visa-detail-btn" data-visaidx="${allRows.indexOf(r)}"
+    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td class="${col.journeycol?'j1-frozen-col':''}">${cellContent(r,col)}</td>`).join('')}<td style="text-align:center;"><button class="visa-detail-btn" data-visaidx="${allRows.indexOf(r)}"
       style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
         background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`).join('');
   }

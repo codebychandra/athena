@@ -2159,6 +2159,22 @@ thead th.sortable:hover {
   font-size: 11px;
   vertical-align: middle;
 }
+/* Frozen first column (e.g. Visa Journey) — sticky on horizontal scroll */
+.req-table-outer th.j1-frozen-col,
+.req-table-outer td.j1-frozen-col {
+  position: sticky;
+  left: 0;
+}
+.req-table-outer tbody td.j1-frozen-col {
+  z-index: 2;
+  background: var(--bg-card);
+  box-shadow: inset 0 0 0 999px var(--bg-card); /* opaque — no bleed-through */
+  border-right: 1px solid var(--border);
+}
+.req-table-outer thead th.j1-frozen-col {
+  z-index: 6;                 /* above other sticky headers */
+  border-right: 1px solid var(--border);
+}
 .req-dept-badge {
   font-size: 10px;
   padding: 2px 7px;
