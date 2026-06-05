@@ -512,15 +512,17 @@ function sharedGet(store, fallback) {
   _sharedCache[store] = v;
   return v;
 }
+// Returns the save promise (resolves to the Response, or null on failure) so
+// callers can show a sync indicator. Local mirror is written synchronously.
 function sharedSet(store, value) {
   _sharedCache[store] = value;
   try { localStorage.setItem(SHARED_STORES[store], JSON.stringify(value)); } catch {}
   try {
-    fetch(WORKER_URL + '/api/cruise/state', {
+    return fetch(WORKER_URL + '/api/cruise/state', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: store, value }),
-    }).catch(() => {});
-  } catch {}
+    }).catch(() => null);
+  } catch { return Promise.resolve(null); }
 }
 
 let _sharedHydratePromise = null;
@@ -4189,6 +4191,7 @@ pages.reports = async function () {
                 <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date</div>
                 <input type="date" id="hmReportDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
               </div>
+              <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);align-self:center;min-width:90px;"></span>
               <button id="hmDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
             </div>
           </div>
@@ -4304,7 +4307,20 @@ function hmRagDot(rag) {
 // ── Persistence: { [qKey]: { params:{[pk]:{rate,remarks,rag}}, wfa:{[brand]:{comp,noncomp}} } } ──
 // Stored live via the shared 'heatmap' store (Worker KV).
 function _hmLoadAll() { return sharedGet('heatmap', {}) || {}; }
-function _hmSaveAll(o) { sharedSet('heatmap', o); }
+// Small sync indicator in the Heat Map header (#hmSaveStatus).
+function hmSaveStatus(state) {
+  const el = document.getElementById('hmSaveStatus');
+  if (!el) return;
+  if (state === 'saving')      { el.textContent = '● Saving…';  el.style.color = '#888'; }
+  else if (state === 'saved')  { el.textContent = '✓ Saved';    el.style.color = '#2D7A55'; }
+  else                         { el.textContent = '⚠ Save failed (kept locally)'; el.style.color = '#B01A18'; }
+}
+function _hmSaveAll(o) {
+  hmSaveStatus('saving');
+  const p = sharedSet('heatmap', o);
+  if (p && p.then) p.then(res => hmSaveStatus(res && res.ok ? 'saved' : 'error'));
+  else hmSaveStatus('error');
+}
 function _hmQuarter(qKey) { const all=_hmLoadAll(); return all[qKey] || { params:{}, wfa:{} }; }
 function _hmGetParam(qKey, pk) { return (_hmQuarter(qKey).params || {})[pk] || {}; }
 function _hmSetParam(qKey, pk, field, val) {
