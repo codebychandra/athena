@@ -1416,7 +1416,7 @@ pageEvents.j1visa = function () {
   }
   function doSort(rows) {
     if (!_visaSortCol) return rows;
-    const isDate = ['visaPaymentDate','visaAppointment','visaExpiredDate'].includes(_visaSortCol);
+    const isDate = ['visaPaymentDate','visaAppointment','visaAppt2','visaAppt3','visaExpiredDate'].includes(_visaSortCol);
     return [...rows].sort((a, b) => {
       let av = a[_visaSortCol], bv = b[_visaSortCol];
       if (isDate) {
@@ -1892,6 +1892,9 @@ const VISA_TABLE_COLS = [
   { label:'Sponsor',           field:'processingSponsor',sortable:true                    },
   { label:'Expired Date',      field:'visaExpiredDate',  sortable:true,  datecol:true     },
   { label:'Support Letter',    field:'refLetterStatus',  sortable:true                    },
+  { label:'1st Appointment Date', field:'visaAppointment', sortable:true, datecol:true    },
+  { label:'2nd Appointment Date', field:'visaAppt2',       sortable:true, datecol:true    },
+  { label:'3rd Appointment Date', field:'visaAppt3',       sortable:true, datecol:true    },
 ];
 let _visaSortCol = null, _visaSortDir = 'asc';
 
