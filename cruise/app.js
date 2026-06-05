@@ -4865,7 +4865,7 @@ const HEATMAP_STYLES = `
 /* Performance Detail: table (left) + explanation (right) */
 .hm-detail-row { display:flex; gap:18px; align-items:flex-start; margin-bottom:8px; }
 .hm-detail-table { flex:3 1 0; min-width:0; }
-.hm-detail-explain { flex:1 1 0; min-width:0; }
+.hm-detail-explain { flex:2 1 0; min-width:0; }
 .hm-detail-explain .hm-commentary { margin-bottom:0; }
 .hm-matrix { width:100%; table-layout:fixed; }
 .hm-matrix td, .hm-matrix th { vertical-align:middle; padding-left:4px; padding-right:4px; }
