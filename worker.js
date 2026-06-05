@@ -1436,6 +1436,9 @@ export default {
           const body = await request.json();
           const messages = (body.messages || []).slice(-12);
           const context  = String(body.context || '').slice(0, 4000); // cap context size
+          // Optional overrides for structured tasks (e.g. Heat Map AI Autofill).
+          const customSystem = body.system ? String(body.system).slice(0, 8000) : null;
+          const maxTokens    = Math.min(Math.max(parseInt(body.max_tokens, 10) || 800, 100), 4000);
 
           // Load knowledge base for AI context
           let knowledgeContext = '';
@@ -1528,8 +1531,8 @@ Rules:
             },
             body: JSON.stringify({
               model:      'claude-sonnet-4-5',
-              max_tokens: 800,
-              system:     systemPrompt,
+              max_tokens: maxTokens,
+              system:     customSystem || systemPrompt,
               messages,
             }),
           });

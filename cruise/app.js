@@ -4189,8 +4189,10 @@ pages.reports = async function () {
               <button class="hm-subnav-btn" data-hm="detail">3 · Performance Detail</button>
               <button class="hm-subnav-btn" data-hm="summary">4 · Executive Summary</button>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);white-space:nowrap;"></span>
+              <button id="hmAutofillBtn" style="padding:7px 16px;font-size:12.5px;font-weight:700;border-radius:7px;border:none;background:#1B3A6B;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">✨ AI Autofill</button>
+              <button id="hmClearTextBtn" style="padding:7px 14px;font-size:12.5px;font-weight:700;border-radius:7px;border:1px solid var(--border,#ddd);background:#fff;color:#B01A18;cursor:pointer;font-family:inherit;white-space:nowrap;">Clear Text</button>
               <button id="hmSaveBtn" style="padding:7px 18px;font-size:12.5px;font-weight:700;border-radius:7px;border:none;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Save</button>
             </div>
           </div>
@@ -4920,6 +4922,47 @@ function buildHeatMapHTML(view, qKey, editable) {
   return hmBuildExplain(qKey);
 }
 
+// Build a readable data dump of a quarter for the AI Autofill prompt.
+function hmCollectQuarterData(qKey) {
+  const qIdx  = HEATMAP_QUARTERS.findIndex(x => x.key === qKey);
+  const q     = HEATMAP_QUARTERS[qIdx] || HEATMAP_QUARTERS[0];
+  const prevQ = qIdx > 0 ? HEATMAP_QUARTERS[qIdx - 1] : null;
+  const L = [];
+  L.push(`Quarter: ${q.label}`);
+  if (prevQ) L.push(`Previous quarter: ${prevQ.label}`);
+
+  L.push('\nSCORECARD:');
+  HEATMAP_PARAMS.forEach(p => {
+    const rec = _hmGetParam(qKey, p.key);
+    const rag = hmResolveRag(p, rec) || '(not set)';
+    const rate = (rec.rate != null && rec.rate !== '') ? `${rec.rate}${p.unit ? ' ' + p.unit : ''}` : '(blank)';
+    const prev = (rec.prevScore != null && rec.prevScore !== '') ? rec.prevScore : '(blank)';
+    let qoq = '—';
+    if (p.numeric) { const pct = hmComputeQoQ(rec.rate, rec.prevScore); if (pct != null) qoq = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%'; }
+    L.push(`- ${p.name} [key=${p.key}]: success rate=${rate}, RAG=${rag}, previous=${prev}, QoQ=${qoq}`);
+  });
+
+  const dumpMatrix = (label, sec, defaults, subCols) => {
+    const rows = _hmGetRows(qKey, sec, defaults);
+    L.push(`\n${label}:`);
+    let any = false;
+    rows.forEach(r => {
+      const parts = HM_CRUISE_LINES.map(c => subCols
+        ? `${c} (${subCols.map(s => `${s.label} ${_hmMetaCell(qKey, sec, r.id, `${c}|${s.key}`) ?? '-'}`).join(', ')})`
+        : `${c}=${_hmMetaCell(qKey, sec, r.id, c) ?? '-'}`);
+      const lbl = r.label || '(unnamed)';
+      L.push(`  ${lbl}${r.tp ? ' [Talent Pool]' : ''}: ${parts.join(' | ')}`);
+      any = true;
+    });
+    if (!any) L.push('  (no rows)');
+  };
+  dumpMatrix('DEMAND DELIVERY (by position; Requisition vs Fulfilled per cruise line)', 'demand', HM_DEPARTMENTS, DEMAND_SUBCOLS);
+  dumpMatrix('ATTRITION (by reason per cruise line)', 'attrition', HM_ATTR_REASONS, null);
+  dumpMatrix('NEW HIRES vs RE-JOINERS (per cruise line)', 'rejoin', HM_REJOIN_ROWS, null);
+  dumpMatrix('WAITING FOR ASSIGNMENT (per cruise line)', 'waiting', HM_WAIT_ROWS, null);
+  return L.join('\n');
+}
+
 pageEvents.reports = function () {
   // Relocate the Requisition Setup markup into the CUK Weekly Report tab
   // (it used to be its own top-level tab).
@@ -5152,6 +5195,73 @@ pageEvents.reports = function () {
       const p = sharedSet('heatmap', _hmLoadAll());
       const done = (ok) => { hmSaveStatus(ok ? 'saved' : 'error'); saveBtn.disabled = false; saveBtn.textContent = orig; };
       if (p && p.then) p.then(res => done(res && res.ok)); else done(false);
+    });
+
+    // ── AI Autofill — generates CTI-style remarks / narratives from the data ──
+    const autofillBtn = document.getElementById('hmAutofillBtn');
+    if (autofillBtn) autofillBtn.addEventListener('click', async () => {
+      const orig = autofillBtn.textContent;
+      autofillBtn.disabled = true; autofillBtn.textContent = '✨ Writing…';
+      try {
+        const qk = sel.value;
+        const dump = hmCollectQuarterData(qk);
+        const systemPrompt =
+`You are a senior maritime crewing data analyst preparing the CTI Group Heat Map quarterly performance report for the client Carnival UK (CUK). Write in CTI's professional reporting style: factual, concise, citing the actual numbers and percentages, noting quarter-on-quarter (QoQ) trends and RAG status, and finishing the executive summary with a forward-looking conclusion. Use clear corporate English. Use ONLY the data provided — never invent numbers; if a value is blank, write a brief neutral note or omit it.
+
+STYLE EXAMPLES (from prior CTI reports):
+- Demand Delivery remark: "14 of 21 demand positions have been fulfilled, achieving a 66.7% fulfilment rate, with the remaining positions still being sourced."
+- Attrition remark: "This quarter recorded 77 resignations out of 3,032 active seafarers, an attrition rate of 2.54% — a decrease from 112 the previous quarter, indicating improved retention."
+- Monthly Invoice remark: "No discrepancies were identified in the monthly invoices, maintaining a consistent record of accuracy."
+
+You output STRICT JSON only — no markdown, no code fences, no commentary.`;
+        const prompt =
+`DATA:
+${dump}
+
+Return ONLY a valid JSON object with EXACTLY this shape and keys:
+{
+  "scorecard": { "supplier": "...", "monthlyAudit": "...", "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "...", "waiting": "..." },
+  "detail": { "demandNarr": "...", "attritionNarr": "...", "rejoinNarr": "...", "waitingNarr": "..." },
+  "summary": { "overviewText": "...", "conclusionText": "...", "params": { "supplier": "...", "monthlyAudit": "...", "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "..." } }
+}
+Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 sentences each. Be specific with the numbers from DATA. Output JSON only.`;
+
+        const res = await fetch(WORKER_URL + '/api/ai/chat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], system: systemPrompt, max_tokens: 3500, context: '' }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const raw = String(data.response || '');
+        const jsonStr = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+        const obj = JSON.parse(jsonStr);
+
+        if (obj.scorecard) for (const [pk, t] of Object.entries(obj.scorecard)) if (t) _hmSetParam(qk, pk, 'remarks', String(t));
+        if (obj.detail)    for (const [f, t] of Object.entries(obj.detail))    if (t) _hmSetMeta(qk, f, String(t));
+        if (obj.summary) {
+          if (obj.summary.overviewText)   _hmSetMeta(qk, 'overviewText', String(obj.summary.overviewText));
+          if (obj.summary.conclusionText) _hmSetMeta(qk, 'conclusionText', String(obj.summary.conclusionText));
+          if (obj.summary.params) for (const [pk, t] of Object.entries(obj.summary.params)) if (t) _hmSetParam(qk, pk, 'summaryText', String(t));
+        }
+        renderHM();
+        hmSaveStatus('saved');
+      } catch (e) {
+        console.error('AI Autofill failed', e);
+        alert('AI Autofill failed: ' + (e.message || 'please try again.'));
+      } finally {
+        autofillBtn.disabled = false; autofillBtn.textContent = orig;
+      }
+    });
+
+    // ── Clear Text — wipes all description fields for the quarter (keeps numbers) ──
+    const clearTextBtn = document.getElementById('hmClearTextBtn');
+    if (clearTextBtn) clearTextBtn.addEventListener('click', () => {
+      if (!confirm('Clear ALL description text (CTI remarks, detail commentary and executive summary) for this quarter? The numbers are kept.')) return;
+      const qk = sel.value;
+      HEATMAP_PARAMS.forEach(p => { _hmSetParam(qk, p.key, 'remarks', ''); _hmSetParam(qk, p.key, 'summaryText', ''); });
+      ['demandNarr', 'attritionNarr', 'rejoinNarr', 'waitingNarr', 'invoicingNarr', 'overviewText', 'conclusionText', 'summaryText']
+        .forEach(f => _hmSetMeta(qk, f, ''));
+      renderHM();
     });
 
     // PDF — A4 landscape, all three pages, CUK Weekly Report styling.
