@@ -4946,7 +4946,7 @@ pageEvents.reports = function () {
     setupPanel.appendChild(demandSec);
   }
 
-  // Top-tab switching
+  // Top-tab switching (remembers the last tab so a refresh returns to it)
   document.querySelectorAll('.task-sub-link').forEach(link => {
     link.addEventListener('click', () => {
       const target = link.dataset.section;
@@ -4955,8 +4955,17 @@ pageEvents.reports = function () {
       document.querySelectorAll('.task-section').forEach(s => {
         s.style.display = s.dataset.section === target ? '' : 'none';
       });
+      try { localStorage.setItem('cti_cruise_rpt_tab', target); } catch (_) {}
     });
   });
+  // Restore the last-opened report tab.
+  try {
+    const _savedTab = localStorage.getItem('cti_cruise_rpt_tab');
+    if (_savedTab) {
+      const _btn = document.querySelector(`.task-sub-link[data-section="${_savedTab}"]`);
+      if (_btn) _btn.click();
+    }
+  } catch (_) {}
 
   // Inner sub-nav (Report vs Requisition Setup) within CUK Weekly Report
   document.querySelectorAll('.rpt-subnav-btn').forEach(btn => {
@@ -4979,7 +4988,17 @@ pageEvents.reports = function () {
     sel.innerHTML = HEATMAP_QUARTERS.map(q =>
       `<option value="${escH(q.key)}">${escH(q.label)}</option>`).join('');
 
+    // Restore the last-viewed quarter + section so a refresh returns here.
+    try {
+      const sq = localStorage.getItem('cti_cruise_hm_q');
+      if (sq && HEATMAP_QUARTERS.some(q => q.key === sq)) sel.value = sq;
+    } catch (_) {}
+
     let view = 'explain';
+    try {
+      const sv = localStorage.getItem('cti_cruise_hm_view');
+      if (['explain', 'scorecard', 'detail', 'summary'].includes(sv)) view = sv;
+    } catch (_) {}
 
     // Report date (chosen by the user, saved per quarter) — used in the footer.
     const dateInp = document.getElementById('hmReportDate');
@@ -5119,16 +5138,24 @@ pageEvents.reports = function () {
       });
     }
 
-    // Sub-nav (Parameter Explanation / Performance / Executive Summary)
+    // Reflect the restored section in the active tab.
+    document.querySelectorAll('.hm-subnav-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.hm === view));
+
+    // Sub-nav (Parameter / Scorecard / Performance Detail / Executive Summary)
     document.querySelectorAll('.hm-subnav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         view = btn.dataset.hm;
         document.querySelectorAll('.hm-subnav-btn').forEach(b => b.classList.toggle('active', b === btn));
+        try { localStorage.setItem('cti_cruise_hm_view', view); } catch (_) {}
         renderHM();
       });
     });
 
-    sel.addEventListener('change', renderHM);
+    sel.addEventListener('change', () => {
+      try { localStorage.setItem('cti_cruise_hm_q', sel.value); } catch (_) {}
+      renderHM();
+    });
 
     // Explicit Save button — force-pushes the whole Heat Map to the server.
     const saveBtn = document.getElementById('hmSaveBtn');
