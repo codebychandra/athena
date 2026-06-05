@@ -5184,10 +5184,12 @@ pageEvents.reports = function () {
           buildHeatMapHTML('detail', sel.value, false) +
           buildHeatMapHTML('summary', sel.value, false) +
           `</div>` +
-          HEATMAP_PDF_STYLES +
           `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;}</style>`;
+        // Render at the same width as the on-screen report so the PDF matches the
+        // website layout (proportions, column widths, 60/40 detail split) exactly.
+        const onscreenW = Math.round((document.getElementById('hmPreview')?.clientWidth) || 1047);
         const hidden = document.createElement('div');
-        hidden.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
+        hidden.style.cssText = `position:fixed;left:-99999px;top:0;width:${onscreenW}px;background:#fff;`;
         hidden.innerHTML = html;
         document.body.appendChild(hidden);
         try {
@@ -5224,7 +5226,7 @@ pageEvents.reports = function () {
             let placed = false;
             if (typeof h2c === 'function') {
               const fdiv = document.createElement('div');
-              fdiv.style.cssText = 'position:fixed;left:-99999px;top:0;width:1047px;background:#fff;';
+              fdiv.style.cssText = `position:fixed;left:-99999px;top:0;width:${onscreenW}px;background:#fff;`;
               fdiv.innerHTML =
                 `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
                    <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
