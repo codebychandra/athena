@@ -4642,9 +4642,11 @@ function hmTable(rowHeader, editable, bodyHtml, subCols) {
   // auto so it absorbs the remaining width; sub-columns are kept narrow.
   let colgroup = '';
   if (subCols) {
-    const cols = ['<col>']; // Position — auto width (wide)
-    HM_CRUISE_LINES.forEach(() => subCols.forEach(() => cols.push('<col style="width:30px;">')));
-    if (editable) cols.push('<col style="width:28px;">'); // action column
+    // Position column ~matches the other tables' first column (~1 of 4 equal);
+    // the sub-columns share the remaining width evenly.
+    const cols = ['<col style="width:26%;">'];
+    HM_CRUISE_LINES.forEach(() => subCols.forEach(() => cols.push('<col>')));
+    if (editable) cols.push('<col style="width:30px;">'); // action column
     colgroup = `<colgroup>${cols.join('')}</colgroup>`;
   }
   return `<table class="rpt-table hm-table hm-matrix">${colgroup}<thead>${hmHeadHtml(rowHeader, editable, subCols)}</thead><tbody>${bodyHtml}</tbody></table>`;
