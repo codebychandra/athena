@@ -2172,7 +2172,7 @@ thead th.sortable:hover {
   border-right: 1px solid var(--border);
 }
 .req-table-outer thead th.j1-frozen-col {
-  z-index: 6;                 /* above other sticky headers */
+  z-index: 7 !important;      /* above other sticky headers (beats more-specific base rule) */
   border-right: 1px solid var(--border);
 }
 .req-dept-badge {
