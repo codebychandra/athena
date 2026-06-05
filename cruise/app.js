@@ -4191,7 +4191,7 @@ pages.reports = async function () {
                 <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted,#888);margin-bottom:6px;">Report Date</div>
                 <input type="date" id="hmReportDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
               </div>
-              <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);align-self:center;min-width:90px;"></span>
+              <span id="hmSaveStatus" style="font-size:11.5px;font-weight:600;color:var(--text-muted,#888);align-self:flex-end;height:36px;display:inline-flex;align-items:center;min-width:84px;"></span>
               <button id="hmDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download PDF</button>
             </div>
           </div>
