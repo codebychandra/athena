@@ -5185,9 +5185,10 @@ pageEvents.reports = function () {
           buildHeatMapHTML('summary', sel.value, false) +
           `</div>` +
           `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;}</style>`;
-        // Render at the same width as the on-screen report so the PDF matches the
-        // website layout (proportions, column widths, 60/40 detail split) exactly.
-        const onscreenW = Math.round((document.getElementById('hmPreview')?.clientWidth) || 1047);
+        // 1047px ≈ A4-landscape content width (277mm) at 96dpi, so content maps
+        // 1:1 onto the page (no magnification). Layout is %-based, so proportions
+        // match the website.
+        const onscreenW = 1047;
         const hidden = document.createElement('div');
         hidden.style.cssText = `position:fixed;left:-99999px;top:0;width:${onscreenW}px;background:#fff;`;
         hidden.innerHTML = html;
@@ -5204,7 +5205,7 @@ pageEvents.reports = function () {
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
             // Keep rows and narrative blocks intact so page breaks never slice
             // through the middle of text; tables break cleanly between rows.
-            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend', '.hm-detail-row'] },
+            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend'] },
           }).from(hidden.querySelector('#hmPdfRoot'));
 
           await worker.toPdf();
