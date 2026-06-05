@@ -4583,8 +4583,8 @@ function hmRowsHtml(qKey, editable, sec, defaults, opts) {
     const tpBadge = r.tp ? `<span class="hm-tp-badge">TP</span>` : '';
     return `<tr>
       <td class="rpt-td">${editable
-        ? `<div style="display:flex;align-items:center;gap:5px;">${tpBadge}<input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}"></div>`
-        : `<span style="font-weight:700;">${tpBadge}${tpBadge?' ':''}${escH(r.label)||'—'}</span>`}</td>${
+        ? `<div style="display:flex;align-items:center;gap:5px;"><input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}">${tpBadge}</div>`
+        : `<span style="font-weight:700;">${escH(r.label)||'—'}${tpBadge?' ':''}${tpBadge}</span>`}</td>${
     HM_CRUISE_LINES.map(c => {
       const v = _hmMetaCell(qKey, sec, r.id, c);
       const val = v == null ? '' : v;
@@ -4837,9 +4837,9 @@ const HEATMAP_STYLES = `
   border:1px solid #e0b4b4; background:#fff5f5; color:#B01A18; border-radius:5px; cursor:pointer;
   font-size:13px; font-weight:700; padding:0; }
 .hm-row-del:hover { background:#B01A18; color:#fff; border-color:#B01A18; }
-.hm-row-add { font-size:10.5px; font-weight:700; color:#B01A18; background:#fff;
+.hm-row-add, .hm-row-add-tp { font-size:10.5px; font-weight:700; color:#B01A18; background:#fff;
   border:1px dashed #B01A18; border-radius:6px; padding:4px 12px; cursor:pointer; font-family:inherit; }
-.hm-row-add:hover { background:#B01A18; color:#fff; }
+.hm-row-add:hover, .hm-row-add-tp:hover { background:#B01A18; color:#fff; }
 .hm-rollup { display:flex; gap:24px; align-items:center; margin:4px 0 6px; font-size:12px; font-weight:600; color:#444; }
 .hm-rollup .hm-pill { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; border-radius:11px; color:#fff; font-weight:800; font-size:11px; padding:0 7px; margin-right:5px; }
 .hm-para { font-size:12px; line-height:1.65; color:#222; margin:0 0 11px; }
