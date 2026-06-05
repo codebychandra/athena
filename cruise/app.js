@@ -4587,7 +4587,7 @@ function hmHeadHtml(rowHeader, editable, subCols) {
     editable ? '<th class="rpt-th hm-actcol" rowspan="2"></th>' : ''}
     </tr>
     <tr>${
-    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;width:54px;">${escH(s.label)}</th>`).join('')).join('')}
+    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;width:24px;">${escH(s.label)}</th>`).join('')).join('')}
     </tr>`;
 }
 
@@ -4600,7 +4600,7 @@ function hmDividerRow(label, editable) {
 function hmRowsHtml(qKey, editable, sec, defaults, opts) {
   const rows = _hmGetRows(qKey, sec, defaults);
   const subCols = opts && opts.subCols;
-  const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
+  const ib = 'box-sizing:border-box;padding:4px 2px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
   const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
 
   // One value cell for a given composite field key.
@@ -4858,7 +4858,7 @@ const HEATMAP_STYLES = `
 .hm-detail-explain { flex:1 1 42%; min-width:0; }
 .hm-detail-explain .hm-commentary { margin-bottom:0; }
 .hm-matrix { width:100%; table-layout:fixed; }
-.hm-matrix td, .hm-matrix th { vertical-align:middle; }
+.hm-matrix td, .hm-matrix th { vertical-align:middle; padding-left:4px; padding-right:4px; }
 .hm-matrix .rpt-td input { box-sizing:border-box; }
 .hm-matrix .hm-actcol { width:30px; text-align:center; padding:4px 2px; }
 .hm-divider td { background:#1A1A1A; color:#fff; font-weight:800; text-align:center;
@@ -4907,6 +4907,7 @@ const HEATMAP_PDF_STYLES = `
 #hmPdfRoot .hm-legend-bottom { margin-top:26px; }
 #hmPdfRoot .hm-table .rpt-th { padding:10px 10px; font-size:10px; }
 #hmPdfRoot .hm-table .rpt-td { padding:13px 10px; font-size:11px; line-height:1.45; }
+#hmPdfRoot .hm-matrix td, #hmPdfRoot .hm-matrix th { padding-left:4px; padding-right:4px; }
 /* Executive summary — denser, no forced single-item page breaks */
 #hmPdfRoot .hm-sum-item { margin:0 0 14px; padding:0 0 12px; }
 #hmPdfRoot .hm-sum-title { font-size:15px; }
