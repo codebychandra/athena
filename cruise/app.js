@@ -4563,10 +4563,12 @@ function hmRowsHtml(qKey, editable, sec, defaults, opts) {
   const ib = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-family:inherit;background:#fff;color:#1A1A1A;text-align:center;width:100%;';
   const lb = 'box-sizing:border-box;padding:5px 6px;border:1px solid #ccc;border-radius:5px;font-size:10.5px;font-weight:700;font-family:inherit;background:#fff;color:#1A1A1A;width:100%;';
 
-  const body = rows.map(r => `<tr>
+  const body = rows.map(r => {
+    const tpBadge = r.tp ? `<span class="hm-tp-badge">TP</span>` : '';
+    return `<tr>
       <td class="rpt-td">${editable
-        ? `<input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}">`
-        : `<span style="font-weight:700;">${escH(r.label)||'—'}</span>`}</td>${
+        ? `<div style="display:flex;align-items:center;gap:5px;">${tpBadge}<input type="text" class="hm-dlabel" data-sec="${sec}" data-id="${escH(r.id)}" value="${escH(r.label)}" placeholder="Row name" style="${lb}"></div>`
+        : `<span style="font-weight:700;">${tpBadge}${tpBadge?' ':''}${escH(r.label)||'—'}</span>`}</td>${
     HM_CRUISE_LINES.map(c => {
       const v = _hmMetaCell(qKey, sec, r.id, c);
       const val = v == null ? '' : v;
@@ -4575,7 +4577,8 @@ function hmRowsHtml(qKey, editable, sec, defaults, opts) {
         : `<span>${val===''?'—':escH(String(val))}</span>`}</td>`;
     }).join('')}${
     editable ? `<td class="rpt-td hm-actcol"><button type="button" class="hm-row-del" data-sec="${sec}" data-id="${escH(r.id)}" title="Remove row">×</button></td>` : ''}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const add = editable
     ? `<tr class="hm-addrow"><td colspan="${hmColCount(editable)}">
@@ -4797,6 +4800,9 @@ const HEATMAP_STYLES = `
 .hm-hint { font-size:10.5px; color:#777; margin:0 0 12px; }
 .hm-section-title { font-size:12px; font-weight:800; letter-spacing:0.04em; color:#1A1A1A; text-transform:uppercase; margin:20px 0 8px; padding-bottom:4px; border-bottom:2px solid #B01A18; }
 .hm-subhead { font-size:11px; font-weight:700; color:#444; margin:10px 0 5px; }
+.hm-tp-badge { display:inline-block; flex-shrink:0; font-size:8px; font-weight:800; letter-spacing:0.04em;
+  color:#1B3A6B; background:rgba(27,58,107,0.12); border:1px solid rgba(27,58,107,0.35);
+  border-radius:4px; padding:1px 4px; line-height:1.3; vertical-align:middle; }
 .hm-dnarr { margin-bottom:6px; }
 .hm-formula { font-size:10px; color:#555; margin:10px 0 4px; padding:8px 10px; background:#f6f6f6; border-radius:6px; }
 /* Performance Detail: table (left) + explanation (right) */
@@ -4996,17 +5002,19 @@ pageEvents.reports = function () {
           _hmSetRows(sel.value, sec, rows);
         });
       });
-      // Add row (blank) / Add Talent Pool row (pre-labelled "Talent Pool")
-      const addRow = (sec, label) => {
+      // Add row (blank) / Add Talent Pool row (flagged tp → shows a "TP" badge)
+      const addRow = (sec, tp) => {
         const rows = _hmGetRows(sel.value, sec, HM_DETAIL_DEFAULTS[sec] || []).slice();
-        rows.push({ id: 'r' + Math.random().toString(36).slice(2, 8), label });
+        const row = { id: 'r' + Math.random().toString(36).slice(2, 8), label: '' };
+        if (tp) row.tp = true;
+        rows.push(row);
         _hmSetRows(sel.value, sec, rows);
         renderHM();
       };
       prev.querySelectorAll('.hm-row-add').forEach(btn =>
-        btn.addEventListener('click', () => addRow(btn.dataset.sec, '')));
+        btn.addEventListener('click', () => addRow(btn.dataset.sec, false)));
       prev.querySelectorAll('.hm-row-add-tp').forEach(btn =>
-        btn.addEventListener('click', () => addRow(btn.dataset.sec, 'Talent Pool')));
+        btn.addEventListener('click', () => addRow(btn.dataset.sec, true)));
       // Remove row (also drop its cell data)
       prev.querySelectorAll('.hm-row-del').forEach(btn => {
         btn.addEventListener('click', () => {
