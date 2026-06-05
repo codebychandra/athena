@@ -4587,7 +4587,7 @@ function hmHeadHtml(rowHeader, editable, subCols) {
     editable ? '<th class="rpt-th hm-actcol" rowspan="2"></th>' : ''}
     </tr>
     <tr>${
-    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;">${escH(s.label)}</th>`).join('')).join('')}
+    HM_CRUISE_LINES.map(() => subCols.map(s => `<th class="rpt-th" style="text-align:center;font-weight:600;width:54px;">${escH(s.label)}</th>`).join('')).join('')}
     </tr>`;
 }
 
@@ -4664,7 +4664,7 @@ function hmBuildDetail(qKey, editable) {
       ${hmHeader(q.label, 'Performance Detail')}
 
       ${block('Demand Delivery',
-        hmTable('Department', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
+        hmTable('Position', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
         'demandNarr', 'Demand & talent-pool commentary…')}
 
       ${block('Attrition',
