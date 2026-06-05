@@ -3745,20 +3745,8 @@ pages.deployment = async function () {
       ${buildMS('depCF_cruiseLine','Cruise Line',cruiseLines)}
       ${buildMS('depCF_empStatus','Employment Status',empStatuses)}
       ${buildMS('depCF_ctiOffice','CTI Office',ctiOffices)}
-      <span style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
-        <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Month</label>
-        <select id="depMonthFilter" style="${DEP_SEL}">
-          <option value="">All Months</option>
-          ${DEP_MONTH_NAMES.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}
-        </select>
-      </span>
-      <span style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
-        <label style="font-size:11px;color:var(--text-muted,#888);white-space:nowrap;">Year</label>
-        <select id="depYearFilter" style="${DEP_SEL}min-width:80px;">
-          <option value="">All Years</option>
-          ${years.map(y=>`<option value="${y}">${y}</option>`).join('')}
-        </select>
-      </span>
+      ${buildMS('depMonthFilter','Month',DEP_MONTH_NAMES)}
+      ${buildMS('depYearFilter','Year',years.map(String))}
       <button id="depClearBtn" class="req-clear-btn">Clear</button>
     </div>
 
@@ -3862,20 +3850,20 @@ pageEvents.deployment = function () {
     const gLine  = msGetVals('depCF_cruiseLine');
     const gEmp   = msGetVals('depCF_empStatus');
     const gOff   = msGetVals('depCF_ctiOffice');
-    const mo     = document.getElementById('depMonthFilter')?.value;
-    const yr     = document.getElementById('depYearFilter')?.value;
+    const moVals = msGetVals('depMonthFilter').map(m => DEP_MONTH_NAMES.indexOf(m)).filter(i => i !== -1);
+    const yrVals = msGetVals('depYearFilter');
 
     let out = raw.filter(r => {
       if (gLine.length && !gLine.includes(v(r,COL.cruiseLine)))  return false;
       if (gEmp.length  && !gEmp.includes(v(r,COL.empStatus)))    return false;
       if (gOff.length  && !gOff.includes(v(r,COL.ctiOfficeAnalytics))) return false;
-      if (mo !== '' && mo !== undefined && mo !== null) {
+      if (moVals.length) {
         const d = depParseDate(v(r,COL.date));
-        if (!d || d.month !== +mo) return false;
+        if (!d || !moVals.includes(d.month)) return false;
       }
-      if (yr) {
+      if (yrVals.length) {
         const d = depParseDate(v(r,COL.date));
-        if (!d || d.year !== +yr) return false;
+        if (!d || !yrVals.includes(String(d.year))) return false;
       }
       return true;
     });
@@ -3982,11 +3970,9 @@ pageEvents.deployment = function () {
   }
 
   initMS();
-  ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice'].forEach(id=>msOnChange(id,depApply));
-  ['depMonthFilter','depYearFilter'].forEach(id=>document.getElementById(id)?.addEventListener('change',depApply));
+  ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice','depMonthFilter','depYearFilter'].forEach(id=>msOnChange(id,depApply));
   document.getElementById('depClearBtn')?.addEventListener('click',()=>{
-    ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice'].forEach(msClear);
-    ['depMonthFilter','depYearFilter'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+    ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice','depMonthFilter','depYearFilter'].forEach(msClear);
     depActiveKpi=null;
     depApply();
   });
