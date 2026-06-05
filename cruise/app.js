@@ -4640,15 +4640,13 @@ function hmTable(rowHeader, editable, bodyHtml, subCols) {
   // With table-layout:fixed, column widths must come from a <colgroup> (the
   // header's spanned cells can't set per-column widths). Position column is left
   // auto so it absorbs the remaining width; sub-columns are kept narrow.
-  let colgroup = '';
-  if (subCols) {
-    // Position column ~matches the other tables' first column (~1 of 4 equal);
-    // the sub-columns share the remaining width evenly.
-    const cols = ['<col style="width:26%;">'];
-    HM_CRUISE_LINES.forEach(() => subCols.forEach(() => cols.push('<col>')));
-    if (editable) cols.push('<col style="width:30px;">'); // action column
-    colgroup = `<colgroup>${cols.join('')}</colgroup>`;
-  }
+  // Every detail table uses the SAME fixed first-column width so the label
+  // column lines up across all tables; the data columns share the rest.
+  const cols = ['<col style="width:26%;">'];
+  if (subCols) HM_CRUISE_LINES.forEach(() => subCols.forEach(() => cols.push('<col>')));
+  else         HM_CRUISE_LINES.forEach(() => cols.push('<col>'));
+  if (editable) cols.push('<col style="width:30px;">'); // action column
+  const colgroup = `<colgroup>${cols.join('')}</colgroup>`;
   return `<table class="rpt-table hm-table hm-matrix">${colgroup}<thead>${hmHeadHtml(rowHeader, editable, subCols)}</thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
