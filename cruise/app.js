@@ -4254,35 +4254,35 @@ const HEATMAP_PARAMS = [
     red:'More than 2 months submitting erroneous invoices.',
     amber:'A month of submitting erroneous invoices.',
     green:'No errors on monthly invoices.',
-    numeric:true, unit:'months with errors',
+    numeric:true, unit:'months with errors', betterWhen:'lower',
     rule:n => n<=0 ? 'green' : (n<=1 ? 'amber' : 'red') },
   { key:'demand', name:'Demand Delivery', pic:'Herry Wahyudi',
     explain:'Monthly demand vs monthly hired.',
     red:'Below 90% met.', amber:'90–95%, or more than 110% of demand issued (over-supply).',
     green:'95–100%.',
-    numeric:true, unit:'% fulfilled',
+    numeric:true, unit:'% fulfilled', betterWhen:'higher',
     rule:n => n<90 ? 'red' : (n<95 ? 'amber' : (n<=110 ? 'green' : 'amber')) },
   { key:'attrition', name:'Attrition', pic:'Marcos Xavier, Jasmine Debora',
     explain:'% rolling turnover (quarterly) and % attrition vs overall establishment.',
     red:'Over 5% attrition against overall establishment.',
     amber:'3–5% of establishment, or rolling-turnover increase of more than 1.5% over the quarter.',
     green:'Less than 3% of overall establishment.',
-    numeric:true, unit:'% attrition',
+    numeric:true, unit:'% attrition', betterWhen:'lower',
     rule:n => n<3 ? 'green' : (n<=5 ? 'amber' : 'red') },
   { key:'rejoiners', name:'New Hires vs Re-Joiners', pic:'Marcos Xavier, Jasmine Debora',
     explain:'% of seafarers on their second-plus contract (re-joiners).',
     red:'Below 85%.', amber:'85–90%.', green:'Above 90%.',
-    numeric:true, unit:'% re-joiners',
+    numeric:true, unit:'% re-joiners', betterWhen:'higher',
     rule:n => n>90 ? 'green' : (n>=85 ? 'amber' : 'red') },
   { key:'absconders', name:'Absconders', pic:'Galang Surya',
     explain:'Number of seafarers who absconded in the period.',
     red:'Absconders recorded.', amber:'N/A', green:'No absconders.',
-    numeric:true, unit:'count',
+    numeric:true, unit:'count', betterWhen:'lower',
     rule:n => n<=0 ? 'green' : 'red' },
   { key:'waiting', name:'Waiting for Assignment', pic:'Carnival UK',
     explain:'New-hire seafarers pending their first assignment — compliance vs non-compliance.',
     red:'—', amber:'—', green:'—',
-    numeric:false },
+    numeric:false, betterWhen:'lower' },
 ];
 
 const HM_WFA_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
@@ -4391,11 +4391,14 @@ function hmWaitingTotal(qKey) {
 }
 
 // Derived success rate for the auto-calculated parameters (null if not computable).
+// A row counts as talent pool if flagged tp OR its label says "talent pool".
+function hmIsTP(r) { return !!(r.tp || /talent\s*pool/i.test(r.label || '')); }
+
 function hmDerivedRate(qKey, pk) {
   if (pk === 'demand') {
     // Demand fulfilment counts ONLY demand rows — talent-pool (TP) rows excluded.
-    const req = hmSumDemandSub(qKey, 'req', r => !r.tp);
-    const ful = hmSumDemandSub(qKey, 'ful', r => !r.tp);
+    const req = hmSumDemandSub(qKey, 'req', r => !hmIsTP(r));
+    const ful = hmSumDemandSub(qKey, 'ful', r => !hmIsTP(r));
     if (req == null || req <= 0) return null;
     return ((ful || 0) / req) * 100;
   }
@@ -4413,8 +4416,8 @@ function hmDerivedRate(qKey, pk) {
 }
 // Talent-pool fulfilment % (TP rows only) — informational.
 function hmTalentPoolRate(qKey) {
-  const req = hmSumDemandSub(qKey, 'req', r => r.tp);
-  const ful = hmSumDemandSub(qKey, 'ful', r => r.tp);
+  const req = hmSumDemandSub(qKey, 'req', r => hmIsTP(r));
+  const ful = hmSumDemandSub(qKey, 'ful', r => hmIsTP(r));
   if (req == null || req <= 0) return null;
   return ((ful || 0) / req) * 100;
 }
@@ -4438,13 +4441,20 @@ function hmEstablishmentRow(qKey, editable) {
          <span class="hm-est-note">${escH(desc)}</span>
        </div>`;
 }
-// Render the QoQ cell with an up / down / flat arrow.
-function hmQoQCellHtml(pct) {
+// Render the QoQ cell. The arrow shows the direction of change; the colour shows
+// whether that change is FAVOURABLE for the metric (betterWhen 'higher'|'lower').
+function hmQoQCellHtml(pct, betterWhen) {
   if (pct === null || pct === undefined) return '<span style="color:#999;">—</span>';
   const up = pct > 0, down = pct < 0;
   const arrow = up ? '▲' : (down ? '▼' : '–');
-  const col   = up ? '#2E9E5B' : (down ? '#D64545' : '#888');
-  const sign  = up ? '+' : '';
+  let good = null; // true = favourable (green), false = adverse (red), null = flat
+  if (up || down) {
+    if (betterWhen === 'lower')      good = down;
+    else if (betterWhen === 'higher') good = up;
+    else                              good = up; // default: up is good
+  }
+  const col  = good === true ? '#2E9E5B' : good === false ? '#D64545' : '#888';
+  const sign = up ? '+' : '';
   return `<span style="color:${col};font-weight:700;white-space:nowrap;">${arrow} ${sign}${pct.toFixed(1)}%</span>`;
 }
 
@@ -4572,7 +4582,7 @@ function hmBuildScorecard(qKey, editable) {
     const remarksCell = editable
       ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2" placeholder="CTI remarks…" style="${ib}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
       : `<span>${remarks?escH(remarks):'—'}</span>`;
-    const qoqCell = `<span class="hm-qoq-cell" data-pk="${p.key}">${hmQoQCellHtml(qoqPct)}</span>`;
+    const qoqCell = `<span class="hm-qoq-cell" data-pk="${p.key}">${hmQoQCellHtml(qoqPct, p.betterWhen)}</span>`;
     const prevCell = editable
       ? `<input type="text" class="hm-prev" data-pk="${p.key}" value="${escH(String(prev))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
       : `<span>${prev===''?'—':escH(String(prev))}</span>`;
@@ -4769,10 +4779,13 @@ function hmBuildDetail(qKey, editable) {
         hmTable('Position', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
         'demandNarr', 'Demand & talent-pool commentary…')}
       ${(() => {
-        const d = hmDerivedRate(qKey, 'demand'); const tp = hmTalentPoolRate(qKey);
+        const dReq = hmSumDemandSub(qKey, 'req', r => !hmIsTP(r));
+        const dFul = hmSumDemandSub(qKey, 'ful', r => !hmIsTP(r));
+        const tReq = hmSumDemandSub(qKey, 'req', r => hmIsTP(r));
+        const tFul = hmSumDemandSub(qKey, 'ful', r => hmIsTP(r));
         let s = '';
-        if (d != null)  s += `<div class="hm-derived-note">Demand fulfilment: <strong>${d.toFixed(1)}%</strong> (demand only — talent pool excluded)</div>`;
-        if (tp != null) s += `<div class="hm-derived-note">Talent pool fulfilment: <strong>${tp.toFixed(1)}%</strong> (acknowledgement only — not in demand formula)</div>`;
+        if (dReq != null && dReq > 0) s += `<div class="hm-derived-note">Demand fulfilment: <strong>${dFul||0} of ${dReq} fulfilled (${(((dFul||0)/dReq)*100).toFixed(1)}%)</strong> — demand only, talent pool excluded</div>`;
+        if (tReq != null && tReq > 0) s += `<div class="hm-derived-note">Talent pool: <strong>${tFul||0} of ${tReq} fulfilled (${(((tFul||0)/tReq)*100).toFixed(1)}%)</strong> — acknowledgement only, not in demand formula</div>`;
         return s;
       })()}
 
@@ -5185,7 +5198,7 @@ pageEvents.reports = function () {
       if (!cell) return;
       const rec = _hmGetParam(sel.value, pk);
       const pct = (p && p.numeric) ? hmComputeQoQ(rec.rate, rec.prevScore) : null;
-      cell.innerHTML = hmQoQCellHtml(pct);
+      cell.innerHTML = hmQoQCellHtml(pct, p && p.betterWhen);
     }
 
     function attachScorecardHandlers() {
