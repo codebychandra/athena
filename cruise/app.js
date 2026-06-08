@@ -5405,14 +5405,21 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
       }
     });
 
-    // ── Clear Text — wipes all description fields for the quarter (keeps numbers) ──
+    // ── Clear Text — wipes the description fields on the CURRENT tab only ──
     const clearTextBtn = document.getElementById('hmClearTextBtn');
     if (clearTextBtn) clearTextBtn.addEventListener('click', () => {
-      if (!confirm('Clear ALL description text (CTI remarks, detail commentary and executive summary) for this quarter? The numbers are kept.')) return;
       const qk = sel.value;
-      HEATMAP_PARAMS.forEach(p => { _hmSetParam(qk, p.key, 'remarks', ''); _hmSetParam(qk, p.key, 'summaryText', ''); });
-      ['demandNarr', 'attritionNarr', 'rejoinNarr', 'waitingNarr', 'invoicingNarr', 'overviewText', 'conclusionText', 'summaryText']
-        .forEach(f => _hmSetMeta(qk, f, ''));
+      const labels = { scorecard: 'CTI Remarks (Scorecard)', detail: 'commentary (Performance Detail)', summary: 'Executive Summary text' };
+      if (!labels[view]) { alert('There is no editable text on this tab.'); return; }
+      if (!confirm(`Clear the ${labels[view]} for this quarter? Other tabs and the numbers are kept.`)) return;
+      if (view === 'scorecard') {
+        HEATMAP_PARAMS.forEach(p => _hmSetParam(qk, p.key, 'remarks', ''));
+      } else if (view === 'detail') {
+        ['demandNarr', 'attritionNarr', 'rejoinNarr', 'waitingNarr', 'invoicingNarr'].forEach(f => _hmSetMeta(qk, f, ''));
+      } else if (view === 'summary') {
+        HEATMAP_PARAMS.forEach(p => _hmSetParam(qk, p.key, 'summaryText', ''));
+        ['overviewText', 'conclusionText', 'summaryText'].forEach(f => _hmSetMeta(qk, f, ''));
+      }
       renderHM();
     });
 
