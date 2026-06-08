@@ -4882,7 +4882,7 @@ function hmBuildSummary(qKey, editable) {
 
   // RAG roll-up
   const tally = { red:0, amber:0, green:0 };
-  HEATMAP_PARAMS.filter(p => p.key !== 'waiting').forEach(p => {
+  HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).forEach(p => {
     const r = hmResolveRag(p, _hmGetParam(qKey, p.key));
     if (tally[r] !== undefined) tally[r]++;
   });
@@ -4912,7 +4912,7 @@ function hmBuildSummary(qKey, editable) {
         : '');
 
   // One block per parameter: title → heat-map status → editable explanation text area
-  const items = HEATMAP_PARAMS.filter(p => p.key !== 'waiting').map(p => {
+  const items = HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).map(p => {
     const rec = _hmGetParam(qKey, p.key);
     const rag = hmResolveRag(p, rec);
     const hasNum = p.numeric && rec.rate !== undefined && rec.rate !== '' && rec.rate !== null;
