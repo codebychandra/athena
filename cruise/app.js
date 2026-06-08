@@ -4372,8 +4372,33 @@ function hmEstablishment(qKey) {
   const n = parseFloat(String(_hmGetMeta(qKey, 'establishment') ?? '').replace(/[^0-9.\-]/g, ''));
   return (!isNaN(n) && n > 0) ? n : null;
 }
-// Derived % against establishment for attrition / re-joiners (null if not computable).
+// Sum a Demand sub-column (req / ful) across cruise lines, optional row filter.
+function hmSumDemandSub(qKey, subKey, rowFilter) {
+  const rows = _hmGetRows(qKey, 'demand', HM_DEPARTMENTS);
+  let sum = 0, any = false;
+  rows.forEach(r => {
+    if (rowFilter && !rowFilter(r)) return;
+    HM_CRUISE_LINES.forEach(c => {
+      const n = parseFloat(String(_hmMetaCell(qKey, 'demand', r.id, `${c}|${subKey}`) ?? '').replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(n)) { sum += n; any = true; }
+    });
+  });
+  return any ? sum : null;
+}
+// Total seafarers waiting for assignment (sum of the whole waiting matrix).
+function hmWaitingTotal(qKey) {
+  return hmSumMatrix(qKey, 'waiting', HM_WAIT_ROWS, null);
+}
+
+// Derived success rate for the auto-calculated parameters (null if not computable).
 function hmDerivedRate(qKey, pk) {
+  if (pk === 'demand') {
+    // Demand fulfilment counts ONLY demand rows — talent-pool (TP) rows excluded.
+    const req = hmSumDemandSub(qKey, 'req', r => !r.tp);
+    const ful = hmSumDemandSub(qKey, 'ful', r => !r.tp);
+    if (req == null || req <= 0) return null;
+    return ((ful || 0) / req) * 100;
+  }
   const est = hmEstablishment(qKey);
   if (est == null) return null;
   if (pk === 'attrition') {
@@ -4385,6 +4410,13 @@ function hmDerivedRate(qKey, pk) {
     return c == null ? null : (c / est) * 100;
   }
   return null;
+}
+// Talent-pool fulfilment % (TP rows only) — informational.
+function hmTalentPoolRate(qKey) {
+  const req = hmSumDemandSub(qKey, 'req', r => r.tp);
+  const ful = hmSumDemandSub(qKey, 'ful', r => r.tp);
+  if (req == null || req <= 0) return null;
+  return ((ful || 0) / req) * 100;
 }
 
 // Editable "Total Establishment" row (shared by Scorecard and Performance Detail).
@@ -4508,30 +4540,34 @@ function hmBuildScorecard(qKey, editable) {
 
   const rows = HEATMAP_PARAMS.map(p => {
     const rec  = _hmGetParam(qKey, p.key);
-    // Attrition / Re-Joiner success rate is auto-derived from Total Establishment.
-    const derived = (p.key === 'attrition' || p.key === 'rejoiners') ? hmDerivedRate(qKey, p.key) : null;
+    // Demand / Attrition / Re-Joiner success rates are auto-derived from the data.
+    const derived = ['demand', 'attrition', 'rejoiners'].includes(p.key) ? hmDerivedRate(qKey, p.key) : null;
     const rate = derived != null ? derived.toFixed(2) : (rec.rate != null ? rec.rate : '');
     const rag  = hmResolveRag(p, derived != null ? { ...rec, rate } : rec);
     const bg   = HM_RAG_BG[rag] || 'transparent';
     const remarks = rec.remarks != null ? rec.remarks : '';
     const prev = rec.prevScore != null ? rec.prevScore : '';
-    // QoQ is computed from Success Rate vs Previous Score (numeric params only).
-    const qoqPct = p.numeric ? hmComputeQoQ(rate, prev) : null;
+    // QoQ: numeric params use the success rate; Waiting uses the total waiting count.
+    const waitTotal = (p.key === 'waiting') ? hmWaitingTotal(qKey) : null;
+    const qoqBase = (p.key === 'waiting') ? (waitTotal != null ? waitTotal : '') : rate;
+    const qoqPct  = (p.numeric || p.key === 'waiting') ? hmComputeQoQ(qoqBase, prev) : null;
 
     let rateCell;
     if (p.numeric && derived != null) {
-      // Auto-calculated from establishment — read-only.
+      // Auto-calculated — read-only.
       rateCell = `<span style="font-weight:700;font-size:13px;">${escH(rate)}</span><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')} · auto</div>`;
     } else if (p.numeric) {
       rateCell = editable
         ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}" placeholder="0" style="${ib}width:78px;text-align:center;font-weight:700;"><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')}</div>`
         : `<span style="font-weight:700;font-size:13px;">${rate===''?'—':escH(String(rate))}</span>`;
     } else {
-      // In the PDF (non-editable) the RAG word is hidden — the colour + dot
-      // column already convey the status. The dropdown only shows on screen.
-      rateCell = editable
+      // Non-numeric: RAG dropdown (manual). Waiting also shows its derived total.
+      const ddl = editable
         ? `<select class="hm-rag" data-pk="${p.key}" style="${ib}width:104px;"><option value="">— status —</option><option value="green"${rag==='green'?' selected':''}>Green</option><option value="amber"${rag==='amber'?' selected':''}>Amber</option><option value="red"${rag==='red'?' selected':''}>Red</option></select>`
         : '';
+      const wn = (p.key === 'waiting' && waitTotal != null)
+        ? `<div style="font-size:8.5px;color:#999;margin-top:2px;">Total waiting: ${waitTotal}</div>` : '';
+      rateCell = ddl + wn;
     }
     const remarksCell = editable
       ? `<textarea class="hm-remarks" data-pk="${p.key}" rows="2" placeholder="CTI remarks…" style="${ib}width:100%;resize:vertical;min-height:34px;">${escH(remarks)}</textarea>`
@@ -4732,6 +4768,13 @@ function hmBuildDetail(qKey, editable) {
       ${block('Demand Delivery',
         hmTable('Position', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
         'demandNarr', 'Demand & talent-pool commentary…')}
+      ${(() => {
+        const d = hmDerivedRate(qKey, 'demand'); const tp = hmTalentPoolRate(qKey);
+        let s = '';
+        if (d != null)  s += `<div class="hm-derived-note">Demand fulfilment: <strong>${d.toFixed(1)}%</strong> (demand only — talent pool excluded)</div>`;
+        if (tp != null) s += `<div class="hm-derived-note">Talent pool fulfilment: <strong>${tp.toFixed(1)}%</strong> (acknowledgement only — not in demand formula)</div>`;
+        return s;
+      })()}
 
       ${block('Attrition',
         hmTable('Reason', editable, hmRowsHtml(qKey, editable, 'attrition', HM_ATTR_REASONS)),
@@ -5007,9 +5050,12 @@ function hmCollectQuarterData(qKey) {
   L.push(`Quarter: ${q.label}`);
   if (prevQ) L.push(`Previous quarter: ${prevQ.label}`);
   const est = hmEstablishment(qKey);
-  L.push(`Total Establishment: ${est != null ? est : '(blank)'}`);
-  const aPct = hmDerivedRate(qKey, 'attrition'); if (aPct != null) L.push(`Attrition rate (of establishment): ${aPct.toFixed(2)}%`);
-  const rPct = hmDerivedRate(qKey, 'rejoiners'); if (rPct != null) L.push(`Re-Joiner rate (of establishment): ${rPct.toFixed(2)}%`);
+  L.push(`Total Establishment (active seafarers at quarter end): ${est != null ? est : '(blank)'}`);
+  const dPct = hmDerivedRate(qKey, 'demand');     if (dPct != null) L.push(`Demand fulfilment rate (DEMAND rows only — talent pool EXCLUDED): ${dPct.toFixed(1)}%`);
+  const tPct = hmTalentPoolRate(qKey);            if (tPct != null) L.push(`Talent pool fulfilment rate (acknowledgement only, not in demand formula): ${tPct.toFixed(1)}%`);
+  const aPct = hmDerivedRate(qKey, 'attrition');  if (aPct != null) L.push(`Attrition rate (of establishment): ${aPct.toFixed(2)}%`);
+  const rPct = hmDerivedRate(qKey, 'rejoiners');  if (rPct != null) L.push(`Re-Joiner rate (of establishment): ${rPct.toFixed(2)}%`);
+  const wTot = hmWaitingTotal(qKey);              if (wTot != null) L.push(`Total seafarers waiting for assignment: ${wTot}`);
 
   L.push('\nSCORECARD:');
   HEATMAP_PARAMS.forEach(p => {
@@ -5293,11 +5339,17 @@ pageEvents.reports = function () {
         const qk = sel.value;
         const dump = hmCollectQuarterData(qk);
         const systemPrompt =
-`You are a senior maritime crewing data analyst preparing the CTI Group Heat Map quarterly performance report for the client Carnival UK (CUK). Write in CTI's professional reporting style: factual, concise, citing the actual numbers and percentages, noting quarter-on-quarter (QoQ) trends and RAG status, and finishing the executive summary with a forward-looking conclusion. Use clear corporate English. Use ONLY the data provided — never invent numbers; if a value is blank, write a brief neutral note or omit it.
+`You are a senior maritime crewing data analyst preparing the CTI Group Heat Map quarterly performance report for the client Carnival UK (CUK). Write in CTI's professional reporting style: factual, citing the actual numbers and percentages, noting quarter-on-quarter (QoQ) trends and RAG status. Use clear corporate English. Use ONLY the data provided — never invent numbers; if a value is blank, state it is pending/not yet recorded rather than guessing.
+
+KEY RULES:
+- Demand fulfilment counts DEMAND positions only; talent-pool (TP) rows are acknowledged separately and are NOT part of the demand fulfilment formula. Report demand % and talent-pool % as distinct figures.
+- Attrition % and Re-Joiner % are measured against the Total Establishment.
+- The EXECUTIVE SUMMARY is the MASTER report: it must comprehensively explain what the data shows for EVERY parameter — the result, the RAG rating and why, the QoQ trend, and the operational implication/recommendation. Each summary parameter paragraph should be a thorough analytical 3–6 sentences. The overview should set the scene across all metrics; the conclusion should give an overall assessment and outlook for next quarter.
+- Scorecard CTI remarks stay concise (1–2 sentences). Detail commentaries are 2–4 sentences.
 
 STYLE EXAMPLES (from prior CTI reports):
 - Demand Delivery remark: "14 of 21 demand positions have been fulfilled, achieving a 66.7% fulfilment rate, with the remaining positions still being sourced."
-- Attrition remark: "This quarter recorded 77 resignations out of 3,032 active seafarers, an attrition rate of 2.54% — a decrease from 112 the previous quarter, indicating improved retention."
+- Attrition remark: "This quarter recorded 77 resignations out of 3,032 active seafarers, an attrition rate of 2.54% — a decrease from the previous quarter, indicating improved retention."
 - Monthly Invoice remark: "No discrepancies were identified in the monthly invoices, maintaining a consistent record of accuracy."
 
 You output STRICT JSON only — no markdown, no code fences, no commentary.`;
@@ -5315,7 +5367,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
 
         const res = await fetch(WORKER_URL + '/api/ai/chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], system: systemPrompt, max_tokens: 3500, context: '' }),
+          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], system: systemPrompt, max_tokens: 4000, context: '' }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
