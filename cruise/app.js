@@ -4391,13 +4391,20 @@ function hmDerivedRate(qKey, pk) {
 function hmEstablishmentRow(qKey, editable) {
   const v = _hmGetMeta(qKey, 'establishment');
   const val = (v != null) ? String(v) : '';
+  const q = HEATMAP_QUARTERS.find(x => x.key === qKey) || HEATMAP_QUARTERS[0];
+  const endMonth = ((q.label.match(/[–-]\s*([^)]+)\)/) || [])[1] || '').trim();
+  const asAt = endMonth ? `as at the end of the quarter (${endMonth})` : 'as at the end of the quarter';
+  const desc = `Total seafarers recorded as active ${asAt}. Attrition % and Re-Joiner % are calculated against this number.`;
   return editable
     ? `<div class="hm-est-row">
          <label>Total Establishment</label>
          <input type="text" class="hm-establishment" value="${escH(val)}" placeholder="e.g. 3032">
-         <span class="hm-est-note">Attrition % and Re-Joiner % are calculated against this number.</span>
+         <span class="hm-est-note">${escH(desc)}</span>
        </div>`
-    : `<div class="hm-est-row"><label>Total Establishment:</label> <strong>${val === '' ? '—' : escH(val)}</strong></div>`;
+    : `<div class="hm-est-row">
+         <label>Total Establishment:</label> <strong>${val === '' ? '—' : escH(val)}</strong>
+         <span class="hm-est-note">${escH(desc)}</span>
+       </div>`;
 }
 // Render the QoQ cell with an up / down / flat arrow.
 function hmQoQCellHtml(pct) {
