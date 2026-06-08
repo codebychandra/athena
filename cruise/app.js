@@ -4920,11 +4920,12 @@ function hmBuildSummary(qKey, editable) {
     const ragWord = rag ? rag.toUpperCase() : 'NOT SET';
     const resultStr = hasNum ? `${escH(String(rec.rate))} ${escH(p.unit||'')}` : '';
 
-    // Saved explanation text persists in localStorage. If empty, offer the
-    // auto-generated draft (plain text) as a starting point.
+    // Saved explanation persists. A never-touched field (undefined) shows the
+    // auto-generated draft as a starting point; an explicitly cleared field ('')
+    // stays empty so Clear Text actually clears it.
     const saved = rec.summaryText;
     const autoDraft = (hmExplainText(p, qKey, prevQ) || '').replace(/<[^>]+>/g, '');
-    const textVal = (saved != null && saved !== '') ? saved : autoDraft;
+    const textVal = (saved != null) ? saved : autoDraft;
 
     const explainBlock = editable
       ? `<textarea class="hm-sum-text" data-pk="${p.key}" rows="3"
