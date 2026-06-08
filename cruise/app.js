@@ -4352,6 +4352,53 @@ function hmComputeQoQ(cur, prev) {
   if (isNaN(c) || isNaN(p) || p === 0) return null;
   return ((c - p) / Math.abs(p)) * 100;
 }
+
+// Sum numeric cells in a detail matrix (optionally only rows passing rowFilter).
+function hmSumMatrix(qKey, sec, defaults, rowFilter) {
+  const rows = _hmGetRows(qKey, sec, defaults);
+  let sum = 0, any = false;
+  rows.forEach(r => {
+    if (rowFilter && !rowFilter(r)) return;
+    HM_CRUISE_LINES.forEach(c => {
+      const n = parseFloat(String(_hmMetaCell(qKey, sec, r.id, c) ?? '').replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(n)) { sum += n; any = true; }
+    });
+  });
+  return any ? sum : null;
+}
+
+// Total Establishment (per quarter) drives the attrition / re-joiner percentages.
+function hmEstablishment(qKey) {
+  const n = parseFloat(String(_hmGetMeta(qKey, 'establishment') ?? '').replace(/[^0-9.\-]/g, ''));
+  return (!isNaN(n) && n > 0) ? n : null;
+}
+// Derived % against establishment for attrition / re-joiners (null if not computable).
+function hmDerivedRate(qKey, pk) {
+  const est = hmEstablishment(qKey);
+  if (est == null) return null;
+  if (pk === 'attrition') {
+    const c = hmSumMatrix(qKey, 'attrition', HM_ATTR_REASONS, null);
+    return c == null ? null : (c / est) * 100;
+  }
+  if (pk === 'rejoiners') {
+    const c = hmSumMatrix(qKey, 'rejoin', HM_REJOIN_ROWS, r => /re-?join|repeat/i.test(r.label || r.id || ''));
+    return c == null ? null : (c / est) * 100;
+  }
+  return null;
+}
+
+// Editable "Total Establishment" row (shared by Scorecard and Performance Detail).
+function hmEstablishmentRow(qKey, editable) {
+  const v = _hmGetMeta(qKey, 'establishment');
+  const val = (v != null) ? String(v) : '';
+  return editable
+    ? `<div class="hm-est-row">
+         <label>Total Establishment</label>
+         <input type="text" class="hm-establishment" value="${escH(val)}" placeholder="e.g. 3032">
+         <span class="hm-est-note">Attrition % and Re-Joiner % are calculated against this number.</span>
+       </div>`
+    : `<div class="hm-est-row"><label>Total Establishment:</label> <strong>${val === '' ? '—' : escH(val)}</strong></div>`;
+}
 // Render the QoQ cell with an up / down / flat arrow.
 function hmQoQCellHtml(pct) {
   if (pct === null || pct === undefined) return '<span style="color:#999;">—</span>';
@@ -4454,16 +4501,21 @@ function hmBuildScorecard(qKey, editable) {
 
   const rows = HEATMAP_PARAMS.map(p => {
     const rec  = _hmGetParam(qKey, p.key);
-    const rag  = hmResolveRag(p, rec);
+    // Attrition / Re-Joiner success rate is auto-derived from Total Establishment.
+    const derived = (p.key === 'attrition' || p.key === 'rejoiners') ? hmDerivedRate(qKey, p.key) : null;
+    const rate = derived != null ? derived.toFixed(2) : (rec.rate != null ? rec.rate : '');
+    const rag  = hmResolveRag(p, derived != null ? { ...rec, rate } : rec);
     const bg   = HM_RAG_BG[rag] || 'transparent';
-    const rate = rec.rate != null ? rec.rate : '';
     const remarks = rec.remarks != null ? rec.remarks : '';
     const prev = rec.prevScore != null ? rec.prevScore : '';
     // QoQ is computed from Success Rate vs Previous Score (numeric params only).
     const qoqPct = p.numeric ? hmComputeQoQ(rate, prev) : null;
 
     let rateCell;
-    if (p.numeric) {
+    if (p.numeric && derived != null) {
+      // Auto-calculated from establishment — read-only.
+      rateCell = `<span style="font-weight:700;font-size:13px;">${escH(rate)}</span><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')} · auto</div>`;
+    } else if (p.numeric) {
       rateCell = editable
         ? `<input type="text" class="hm-rate" data-pk="${p.key}" value="${escH(String(rate))}" placeholder="0" style="${ib}width:78px;text-align:center;font-weight:700;"><div style="font-size:8px;color:#999;margin-top:2px;">${escH(p.unit||'')}</div>`
         : `<span style="font-weight:700;font-size:13px;">${rate===''?'—':escH(String(rate))}</span>`;
@@ -4497,6 +4549,7 @@ function hmBuildScorecard(qKey, editable) {
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Executive Scorecard')}
       ${editable ? '<p class="hm-hint">Enter the success rate (numeric cells auto-colour by RAG threshold), CTI remarks and the previous-quarter score. QoQ Change is calculated automatically. Saves automatically.</p>' : ''}
+      ${hmEstablishmentRow(qKey, editable)}
       <table class="rpt-table hm-table">
         <thead><tr>
           <th class="rpt-th">Parameter</th>
@@ -4657,9 +4710,17 @@ function hmBuildDetail(qKey, editable) {
       <div class="hm-detail-explain">${narr(field, ph)}</div>
     </div>`;
 
+  // Derived percentage readout (against Total Establishment).
+  const derivedNote = (pk, label) => {
+    const r = hmDerivedRate(qKey, pk);
+    if (r == null) return '';
+    return `<div class="hm-derived-note">${label}: <strong>${r.toFixed(2)}%</strong> of total establishment</div>`;
+  };
+
   return `
     <div class="rpt-doc hm-doc">
       ${hmHeader(q.label, 'Performance Detail')}
+      ${hmEstablishmentRow(qKey, editable)}
 
       ${block('Demand Delivery',
         hmTable('Position', editable, hmRowsHtml(qKey, editable, 'demand', HM_DEPARTMENTS, { talent: true, subCols: DEMAND_SUBCOLS }), DEMAND_SUBCOLS),
@@ -4668,10 +4729,12 @@ function hmBuildDetail(qKey, editable) {
       ${block('Attrition',
         hmTable('Reason', editable, hmRowsHtml(qKey, editable, 'attrition', HM_ATTR_REASONS)),
         'attritionNarr', 'How attrition is counted and the quarter trend…')}
+      ${derivedNote('attrition', 'Attrition rate')}
 
       ${block('New Hires vs Re-Joiners',
         hmTable('Metric', editable, hmRowsHtml(qKey, editable, 'rejoin', HM_REJOIN_ROWS)),
         'rejoinNarr', 'New-hire vs re-joiner split commentary…')}
+      ${derivedNote('rejoiners', 'Re-Joiner rate')}
 
       ${block('Waiting for Assignment (New Hire)',
         hmTable('Status', editable, hmRowsHtml(qKey, editable, 'waiting', HM_WAIT_ROWS)),
@@ -4850,6 +4913,12 @@ const HEATMAP_STYLES = `
   border-radius:4px; padding:1px 4px; line-height:1.3; vertical-align:middle; }
 .hm-dnarr { margin-bottom:6px; }
 .hm-formula { font-size:10px; color:#555; margin:10px 0 4px; padding:8px 10px; background:#f6f6f6; border-radius:6px; }
+.hm-est-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 14px; padding:9px 12px; background:#f6f8fb; border:1px solid #e2e8f0; border-radius:7px; font-size:12px; }
+.hm-est-row label { font-weight:800; color:#1B3A6B; text-transform:uppercase; letter-spacing:0.04em; font-size:10.5px; }
+.hm-establishment { box-sizing:border-box; width:120px; padding:6px 9px; border:1px solid #ccc; border-radius:6px; font-size:13px; font-weight:700; font-family:inherit; text-align:center; }
+.hm-est-note { font-size:10.5px; color:#888; }
+.hm-derived-note { font-size:11px; color:#444; margin:-2px 0 14px; padding-left:2px; }
+.hm-derived-note strong { color:#1B3A6B; }
 /* Performance Detail: table (left) + explanation (right) */
 .hm-detail-row { display:flex; gap:18px; align-items:flex-start; margin-bottom:8px; }
 .hm-detail-table { flex:3 1 0; min-width:0; }
@@ -4930,6 +4999,10 @@ function hmCollectQuarterData(qKey) {
   const L = [];
   L.push(`Quarter: ${q.label}`);
   if (prevQ) L.push(`Previous quarter: ${prevQ.label}`);
+  const est = hmEstablishment(qKey);
+  L.push(`Total Establishment: ${est != null ? est : '(blank)'}`);
+  const aPct = hmDerivedRate(qKey, 'attrition'); if (aPct != null) L.push(`Attrition rate (of establishment): ${aPct.toFixed(2)}%`);
+  const rPct = hmDerivedRate(qKey, 'rejoiners'); if (rPct != null) L.push(`Re-Joiner rate (of establishment): ${rPct.toFixed(2)}%`);
 
   L.push('\nSCORECARD:');
   HEATMAP_PARAMS.forEach(p => {
@@ -5165,6 +5238,13 @@ pageEvents.reports = function () {
         autoGrow(t);
         t.addEventListener('input', () => autoGrow(t));
       });
+      // Total Establishment — save while typing, re-render on blur to refresh the
+      // derived attrition / re-joiner percentages.
+      const estInp = prev.querySelector('.hm-establishment');
+      if (estInp) {
+        estInp.addEventListener('input',  () => _hmSetMeta(sel.value, 'establishment', estInp.value.trim()));
+        estInp.addEventListener('change', () => renderHM());
+      }
     }
 
     // Reflect the restored section in the active tab.
