@@ -5707,56 +5707,71 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
             const docEl = div.querySelector('.hm-doc') || div;
             const docTop = docEl.getBoundingClientRect().top;
             const docH = docEl.scrollHeight || docEl.getBoundingClientRect().height;
-            const set = new Set();
+            const set = new Set();      // CLEAN breaks: never cut a row or the side explanation
+            const setAll = new Set();   // FILL breaks: any row boundary (may cut a long explanation)
             const bottomOf = el => el.getBoundingClientRect().bottom - docTop;
+            const both = y => { set.add(y); setAll.add(y); };
 
-            // 2-column detail blocks: only break after the explanation has ended.
+            // 2-column detail blocks: a CLEAN break is only allowed after the
+            // explanation has ended (right column empty below the cut). Every row
+            // boundary is still a FILL break so a tall block can fill the page.
             docEl.querySelectorAll('.hm-detail-row').forEach(row => {
               const exp = row.querySelector('.hm-detail-explain');
               const expBottom = exp ? bottomOf(exp) : 0;
               row.querySelectorAll('tr').forEach(tr => {
                 const b = bottomOf(tr);
+                setAll.add(b);
                 if (b >= expBottom - 1) set.add(b);
               });
-              set.add(bottomOf(row));
+              both(bottomOf(row));
             });
             // Tables NOT inside a detail block (Parameter / Scorecard): every row.
             docEl.querySelectorAll('table').forEach(t => {
               if (t.closest('.hm-detail-row')) return;
-              t.querySelectorAll('tr').forEach(tr => set.add(bottomOf(tr)));
+              t.querySelectorAll('tr').forEach(tr => both(bottomOf(tr)));
             });
             // Other standalone blocks (exclude those inside a detail block).
             docEl.querySelectorAll('.hm-sum-item, .hm-para, p, .hm-rollup, .hm-legend, .hm-est-row, .hm-derived-note, .hm-formula, .hm-subhead').forEach(el => {
               if (el.closest('.hm-detail-row')) return;
-              set.add(bottomOf(el));
+              both(bottomOf(el));
             });
             // Break BEFORE a section title so it's never orphaned at a page bottom.
             docEl.querySelectorAll('.hm-section-title').forEach(el => {
               const t = el.getBoundingClientRect().top - docTop - 4;
-              if (t > 0) set.add(t);
+              if (t > 0) both(t);
             });
 
             const canvas = await h2c(docEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             const scaleY = canvas.height / docH;
-            const breaks = [...set].filter(b => b > 0).map(b => Math.round(b * scaleY)).sort((a, b) => a - b);
-            return { canvas, breaks };
+            const toPx = s => [...s].filter(b => b > 0).map(b => Math.round(b * scaleY)).sort((a, b) => a - b);
+            return { canvas, breaks: toPx(set), breaksAll: toPx(setAll) };
           } finally { document.body.removeChild(div); }
         };
 
         let first = true;
         for (const viewKey of ['explain', 'scorecard', 'detail', 'summary']) {
-          const { canvas, breaks } = await renderSection(viewKey);
+          const { canvas, breaks, breaksAll } = await renderSection(viewKey);
           const cw = canvas.width, chh = canvas.height;
           const pxPerMm = cw / contentW;
           const pageHpx = Math.max(1, Math.floor(usableH * pxPerMm));
+          // largest break in `arr` that fits this page (and leaves a usable slice)
+          const pick = (arr, y, target) => {
+            let best = -1;
+            for (const b of arr) { if (b > y + 40 && b <= target) best = b; else if (b > target) break; }
+            return best;
+          };
           let y = 0;
           while (y < chh) {
             const target = Math.min(y + pageHpx, chh);
             let cut = target;
             if (target < chh) {
-              // largest break that fits this page (and leaves a non-trivial slice)
-              let best = -1;
-              for (const b of breaks) { if (b > y + 40 && b <= target) best = b; else if (b > target) break; }
+              let best = pick(breaks, y, target);            // prefer a clean break
+              // If the clean break would waste more than ~30% of the page, fall back
+              // to a fill break so we don't leave a near-empty page.
+              if (best < y + pageHpx * 0.7) {
+                const fill = pick(breaksAll, y, target);
+                if (fill > best) best = fill;
+              }
               if (best > y) cut = best;          // else: a single block taller than a page → hard cut
             }
             if (cut <= y) cut = target;
