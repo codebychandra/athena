@@ -1352,9 +1352,8 @@ export default {
         if (!ALLOWED.includes(String(to).trim().toLowerCase()))
           return json({ ok: false, error: 'Recipient not permitted' }, 400, ch);
 
-        // TEMP TEST REDIRECT: deliver all feedback to this address while testing.
-        // Set to '' to send to the real department address.
-        const FEEDBACK_TEST_REDIRECT = 'agus.chandra.cti@gmail.com';
+        // TEST REDIRECT: set to an address to divert all feedback there; '' = live.
+        const FEEDBACK_TEST_REDIRECT = '';
         const actualTo = FEEDBACK_TEST_REDIRECT || to;
         const testBanner = FEEDBACK_TEST_REDIRECT
           ? `<div style="margin:0 0 14px;padding:8px 12px;background:#fff3cd;border:1px solid #ffe69c;border-radius:6px;font-size:12px;color:#8a6d3b;"><strong>TEST MODE</strong> — intended recipient: ${escHTML(to)}</div>`
