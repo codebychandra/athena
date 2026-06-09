@@ -4834,7 +4834,7 @@ function hmBuildDetail(qKey, editable) {
         const tFul = hmSumDemandSub(qKey, 'ful', r => hmIsTP(r));
         let s = '';
         if (dReq != null && dReq > 0) s += `<div class="hm-derived-note">Demand fulfilment: <strong>${dFul||0} of ${dReq} fulfilled (${(((dFul||0)/dReq)*100).toFixed(1)}%)</strong> — demand only, talent pool excluded</div>`;
-        if (tReq != null && tReq > 0) s += `<div class="hm-derived-note">Talent pool: <strong>${tFul||0} of ${tReq} fulfilled (${(((tFul||0)/tReq)*100).toFixed(1)}%)</strong> — acknowledgement only, not in demand formula</div>`;
+        if (tReq != null && tReq > 0) s += `<div class="hm-derived-note">Talent pool: <strong>${tFul||0} of ${tReq} fulfilled (${(((tFul||0)/tReq)*100).toFixed(1)}%)</strong></div>`;
         return s;
       })()}
 
