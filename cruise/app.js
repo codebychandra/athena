@@ -5631,7 +5631,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           buildHeatMapHTML('detail', sel.value, false) +
           buildHeatMapHTML('summary', sel.value, false) +
           `</div>` +
-          `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;}</style>`;
+          `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;} #hmPdfRoot tr, #hmPdfRoot .hm-sum-item{page-break-inside:avoid;break-inside:avoid;}</style>`;
         // 1047px ≈ A4-landscape content width (277mm) at 96dpi, so content maps
         // 1:1 onto the page (no magnification). Layout is %-based, so proportions
         // match the website.
@@ -5650,9 +5650,10 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
             image:       { type:'jpeg', quality:0.98 },
             html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
             jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
-            // Keep rows and narrative blocks intact so page breaks never slice
-            // through the middle of text; tables break cleanly between rows.
-            pagebreak:   { mode:['css','legacy'], avoid:['tr', '.hm-sum-item', '.hm-para', '.hm-section-title', '.hm-subhead', '.hm-legend'] },
+            // CSS-only pagination: honour the page-break-before on each section.
+            // (The legacy "avoid" mode mis-measured the matrix tables and blew the
+            // page count up, so it's removed.)
+            pagebreak:   { mode:['css'] },
           }).from(hidden.querySelector('#hmPdfRoot'));
 
           await worker.toPdf();
