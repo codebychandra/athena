@@ -4498,7 +4498,11 @@ function hmQoQCellHtml(pct, betterWhen) {
   }
   const col  = good === true ? '#2E9E5B' : good === false ? '#D64545' : '#888';
   const sign = up ? '+' : '';
-  return `<span style="color:${col};font-weight:700;white-space:nowrap;">${arrow} ${sign}${pct.toFixed(1)}%</span>`;
+  // Use 1 decimal normally, but show more precision for a small non-zero change
+  // that would otherwise round to "0.0%".
+  let txt = pct.toFixed(1);
+  if (pct !== 0 && (txt === '0.0' || txt === '-0.0')) txt = pct.toFixed(2);
+  return `<span style="color:${col};font-weight:700;white-space:nowrap;">${arrow} ${sign}${txt}%</span>`;
 }
 
 // Per-quarter meta (editable overall commentary for the executive summary).
