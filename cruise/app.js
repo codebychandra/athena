@@ -4598,16 +4598,19 @@ function hmBuildScorecard(qKey, editable) {
       ? `<input type="text" class="hm-prev" data-pk="${p.key}" value="${escH(String(prev))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
       : `<span>${prev===''?'—':escH(String(prev))}</span>`;
 
-    const fbBtn = (editable && HM_FEEDBACK[p.key])
-      ? `<div><button type="button" class="hm-fb-btn" data-pk="${p.key}">✉ Send feedback</button></div>` : '';
+    const fbCell = editable
+      ? `<td class="rpt-td" style="text-align:center;width:96px;">${HM_FEEDBACK[p.key]
+          ? `<button type="button" class="hm-fb-btn" data-pk="${p.key}">✉ Send</button>` : ''}</td>`
+      : '';
     return `
       <tr>
-        <td class="rpt-td" style="font-weight:700;width:150px;">${escH(p.name)}${fbBtn}</td>
+        <td class="rpt-td" style="font-weight:700;width:150px;">${escH(p.name)}</td>
         <td class="rpt-td hm-cell-rate" data-pk="${p.key}" style="width:92px;text-align:center;background:${bg};">${rateCell}</td>
         <td class="rpt-td" style="text-align:center;width:44px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
         <td class="rpt-td">${remarksCell}</td>
         <td class="rpt-td" style="text-align:center;width:96px;">${qoqCell}</td>
         <td class="rpt-td" style="text-align:center;width:96px;">${prevCell}</td>
+        ${fbCell}
       </tr>`;
   }).join('');
 
@@ -4624,6 +4627,7 @@ function hmBuildScorecard(qKey, editable) {
           <th class="rpt-th">CTI Remarks</th>
           <th class="rpt-th" style="text-align:center;">QoQ Change%</th>
           <th class="rpt-th" style="text-align:center;">Prev. Score${prevShort?`<br><span style="font-weight:400;">(${escH(prevShort)})</span>`:''}</th>
+          ${editable ? '<th class="rpt-th" style="text-align:center;">Feedback</th>' : ''}
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
