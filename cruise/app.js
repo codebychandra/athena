@@ -4239,10 +4239,6 @@ const HEATMAP_PARAMS = [
     amber:'Repeat feedback on the same subject, or not rectified in a timely manner.',
     green:'Strong working relationship across all teams.',
     numeric:false },
-  { key:'monthlyAudit', name:'Monthly Audit', pic:'Robert Upchurch, Marcos Xavier, Jasmine Debora',
-    explain:'Meetings to discuss areas requiring focused support.',
-    red:'Met', amber:'N/A', green:'Not Met',
-    numeric:false },
   { key:'annualAudit', name:'Annual Audit', pic:'Galang Surya',
     explain:'Compliance Department annual MLC audit.',
     red:'MLC audit failure — non-conformity not rectified within the agreed 30-day timeframe.',
@@ -4287,15 +4283,22 @@ const HEATMAP_PARAMS = [
 
 const HM_WFA_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 
-// Per-parameter feedback routing (Scorecard "Send feedback" button).
+// Per-parameter feedback routing + the question asked of that department.
+// Clicking "Send" on any row builds ONE email to the department covering every
+// parameter routed to it, each with its question.
 const HM_FEEDBACK = {
-  monthlyAudit: { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
-  annualAudit:  { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
-  absconders:   { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
-  invoice:      { email: 'harold@cti-usa.com',         dept: 'Finance (Harold)' },
-  demand:       { email: 'herry.wahyudi@cti-usa.com',  dept: 'Recruitment (Herry Wahyudi)' },
-  attrition:    { email: 'cuk-onboarding@cti-usa.com', dept: 'CUK Onboarding' },
-  rejoiners:    { email: 'cuk-onboarding@cti-usa.com', dept: 'CUK Onboarding' },
+  annualAudit: { email: 'compliance@cti-usa.com',     greet: 'Compliance',
+    question: 'Annual Audit – Please provide an update on the annual audit activities conducted during this quarter, including key findings, status, and overall performance.' },
+  absconders:  { email: 'compliance@cti-usa.com',     greet: 'Compliance',
+    question: 'Absconder Cases – Please confirm whether any absconder cases were recorded during this quarter and provide relevant details, if applicable.' },
+  invoice:     { email: 'harold@cti-usa.com',         greet: 'Finance',
+    question: 'Monthly Invoice – Please confirm whether all invoices submitted this quarter were accurate, noting any discrepancies and the corrective actions taken.' },
+  demand:      { email: 'herry.wahyudi@cti-usa.com',  greet: 'Recruitment',
+    question: 'Demand Delivery – Please provide an update on demand fulfilment this quarter, including positions filled, outstanding demand, and current sourcing status.' },
+  attrition:   { email: 'cuk-onboarding@cti-usa.com', greet: 'CUK Onboarding',
+    question: 'Attrition – Please provide an update on attrition this quarter, including the number of resignations, the key reasons, and any retention measures.' },
+  rejoiners:   { email: 'cuk-onboarding@cti-usa.com', greet: 'CUK Onboarding',
+    question: 'New Hires vs Re-Joiners – Please provide the new hire and re-joiner figures for this quarter, with any relevant commentary.' },
 };
 
 // ── RAG colour helpers ──
@@ -5264,40 +5267,39 @@ pageEvents.reports = function () {
         btn.addEventListener('click', () => hmOpenFeedback(btn.dataset.pk)));
     }
 
-    // Feedback modal — editable subject/message, sends to the mapped department.
+    // Feedback modal — one email per department covering all its parameters.
     function hmOpenFeedback(pk) {
-      const p = HEATMAP_PARAMS.find(x => x.key === pk);
       const fb = HM_FEEDBACK[pk];
-      if (!p || !fb) return;
+      if (!fb) return;
       const qk = sel.value;
       const q = HEATMAP_QUARTERS.find(x => x.key === qk) || HEATMAP_QUARTERS[0];
-      const rec = _hmGetParam(qk, pk);
-      const derived = ['demand', 'attrition', 'rejoiners'].includes(pk) ? hmDerivedRate(qk, pk) : null;
-      const rateStr = derived != null
-        ? `${derived.toFixed(2)} ${p.unit || ''}`.trim()
-        : (rec.rate ? `${rec.rate} ${p.unit || ''}`.trim() : '(not set)');
-      const rag = hmResolveRag(p, derived != null ? { ...rec, rate: derived.toFixed(2) } : rec);
-      const remarks = rec.remarks || '(none)';
-      const subject = `CUK Heat Map ${q.label} — ${p.name} Feedback`;
+      const qShort = ((q.label.match(/Quarter\s*(\d)/i) || [])[1]) ? 'Q' + q.label.match(/Quarter\s*(\d)/i)[1] : q.label;
+      // Every parameter routed to the same department address, in display order.
+      const deptParams = HEATMAP_PARAMS.filter(p => HM_FEEDBACK[p.key] && HM_FEEDBACK[p.key].email === fb.email);
+      const questions = deptParams.map(p => HM_FEEDBACK[p.key].question).join('\n\n');
+      const subject = `CUK Heat Map ${qShort} Report – ${fb.greet} Feedback Request`;
       const message =
-`Dear ${fb.dept} team,
+`Dear ${fb.greet} Team,
 
-Regarding the "${p.name}" parameter in the CUK Heat Map Report for ${q.label}:
+I hope you are doing well.
 
-- Success Rate: ${rateStr}
-- RAG status: ${(rag || 'not set').toUpperCase()}
-- CTI Remarks: ${remarks}
+As part of the preparation of the CUK Heat Map ${qShort} Report, please provide your remarks on the following parameters and summarize our performance for this quarter:
 
-[Please add your feedback or required action here.]
+${questions}
+
+Kindly submit your feedback today before 12:00 PM (noon) to ensure timely completion of the report.
+
+Thank you for your cooperation and prompt attention to this matter.
 
 Best regards,
+
 CTI Group Worldwide Services, Inc.`;
 
       const ov = document.createElement('div');
       ov.className = 'hm-fb-overlay';
       ov.innerHTML = `
         <div class="hm-fb-modal">
-          <div class="hm-fb-head">✉ Send Feedback — ${escH(p.name)}</div>
+          <div class="hm-fb-head">✉ Send Feedback — ${escH(fb.greet)}</div>
           <div class="hm-fb-body">
             <label>To</label>
             <input type="text" class="hm-fb-to" value="${escH(fb.email)}" readonly>
@@ -5481,9 +5483,9 @@ ${dump}
 
 Return ONLY a valid JSON object with EXACTLY this shape and keys:
 {
-  "scorecard": { "supplier": "...", "monthlyAudit": "...", "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "...", "waiting": "..." },
+  "scorecard": { "supplier": "...", "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "...", "waiting": "..." },
   "detail": { "demandNarr": "...", "attritionNarr": "...", "rejoinNarr": "...", "waitingNarr": "..." },
-  "summary": { "overviewText": "...", "conclusionText": "...", "params": { "supplier": "...", "monthlyAudit": "...", "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "..." } }
+  "summary": { "overviewText": "...", "conclusionText": "...", "params": { "annualAudit": "...", "invoice": "...", "demand": "...", "attrition": "...", "rejoiners": "...", "absconders": "..." } }
 }
 Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 sentences each. Be specific with the numbers from DATA. Output JSON only.`;
 
