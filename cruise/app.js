@@ -5691,14 +5691,19 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const contentW = pw - mX * 2;
         const usableH = ph - mTop - mBot;
 
-        // Render a section to a canvas AND collect safe break points (canvas-px y
-        // of the BOTTOM of every row / block), read straight from the DOM so a
-        // page break only ever lands between rows/blocks — never through one.
-        const BREAK_SEL = 'tr, p, .hm-section-title, .hm-subhead, .hm-est-row, .hm-derived-note, .hm-rollup, .hm-legend, .hm-hint, .hm-sum-item, .hm-detail-row, .hm-formula, table';
+        // Render a section to a canvas AND collect safe break points (canvas-px y),
+        // read from the DOM so a page break only lands between rows/blocks. In the
+        // PDF the detail blocks are STACKED (table then explanation, full width) so
+        // a long table paginates cleanly without cutting the side text.
+        const PDF_OVERRIDE = `<style>
+          .hm-detail-row{display:block!important;}
+          .hm-detail-table,.hm-detail-explain{flex:none!important;width:100%!important;}
+          .hm-detail-explain{margin-top:8px;}
+        </style>`;
         const renderSection = async (viewKey) => {
           const div = document.createElement('div');
           div.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
-          div.innerHTML = buildHeatMapHTML(viewKey, sel.value, false);
+          div.innerHTML = buildHeatMapHTML(viewKey, sel.value, false) + PDF_OVERRIDE;
           document.body.appendChild(div);
           try {
             await Promise.all([...div.querySelectorAll('img')].map(img =>
@@ -5706,14 +5711,20 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
             const docEl = div.querySelector('.hm-doc') || div;
             const docTop = docEl.getBoundingClientRect().top;
             const docH = docEl.scrollHeight || docEl.getBoundingClientRect().height;
-            const cssBreaks = [];
-            docEl.querySelectorAll(BREAK_SEL).forEach(el => {
+            const set = new Set();
+            // Break AFTER rows / paragraphs / blocks.
+            docEl.querySelectorAll('tr, .hm-para, p, .hm-sum-item, .hm-rollup, .hm-legend, .hm-est-row, .hm-derived-note, .hm-formula, .hm-subhead, table').forEach(el => {
               const b = el.getBoundingClientRect().bottom - docTop;
-              if (b > 0) cssBreaks.push(b);
+              if (b > 0) set.add(b);
+            });
+            // Break BEFORE a section title so it's never orphaned at a page bottom.
+            docEl.querySelectorAll('.hm-section-title').forEach(el => {
+              const t = el.getBoundingClientRect().top - docTop - 4;
+              if (t > 0) set.add(t);
             });
             const canvas = await h2c(docEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             const scaleY = canvas.height / docH;
-            const breaks = [...new Set(cssBreaks.map(b => Math.round(b * scaleY)))].sort((a, b) => a - b);
+            const breaks = [...set].map(b => Math.round(b * scaleY)).sort((a, b) => a - b);
             return { canvas, breaks };
           } finally { document.body.removeChild(div); }
         };
