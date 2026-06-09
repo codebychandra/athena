@@ -7132,17 +7132,20 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
         ? `<div style="font-size:9px;margin-top:2px;font-weight:600;
              color:${a.pending === pendingVal ? '#2D7A55' : '#B01A18'};">real: ${a.pending}</div>`
         : '';
+      // Only highlight an override (red) when the value is non-zero. A pending of
+      // 0 needs no red border.
+      const showOvr = hasOvr && Number(pendingVal) > 0;
       const pendingCell = editable
         ? `<td class="rpt-td rpt-num">
              <input class="rpt-pending-edit" data-ovrkey="${escH(ovrKey)}"
                value="${pendingVal}"
                style="width:46px;text-align:center;font-size:11px;padding:2px 4px;
-                 border:1px solid ${hasOvr ? '#B01A18' : 'var(--border,#ddd)'};border-radius:4px;
-                 background:${hasOvr ? 'rgba(176,26,24,0.05)' : 'var(--card-bg,#fff)'};
-                 color:${hasOvr ? '#B01A18' : 'var(--text)'};font-family:inherit;font-weight:${hasOvr?'700':'400'};">
+                 border:1px solid ${showOvr ? '#B01A18' : 'var(--border,#ddd)'};border-radius:4px;
+                 background:${showOvr ? 'rgba(176,26,24,0.05)' : 'var(--card-bg,#fff)'};
+                 color:${showOvr ? '#B01A18' : 'var(--text)'};font-family:inherit;font-weight:${showOvr?'700':'400'};">
              ${realHint}
            </td>`
-        : (hasOvr
+        : (showOvr
             ? `<td class="rpt-td rpt-num">
                  <span style="display:inline-block;min-width:30px;padding:2px 8px;border:1px solid #B01A18;
                    border-radius:4px;color:#B01A18;font-weight:700;background:rgba(176,26,24,0.05);">${pendingVal}</span>
