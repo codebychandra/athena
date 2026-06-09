@@ -1352,8 +1352,16 @@ export default {
         if (!ALLOWED.includes(String(to).trim().toLowerCase()))
           return json({ ok: false, error: 'Recipient not permitted' }, 400, ch);
 
+        // TEMP TEST REDIRECT: deliver all feedback to this address while testing.
+        // Set to '' to send to the real department address.
+        const FEEDBACK_TEST_REDIRECT = 'agus.chandra.cti@gmail.com';
+        const actualTo = FEEDBACK_TEST_REDIRECT || to;
+        const testBanner = FEEDBACK_TEST_REDIRECT
+          ? `<div style="margin:0 0 14px;padding:8px 12px;background:#fff3cd;border:1px solid #ffe69c;border-radius:6px;font-size:12px;color:#8a6d3b;"><strong>TEST MODE</strong> — intended recipient: ${escHTML(to)}</div>`
+          : '';
+
         const token = await getMSToken(env);
-        const safeMsg = escHTML(String(message)).replace(/\n/g, '<br>');
+        const safeMsg = testBanner + escHTML(String(message)).replace(/\n/g, '<br>');
         const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
@@ -1374,9 +1382,9 @@ export default {
 
         const mail = {
           message: {
-            subject: String(subject),
+            subject: (FEEDBACK_TEST_REDIRECT ? '[TEST] ' : '') + String(subject),
             body: { contentType: 'HTML', content: html },
-            toRecipients: [{ emailAddress: { address: to } }],
+            toRecipients: [{ emailAddress: { address: actualTo } }],
           },
           saveToSentItems: true,
         };
@@ -1385,7 +1393,7 @@ export default {
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(mail),
         });
-        if (sendRes.status === 202 || sendRes.status === 200) return json({ ok: true }, 200, ch);
+        if (sendRes.status === 202 || sendRes.status === 200) return json({ ok: true, sentTo: actualTo }, 200, ch);
         const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
         return json({ ok: false, error: errText }, 200, ch);
       }
