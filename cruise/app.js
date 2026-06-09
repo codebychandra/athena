@@ -5667,7 +5667,8 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
       renderHM();
     });
 
-    // PDF — A4 landscape, all three pages, CUK Weekly Report styling.
+    // PDF — render each section to an image and slice it into A4-landscape pages
+    // at BLANK gaps, so a page break never cuts through a row or a line of text.
     const dlBtn = document.getElementById('hmDownloadBtn');
     if (dlBtn) dlBtn.addEventListener('click', async () => {
       const q = HEATMAP_QUARTERS.find(x => x.key === sel.value) || HEATMAP_QUARTERS[0];
@@ -5675,88 +5676,86 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
       dlBtn.textContent = 'Generating…'; dlBtn.disabled = true;
       try {
         await ensureHtml2Pdf();
-        try { await ensureHtml2Canvas(); } catch (_) { /* fall back to drawn footer */ }
-        const html =
-          `<div id="hmPdfRoot">` +
-          buildHeatMapHTML('explain', sel.value, false) +
-          buildHeatMapHTML('scorecard', sel.value, false) +
-          buildHeatMapHTML('detail', sel.value, false) +
-          buildHeatMapHTML('summary', sel.value, false) +
-          `</div>` +
-          `<style>#hmPdfRoot .hm-doc{page-break-before:always;break-before:page;} #hmPdfRoot .hm-doc:first-child{page-break-before:auto;break-before:auto;} #hmPdfRoot tr, #hmPdfRoot .hm-sum-item{page-break-inside:avoid;break-inside:avoid;}</style>`;
-        // 1047px ≈ A4-landscape content width (277mm) at 96dpi, so content maps
-        // 1:1 onto the page (no magnification). Layout is %-based, so proportions
-        // match the website.
-        const onscreenW = 1047;
-        const hidden = document.createElement('div');
-        hidden.style.cssText = `position:fixed;left:-99999px;top:0;width:${onscreenW}px;background:#fff;`;
-        hidden.innerHTML = html;
-        document.body.appendChild(hidden);
-        try {
-          await Promise.all([...hidden.querySelectorAll('img')].map(img =>
-            img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
-          const fname = `CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`;
-          const worker = window.html2pdf().set({
-            margin:      [8, 8, 15, 8],
-            filename:    fname,
-            image:       { type:'jpeg', quality:0.98 },
-            html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
-            jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
-            // CSS-only pagination: honour the page-break-before on each section.
-            // (The legacy "avoid" mode mis-measured the matrix tables and blew the
-            // page count up, so it's removed.)
-            pagebreak:   { mode:['css'] },
-          }).from(hidden.querySelector('#hmPdfRoot'));
+        await ensureHtml2Canvas();
+        const h2c = window.html2canvas;
+        const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (typeof h2c !== 'function' || !JsPDF) throw new Error('PDF renderer unavailable');
 
-          await worker.toPdf();
-          const pdf = await worker.get('pdf');
+        const RENDER_W = 1047;
+        const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+        const pw = pdf.internal.pageSize.getWidth();
+        const ph = pdf.internal.pageSize.getHeight();
+        const mX = 8, mTop = 8, mBot = 13;          // margins (mm); footer sits in mBot
+        const contentW = pw - mX * 2;
+        const usableH = ph - mTop - mBot;
 
-          // Footer on every page. Preferred: render the footer as HTML (captured
-          // via html2canvas) so it matches the report font; if that's unavailable
-          // for any reason, fall back to a drawn footer so the PDF still works.
-          let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
-          if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
-          const total = pdf.internal.getNumberOfPages();
-          const pw = pdf.internal.pageSize.getWidth();
-          const ph = pdf.internal.pageSize.getHeight();
-          const contentW = pw - 16;
-          const h2c = window.html2canvas;
+        // Render one section to a canvas.
+        const renderSection = async (viewKey) => {
+          const div = document.createElement('div');
+          div.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
+          div.innerHTML = buildHeatMapHTML(viewKey, sel.value, false);
+          document.body.appendChild(div);
+          try {
+            await Promise.all([...div.querySelectorAll('img')].map(img =>
+              img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; })));
+            return await h2c(div.querySelector('.hm-doc') || div, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+          } finally { document.body.removeChild(div); }
+        };
 
-          for (let i = 1; i <= total; i++) {
-            pdf.setPage(i);
-            let placed = false;
-            if (typeof h2c === 'function') {
-              const fdiv = document.createElement('div');
-              fdiv.style.cssText = `position:fixed;left:-99999px;top:0;width:${onscreenW}px;background:#fff;`;
-              fdiv.innerHTML =
-                `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
-                   <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
-                     <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
-                   </div>
-                 </div>`;
-              document.body.appendChild(fdiv);
-              try {
-                const fc = await h2c(fdiv.firstElementChild, { scale: 2, backgroundColor: '#ffffff' });
-                const imgH = (fc.height / fc.width) * contentW;
-                pdf.addImage(fc.toDataURL('image/png'), 'PNG', 8, ph - imgH - 3, contentW, imgH);
-                placed = true;
-              } catch (err) {
-                console.error('Footer HTML capture failed, using drawn footer', err);
-              } finally { document.body.removeChild(fdiv); }
+        // Nearest fully-white row at/above `from` (but not below `min`) to cut on.
+        const blankCut = (ctx, w, from, min) => {
+          if (from - min <= 0) return from;
+          let strip;
+          try { strip = ctx.getImageData(0, min, w, from - min).data; } catch (_) { return from; }
+          for (let row = (from - min) - 1; row >= 0; row--) {
+            let blank = true; const base = row * w * 4;
+            for (let x = 0; x < w; x += 6) {
+              const i = base + x * 4;
+              if (strip[i] < 248 || strip[i + 1] < 248 || strip[i + 2] < 248) { blank = false; break; }
             }
-            if (!placed) {
-              pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
-              pdf.line(8, ph - 11, pw - 8, ph - 11);
-              pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
-              pdf.text(`DATE: ${dateStr}`, 8, ph - 5);
-              pdf.text(`PAGE ${i} OF ${total}`, pw - 8, ph - 5, { align: 'right' });
-            }
+            if (blank) return min + row;
           }
+          return from;
+        };
 
-          await worker.save();
-        } finally {
-          document.body.removeChild(hidden);
+        let first = true;
+        for (const viewKey of ['explain', 'scorecard', 'detail', 'summary']) {
+          const canvas = await renderSection(viewKey);
+          const cw = canvas.width, chh = canvas.height;
+          const pxPerMm = cw / contentW;
+          const pageHpx = Math.max(1, Math.floor(usableH * pxPerMm));
+          const ctx = canvas.getContext('2d');
+          let y = 0;
+          while (y < chh) {
+            let cut = Math.min(y + pageHpx, chh);
+            if (cut < chh) {
+              const lookback = Math.floor(pageHpx * 0.22);
+              cut = blankCut(ctx, cw, cut, Math.max(y + 40, cut - lookback));
+              if (cut <= y) cut = Math.min(y + pageHpx, chh); // safety: avoid 0-height
+            }
+            const sliceH = cut - y;
+            const tmp = document.createElement('canvas'); tmp.width = cw; tmp.height = sliceH;
+            tmp.getContext('2d').drawImage(canvas, 0, y, cw, sliceH, 0, 0, cw, sliceH);
+            if (!first) pdf.addPage(); first = false;
+            pdf.addImage(tmp.toDataURL('image/jpeg', 0.95), 'JPEG', mX, mTop, contentW, sliceH / pxPerMm);
+            y = cut;
+          }
         }
+
+        // Footer on every page.
+        let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
+        if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+        const total = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= total; i++) {
+          pdf.setPage(i);
+          pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
+          pdf.line(mX, ph - 9, pw - mX, ph - 9);
+          pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(68, 68, 68); pdf.setCharSpace(0.2);
+          pdf.text(`DATE: ${dateStr}`, mX, ph - 4.5);
+          pdf.text(`PAGE ${i} OF ${total}`, pw - mX, ph - 4.5, { align: 'right' });
+          pdf.setCharSpace(0);
+        }
+        pdf.save(`CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`);
       } catch (e) {
         console.error('Heat Map PDF failed', e);
         alert('PDF generation failed — please try again.');
