@@ -3748,6 +3748,7 @@ pages.deployment = async function () {
       ${buildMS('depMonthFilter','Month',DEP_MONTH_NAMES)}
       ${buildMS('depYearFilter','Year',years.map(String))}
       <button id="depClearBtn" class="req-clear-btn">Clear</button>
+      <button id="depRefreshBtn" class="req-clear-btn" title="Clear the server cache and re-pull live data from the Zoho Sheet">↻ Refresh Data</button>
     </div>
 
     <div class="req-kpi-grid" id="depKpiGrid">
@@ -3975,6 +3976,15 @@ pageEvents.deployment = function () {
     ['depCF_cruiseLine','depCF_empStatus','depCF_ctiOffice','depMonthFilter','depYearFilter'].forEach(msClear);
     depActiveKpi=null;
     depApply();
+  });
+  // Refresh: clear the server-side cache so the deployment sheet is re-pulled
+  // live from Zoho (for everyone), then re-render the page with the fresh data.
+  document.getElementById('depRefreshBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = '↻ Refreshing…';
+    try { await fetch(WORKER_URL + '/api/cache/clear', { cache:'no-store' }); }
+    catch (_) {}
+    await navigate('deployment');   // re-runs pages.deployment → fresh fetch + re-cache
   });
   document.querySelectorAll('#depKpiGrid [data-kpi]').forEach(card=>{
     card.addEventListener('click',()=>{
