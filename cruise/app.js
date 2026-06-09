@@ -5687,7 +5687,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
         const pw = pdf.internal.pageSize.getWidth();
         const ph = pdf.internal.pageSize.getHeight();
-        const mX = 8, mTop = 8, mBot = 11;          // margins (mm); footer sits in mBot
+        const mX = 8, mTop = 8, mBot = 14;          // margins (mm); footer sits in mBot
         const contentW = pw - mX * 2;
         const usableH = ph - mTop - mBot;
 
@@ -5754,7 +5754,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           const fdiv = document.createElement('div');
           fdiv.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
           fdiv.innerHTML =
-            `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
+            `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 36px;">
                <div style="border-top:1px solid #333;padding-top:5px;display:flex;justify-content:space-between;font-size:9px;font-weight:600;letter-spacing:0.04em;color:#444;">
                  <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
                </div>
@@ -5763,7 +5763,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           try {
             const fc = await h2c(fdiv.firstElementChild, { scale: 2, backgroundColor: '#ffffff' });
             const imgH = (fc.height / fc.width) * contentW;
-            pdf.addImage(fc.toDataURL('image/png'), 'PNG', mX, ph - imgH - 2, contentW, imgH);
+            pdf.addImage(fc.toDataURL('image/png'), 'PNG', mX, ph - imgH - 6, contentW, imgH);
             placed = true;
           } catch (_) { /* fall through to drawn footer */ }
           finally { document.body.removeChild(fdiv); }
