@@ -5687,7 +5687,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
         const pw = pdf.internal.pageSize.getWidth();
         const ph = pdf.internal.pageSize.getHeight();
-        const mX = 8, mTop = 8, mBot = 13;          // margins (mm); footer sits in mBot
+        const mX = 8, mTop = 8, mBot = 16;          // margins (mm); footer sits in mBot
         const contentW = pw - mX * 2;
         const usableH = ph - mTop - mBot;
 
@@ -5704,18 +5704,25 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           } finally { document.body.removeChild(div); }
         };
 
-        // Nearest fully-white row at/above `from` (but not below `min`) to cut on.
-        const blankCut = (ctx, w, from, min) => {
+        // Nearest "uniform" row at/above `from` (not below `min`) to cut on. A
+        // uniform row is one where every sampled pixel is the same colour — i.e.
+        // whitespace OR a full-width divider/table border line. Cutting there
+        // never splits a line of text or a half-row.
+        const safeCut = (ctx, w, from, min) => {
           if (from - min <= 0) return from;
           let strip;
           try { strip = ctx.getImageData(0, min, w, from - min).data; } catch (_) { return from; }
           for (let row = (from - min) - 1; row >= 0; row--) {
-            let blank = true; const base = row * w * 4;
+            const base = row * w * 4;
+            let rMin = 255, rMax = 0, gMin = 255, gMax = 0, bMin = 255, bMax = 0;
             for (let x = 0; x < w; x += 6) {
               const i = base + x * 4;
-              if (strip[i] < 248 || strip[i + 1] < 248 || strip[i + 2] < 248) { blank = false; break; }
+              const r = strip[i], g = strip[i + 1], b = strip[i + 2];
+              if (r < rMin) rMin = r; if (r > rMax) rMax = r;
+              if (g < gMin) gMin = g; if (g > gMax) gMax = g;
+              if (b < bMin) bMin = b; if (b > bMax) bMax = b;
             }
-            if (blank) return min + row;
+            if ((rMax - rMin) <= 12 && (gMax - gMin) <= 12 && (bMax - bMin) <= 12) return min + row;
           }
           return from;
         };
@@ -5731,8 +5738,8 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           while (y < chh) {
             let cut = Math.min(y + pageHpx, chh);
             if (cut < chh) {
-              const lookback = Math.floor(pageHpx * 0.22);
-              cut = blankCut(ctx, cw, cut, Math.max(y + 40, cut - lookback));
+              const lookback = Math.floor(pageHpx * 0.45);   // search up to ~45% back for a clean line
+              cut = safeCut(ctx, cw, cut, Math.max(y + 40, cut - lookback));
               if (cut <= y) cut = Math.min(y + pageHpx, chh); // safety: avoid 0-height
             }
             const sliceH = cut - y;
@@ -5744,18 +5751,36 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           }
         }
 
-        // Footer on every page.
+        // Footer on every page — rendered as HTML (captured) to match the report.
         let dateStr = hmFmtDate(dateInp ? dateInp.value : '');
         if (!dateStr) dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
         const total = pdf.internal.getNumberOfPages();
         for (let i = 1; i <= total; i++) {
           pdf.setPage(i);
-          pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
-          pdf.line(mX, ph - 9, pw - mX, ph - 9);
-          pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(68, 68, 68); pdf.setCharSpace(0.2);
-          pdf.text(`DATE: ${dateStr}`, mX, ph - 4.5);
-          pdf.text(`PAGE ${i} OF ${total}`, pw - mX, ph - 4.5, { align: 'right' });
-          pdf.setCharSpace(0);
+          let placed = false;
+          const fdiv = document.createElement('div');
+          fdiv.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
+          fdiv.innerHTML =
+            `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
+               <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
+                 <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
+               </div>
+             </div>`;
+          document.body.appendChild(fdiv);
+          try {
+            const fc = await h2c(fdiv.firstElementChild, { scale: 2, backgroundColor: '#ffffff' });
+            const imgH = (fc.height / fc.width) * contentW;
+            pdf.addImage(fc.toDataURL('image/png'), 'PNG', mX, ph - imgH - 3, contentW, imgH);
+            placed = true;
+          } catch (_) { /* fall through to drawn footer */ }
+          finally { document.body.removeChild(fdiv); }
+          if (!placed) {
+            pdf.setDrawColor(51, 51, 51); pdf.setLineWidth(0.3);
+            pdf.line(mX, ph - 9, pw - mX, ph - 9);
+            pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(68, 68, 68);
+            pdf.text(`DATE: ${dateStr}`, mX, ph - 4.5);
+            pdf.text(`PAGE ${i} OF ${total}`, pw - mX, ph - 4.5, { align: 'right' });
+          }
         }
         pdf.save(`CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`);
       } catch (e) {
