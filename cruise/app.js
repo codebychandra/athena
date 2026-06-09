@@ -4428,6 +4428,12 @@ function hmDerivedRate(qKey, pk) {
   }
   return null;
 }
+// Record for a parameter with the derived rate applied (demand/attrition/rejoiners).
+function hmEffectiveRec(qKey, p) {
+  const rec = _hmGetParam(qKey, p.key);
+  const d = ['demand', 'attrition', 'rejoiners'].includes(p.key) ? hmDerivedRate(qKey, p.key) : null;
+  return d != null ? { ...rec, rate: d.toFixed(2) } : rec;
+}
 // Talent-pool fulfilment % (TP rows only) — informational.
 function hmTalentPoolRate(qKey) {
   const req = hmSumDemandSub(qKey, 'req', r => hmIsTP(r));
@@ -4861,7 +4867,7 @@ function hmNarrative(p, qKey, prevQ) {
 
 // Build the explanation paragraph for one parameter (threshold context, QoQ, remarks).
 function hmExplainText(p, qKey, prevQ) {
-  const rec = _hmGetParam(qKey, p.key);
+  const rec = hmEffectiveRec(qKey, p);
   const rag = hmResolveRag(p, rec);
   const hasNum = p.numeric && rec.rate !== undefined && rec.rate !== '' && rec.rate !== null;
   let parts = [];
@@ -4903,7 +4909,7 @@ function hmBuildSummary(qKey, editable) {
   // RAG roll-up
   const tally = { red:0, amber:0, green:0 };
   HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).forEach(p => {
-    const r = hmResolveRag(p, _hmGetParam(qKey, p.key));
+    const r = hmResolveRag(p, hmEffectiveRec(qKey, p));
     if (tally[r] !== undefined) tally[r]++;
   });
   const overview = `
@@ -4934,11 +4940,12 @@ function hmBuildSummary(qKey, editable) {
   // One block per parameter: title → heat-map status → editable explanation text area
   const items = HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).map(p => {
     const rec = _hmGetParam(qKey, p.key);
-    const rag = hmResolveRag(p, rec);
-    const hasNum = p.numeric && rec.rate !== undefined && rec.rate !== '' && rec.rate !== null;
+    const eff = hmEffectiveRec(qKey, p);   // applies derived rate (demand/attrition/rejoiners)
+    const rag = hmResolveRag(p, eff);
+    const hasNum = p.numeric && eff.rate !== undefined && eff.rate !== '' && eff.rate !== null;
     const ragCol = HM_RAG_HEX[rag] || '#888';
     const ragWord = rag ? rag.toUpperCase() : 'NOT SET';
-    const resultStr = hasNum ? `${escH(String(rec.rate))} ${escH(p.unit||'')}` : '';
+    const resultStr = hasNum ? `${escH(String(eff.rate))} ${escH(p.unit||'')}` : '';
 
     // Saved explanation persists. A never-touched field (undefined) shows the
     // auto-generated draft as a starting point; an explicitly cleared field ('')
