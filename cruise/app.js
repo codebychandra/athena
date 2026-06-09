@@ -4428,6 +4428,29 @@ function hmDerivedRate(qKey, pk) {
   }
   return null;
 }
+// ── Data signatures (used by AI Autofill to detect changed sections) ──
+function hmParamSig(qKey, p) {
+  const eff = hmEffectiveRec(qKey, p);
+  const rag = hmResolveRag(p, eff) || '';
+  const rec = _hmGetParam(qKey, p.key);
+  return [eff.rate ?? '', rag, rec.prevScore ?? ''].join('|');
+}
+function hmMatrixSig(qKey, sec) {
+  const rows = _hmGetRows(qKey, sec, HM_DETAIL_DEFAULTS[sec] || []);
+  const subCols = sec === 'demand' ? DEMAND_SUBCOLS : null;
+  const body = rows.map(r => {
+    const cells = HM_CRUISE_LINES.map(c => subCols
+      ? subCols.map(s => _hmMetaCell(qKey, sec, r.id, `${c}|${s.key}`) ?? '').join(',')
+      : (_hmMetaCell(qKey, sec, r.id, c) ?? '')).join(';');
+    return `${r.id}:${r.label || ''}=${cells}`;
+  }).join('|');
+  return body + `#est=${_hmGetMeta(qKey, 'establishment') ?? ''}`;
+}
+function hmAllSig(qKey) {
+  return HEATMAP_PARAMS.map(p => hmParamSig(qKey, p)).join('||') + '##'
+    + ['demand', 'attrition', 'rejoin', 'waiting'].map(s => hmMatrixSig(qKey, s)).join('##');
+}
+
 // Record for a parameter with the derived rate applied (demand/attrition/rejoiners).
 function hmEffectiveRec(qKey, p) {
   const rec = _hmGetParam(qKey, p.key);
@@ -5468,6 +5491,25 @@ CTI Group Worldwide Services, Inc.`;
       autofillBtn.disabled = true; autofillBtn.textContent = '✨ Writing…';
       try {
         const qk = sel.value;
+        // Pre-check: only call the AI if something is empty or its data changed.
+        const sigsPre = _hmGetMeta(qk, '__sig') || {};
+        const needs = (fid, cur, sig) => {
+          if (!cur || String(cur).trim() === '') return true;
+          return sigsPre[fid] !== undefined && sigsPre[fid] !== sig;
+        };
+        let pending = 0;
+        HEATMAP_PARAMS.forEach(p => { if (needs('sc:' + p.key, _hmGetParam(qk, p.key).remarks, hmParamSig(qk, p))) pending++; });
+        Object.entries({ demandNarr: 'demand', attritionNarr: 'attrition', rejoinNarr: 'rejoin', waitingNarr: 'waiting' })
+          .forEach(([f, sec]) => { if (needs('det:' + f, _hmGetMeta(qk, f), hmMatrixSig(qk, sec))) pending++; });
+        const allSigPre = hmAllSig(qk);
+        if (needs('sum:overview', _hmGetMeta(qk, 'overviewText'), allSigPre)) pending++;
+        if (needs('sum:conclusion', _hmGetMeta(qk, 'conclusionText'), allSigPre)) pending++;
+        HEATMAP_PARAMS.forEach(p => { if (needs('sum:' + p.key, _hmGetParam(qk, p.key).summaryText, hmParamSig(qk, p))) pending++; });
+        if (pending === 0) {
+          alert('Everything is already up to date — no empty or changed sections to fill.');
+          autofillBtn.disabled = false; autofillBtn.textContent = orig;
+          return;
+        }
         const dump = hmCollectQuarterData(qk);
         const systemPrompt =
 `You are a senior maritime crewing data analyst preparing the CTI Group Heat Map quarterly performance report for the client Carnival UK (CUK). Write in CTI's professional reporting style: factual, citing the actual numbers and percentages, noting quarter-on-quarter (QoQ) trends and RAG status. Use clear corporate English. Use ONLY the data provided — never invent numbers; if a value is blank, state it is pending/not yet recorded rather than guessing.
@@ -5507,15 +5549,46 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const jsonStr = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
         const obj = JSON.parse(jsonStr);
 
-        if (obj.scorecard) for (const [pk, t] of Object.entries(obj.scorecard)) if (t) _hmSetParam(qk, pk, 'remarks', String(t));
-        if (obj.detail)    for (const [f, t] of Object.entries(obj.detail))    if (t) _hmSetMeta(qk, f, String(t));
-        if (obj.summary) {
-          if (obj.summary.overviewText)   _hmSetMeta(qk, 'overviewText', String(obj.summary.overviewText));
-          if (obj.summary.conclusionText) _hmSetMeta(qk, 'conclusionText', String(obj.summary.conclusionText));
-          if (obj.summary.params) for (const [pk, t] of Object.entries(obj.summary.params)) if (t) _hmSetParam(qk, pk, 'summaryText', String(t));
+        // Selective apply: write a field only if it is empty, OR if its source
+        // data changed since the text was generated. Manual text with no baseline
+        // is preserved (a baseline is recorded so future data changes are caught).
+        const sigs = { ...(_hmGetMeta(qk, '__sig') || {}) };
+        let written = 0;
+        const decide = (fid, curText, currentSig) => {
+          const empty = !curText || String(curText).trim() === '';
+          if (empty) return true;
+          if (sigs[fid] !== undefined && sigs[fid] !== currentSig) return true;
+          if (sigs[fid] === undefined) sigs[fid] = currentSig; // baseline for manual text
+          return false;
+        };
+
+        if (obj.scorecard) HEATMAP_PARAMS.forEach(p => {
+          const t = obj.scorecard[p.key]; if (!t) return;
+          const fid = 'sc:' + p.key, sig = hmParamSig(qk, p);
+          if (decide(fid, _hmGetParam(qk, p.key).remarks, sig)) { _hmSetParam(qk, p.key, 'remarks', String(t)); sigs[fid] = sig; written++; }
+        });
+        if (obj.detail) {
+          const detMap = { demandNarr: 'demand', attritionNarr: 'attrition', rejoinNarr: 'rejoin', waitingNarr: 'waiting' };
+          Object.entries(detMap).forEach(([field, sec]) => {
+            const t = obj.detail[field]; if (!t) return;
+            const fid = 'det:' + field, sig = hmMatrixSig(qk, sec);
+            if (decide(fid, _hmGetMeta(qk, field), sig)) { _hmSetMeta(qk, field, String(t)); sigs[fid] = sig; written++; }
+          });
         }
+        if (obj.summary) {
+          const allSig = hmAllSig(qk);
+          if (obj.summary.overviewText && decide('sum:overview', _hmGetMeta(qk, 'overviewText'), allSig)) { _hmSetMeta(qk, 'overviewText', String(obj.summary.overviewText)); sigs['sum:overview'] = allSig; written++; }
+          if (obj.summary.conclusionText && decide('sum:conclusion', _hmGetMeta(qk, 'conclusionText'), allSig)) { _hmSetMeta(qk, 'conclusionText', String(obj.summary.conclusionText)); sigs['sum:conclusion'] = allSig; written++; }
+          if (obj.summary.params) HEATMAP_PARAMS.forEach(p => {
+            const t = obj.summary.params[p.key]; if (!t) return;
+            const fid = 'sum:' + p.key, sig = hmParamSig(qk, p);
+            if (decide(fid, _hmGetParam(qk, p.key).summaryText, sig)) { _hmSetParam(qk, p.key, 'summaryText', String(t)); sigs[fid] = sig; written++; }
+          });
+        }
+        _hmSetMeta(qk, '__sig', sigs);
         renderHM();
         hmSaveStatus('saved');
+        if (written === 0) alert('Everything is already up to date — no empty or changed sections to fill.');
       } catch (e) {
         console.error('AI Autofill failed', e);
         alert('AI Autofill failed: ' + (e.message || 'please try again.'));
