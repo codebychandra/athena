@@ -5677,9 +5677,11 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
       try {
         await ensureHtml2Pdf();
         await ensureHtml2Canvas();
+        await ensureJsPDF();
         const h2c = window.html2canvas;
         const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-        if (typeof h2c !== 'function' || !JsPDF) throw new Error('PDF renderer unavailable');
+        if (typeof h2c !== 'function') throw new Error('html2canvas not loaded');
+        if (!JsPDF) throw new Error('jsPDF not loaded');
 
         const RENDER_W = 1047;
         const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
@@ -5758,7 +5760,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         pdf.save(`CARNIVAL_UK_HEAT_MAP_${q.key.toUpperCase()}.pdf`);
       } catch (e) {
         console.error('Heat Map PDF failed', e);
-        alert('PDF generation failed — please try again.');
+        alert('PDF generation failed: ' + (e && e.message ? e.message : 'please try again.'));
       } finally {
         dlBtn.textContent = orig; dlBtn.disabled = false;
       }
@@ -7222,6 +7224,17 @@ async function ensureHtml2Canvas() {
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// The html2pdf bundle doesn't reliably expose jsPDF on window — load it standalone.
+async function ensureJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
     s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
   });
