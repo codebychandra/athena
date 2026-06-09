@@ -5687,11 +5687,14 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
         const pw = pdf.internal.pageSize.getWidth();
         const ph = pdf.internal.pageSize.getHeight();
-        const mX = 8, mTop = 8, mBot = 16;          // margins (mm); footer sits in mBot
+        const mX = 8, mTop = 8, mBot = 11;          // margins (mm); footer sits in mBot
         const contentW = pw - mX * 2;
         const usableH = ph - mTop - mBot;
 
-        // Render one section to a canvas.
+        // Render a section to a canvas AND collect safe break points (canvas-px y
+        // of the BOTTOM of every row / block), read straight from the DOM so a
+        // page break only ever lands between rows/blocks — never through one.
+        const BREAK_SEL = 'tr, p, .hm-section-title, .hm-subhead, .hm-est-row, .hm-derived-note, .hm-rollup, .hm-legend, .hm-hint, .hm-sum-item, .hm-detail-row, .hm-formula, table';
         const renderSection = async (viewKey) => {
           const div = document.createElement('div');
           div.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
@@ -5700,48 +5703,38 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           try {
             await Promise.all([...div.querySelectorAll('img')].map(img =>
               img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; })));
-            return await h2c(div.querySelector('.hm-doc') || div, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const docEl = div.querySelector('.hm-doc') || div;
+            const docTop = docEl.getBoundingClientRect().top;
+            const docH = docEl.scrollHeight || docEl.getBoundingClientRect().height;
+            const cssBreaks = [];
+            docEl.querySelectorAll(BREAK_SEL).forEach(el => {
+              const b = el.getBoundingClientRect().bottom - docTop;
+              if (b > 0) cssBreaks.push(b);
+            });
+            const canvas = await h2c(docEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const scaleY = canvas.height / docH;
+            const breaks = [...new Set(cssBreaks.map(b => Math.round(b * scaleY)))].sort((a, b) => a - b);
+            return { canvas, breaks };
           } finally { document.body.removeChild(div); }
-        };
-
-        // Nearest "uniform" row at/above `from` (not below `min`) to cut on. A
-        // uniform row is one where every sampled pixel is the same colour — i.e.
-        // whitespace OR a full-width divider/table border line. Cutting there
-        // never splits a line of text or a half-row.
-        const safeCut = (ctx, w, from, min) => {
-          if (from - min <= 0) return from;
-          let strip;
-          try { strip = ctx.getImageData(0, min, w, from - min).data; } catch (_) { return from; }
-          for (let row = (from - min) - 1; row >= 0; row--) {
-            const base = row * w * 4;
-            let rMin = 255, rMax = 0, gMin = 255, gMax = 0, bMin = 255, bMax = 0;
-            for (let x = 0; x < w; x += 6) {
-              const i = base + x * 4;
-              const r = strip[i], g = strip[i + 1], b = strip[i + 2];
-              if (r < rMin) rMin = r; if (r > rMax) rMax = r;
-              if (g < gMin) gMin = g; if (g > gMax) gMax = g;
-              if (b < bMin) bMin = b; if (b > bMax) bMax = b;
-            }
-            if ((rMax - rMin) <= 12 && (gMax - gMin) <= 12 && (bMax - bMin) <= 12) return min + row;
-          }
-          return from;
         };
 
         let first = true;
         for (const viewKey of ['explain', 'scorecard', 'detail', 'summary']) {
-          const canvas = await renderSection(viewKey);
+          const { canvas, breaks } = await renderSection(viewKey);
           const cw = canvas.width, chh = canvas.height;
           const pxPerMm = cw / contentW;
           const pageHpx = Math.max(1, Math.floor(usableH * pxPerMm));
-          const ctx = canvas.getContext('2d');
           let y = 0;
           while (y < chh) {
-            let cut = Math.min(y + pageHpx, chh);
-            if (cut < chh) {
-              const lookback = Math.floor(pageHpx * 0.45);   // search up to ~45% back for a clean line
-              cut = safeCut(ctx, cw, cut, Math.max(y + 40, cut - lookback));
-              if (cut <= y) cut = Math.min(y + pageHpx, chh); // safety: avoid 0-height
+            const target = Math.min(y + pageHpx, chh);
+            let cut = target;
+            if (target < chh) {
+              // largest break that fits this page (and leaves a non-trivial slice)
+              let best = -1;
+              for (const b of breaks) { if (b > y + 40 && b <= target) best = b; else if (b > target) break; }
+              if (best > y) cut = best;          // else: a single block taller than a page → hard cut
             }
+            if (cut <= y) cut = target;
             const sliceH = cut - y;
             const tmp = document.createElement('canvas'); tmp.width = cw; tmp.height = sliceH;
             tmp.getContext('2d').drawImage(canvas, 0, y, cw, sliceH, 0, 0, cw, sliceH);
@@ -5762,7 +5755,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           fdiv.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
           fdiv.innerHTML =
             `<div style="font-family:'Inter',system-ui,sans-serif;padding:0 30px;">
-               <div style="border-top:1px solid #333;padding-top:8px;display:flex;justify-content:space-between;font-size:9.5px;font-weight:600;letter-spacing:0.04em;color:#444;">
+               <div style="border-top:1px solid #333;padding-top:5px;display:flex;justify-content:space-between;font-size:9px;font-weight:600;letter-spacing:0.04em;color:#444;">
                  <span>DATE: ${escH(dateStr)}</span><span>PAGE ${i} OF ${total}</span>
                </div>
              </div>`;
@@ -5770,7 +5763,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
           try {
             const fc = await h2c(fdiv.firstElementChild, { scale: 2, backgroundColor: '#ffffff' });
             const imgH = (fc.height / fc.width) * contentW;
-            pdf.addImage(fc.toDataURL('image/png'), 'PNG', mX, ph - imgH - 3, contentW, imgH);
+            pdf.addImage(fc.toDataURL('image/png'), 'PNG', mX, ph - imgH - 2, contentW, imgH);
             placed = true;
           } catch (_) { /* fall through to drawn footer */ }
           finally { document.body.removeChild(fdiv); }
