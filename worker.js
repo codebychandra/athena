@@ -1341,6 +1341,55 @@ export default {
         return json({ ok: false, error: errText }, 200, ch);
       }
 
+      // ── POST /api/cruise/send-feedback ────────────────────────────────
+      // Heat Map parameter feedback to a CTI department. Allowlisted recipients.
+      if (method === 'POST' && path === '/api/cruise/send-feedback') {
+        const body = await request.json().catch(() => ({}));
+        const { to, subject, message } = body;
+        if (!to || !subject || !message)
+          return json({ ok: false, error: 'Missing required fields: to, subject, message' }, 400, ch);
+        const ALLOWED = ['compliance@cti-usa.com', 'harold@cti-usa.com', 'herry.wahyudi@cti-usa.com', 'cuk-onboarding@cti-usa.com'];
+        if (!ALLOWED.includes(String(to).trim().toLowerCase()))
+          return json({ ok: false, error: 'Recipient not permitted' }, 400, ch);
+
+        const token = await getMSToken(env);
+        const safeMsg = escHTML(String(message)).replace(/\n/g, '<br>');
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;"><tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#B01A18;border-radius:8px 8px 0 0;" bgcolor="#B01A18"><tr>
+    <td style="padding:20px 26px;" bgcolor="#B01A18">
+      <div style="color:#fff;font-size:17px;font-weight:700;">CTI Group</div>
+      <div style="color:rgba(255,255,255,0.8);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;">CUK Heat Map — Parameter Feedback</div>
+    </td></tr>
+    <tr><td style="height:4px;background:#8B1210;" bgcolor="#8B1210"></td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;">
+    <tr><td style="padding:28px;font-size:14px;color:#1A1A1A;line-height:1.7;">${safeMsg}</td></tr>
+  </table>
+  <p style="text-align:center;font-size:11px;color:#aaa;margin:14px 0 0;">Sent from the CTI Group Cruise Line Portal.</p>
+</td></tr></table>
+</body></html>`;
+
+        const mail = {
+          message: {
+            subject: String(subject),
+            body: { contentType: 'HTML', content: html },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        };
+        const sendRes = await fetch(`${MS_GRAPH_API}/users/${SA_SEND_FROM}/sendMail`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(mail),
+        });
+        if (sendRes.status === 202 || sendRes.status === 200) return json({ ok: true }, 200, ch);
+        const errText = await sendRes.text().catch(() => `HTTP ${sendRes.status}`);
+        return json({ ok: false, error: errText }, 200, ch);
+      }
+
       // ── GET /api/knowledge ────────────────────────────────────────────
       // Returns all knowledge entries from KV.
       if (method === 'GET' && path === '/api/knowledge') {

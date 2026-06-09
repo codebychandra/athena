@@ -4287,6 +4287,17 @@ const HEATMAP_PARAMS = [
 
 const HM_WFA_BRANDS = ['Cunard Line', 'P&O Cruises', 'CUK Maritime'];
 
+// Per-parameter feedback routing (Scorecard "Send feedback" button).
+const HM_FEEDBACK = {
+  monthlyAudit: { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
+  annualAudit:  { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
+  absconders:   { email: 'compliance@cti-usa.com',     dept: 'Compliance' },
+  invoice:      { email: 'harold@cti-usa.com',         dept: 'Finance (Harold)' },
+  demand:       { email: 'herry.wahyudi@cti-usa.com',  dept: 'Recruitment (Herry Wahyudi)' },
+  attrition:    { email: 'cuk-onboarding@cti-usa.com', dept: 'CUK Onboarding' },
+  rejoiners:    { email: 'cuk-onboarding@cti-usa.com', dept: 'CUK Onboarding' },
+};
+
 // ── RAG colour helpers ──
 const HM_RAG_HEX = { red:'#D64545', amber:'#E8A33D', green:'#2E9E5B' };
 const HM_RAG_BG  = { red:'rgba(214,69,69,0.16)', amber:'rgba(232,163,61,0.20)', green:'rgba(46,158,91,0.16)', '':'transparent' };
@@ -4587,9 +4598,11 @@ function hmBuildScorecard(qKey, editable) {
       ? `<input type="text" class="hm-prev" data-pk="${p.key}" value="${escH(String(prev))}" placeholder="—" style="${ib}width:78px;text-align:center;">`
       : `<span>${prev===''?'—':escH(String(prev))}</span>`;
 
+    const fbBtn = (editable && HM_FEEDBACK[p.key])
+      ? `<div><button type="button" class="hm-fb-btn" data-pk="${p.key}">✉ Send feedback</button></div>` : '';
     return `
       <tr>
-        <td class="rpt-td" style="font-weight:700;width:150px;">${escH(p.name)}</td>
+        <td class="rpt-td" style="font-weight:700;width:150px;">${escH(p.name)}${fbBtn}</td>
         <td class="rpt-td hm-cell-rate" data-pk="${p.key}" style="width:92px;text-align:center;background:${bg};">${rateCell}</td>
         <td class="rpt-td" style="text-align:center;width:44px;background:${bg};"><span class="hm-cell-dot" data-pk="${p.key}">${hmRagDot(rag)}</span></td>
         <td class="rpt-td">${remarksCell}</td>
@@ -4983,6 +4996,22 @@ const HEATMAP_STYLES = `
 .hm-est-note { font-size:10.5px; color:#888; }
 .hm-derived-note { font-size:11px; color:#444; margin:-2px 0 14px; padding-left:2px; }
 .hm-derived-note strong { color:#1B3A6B; }
+.hm-fb-btn { margin-top:5px; font-size:9.5px; font-weight:700; color:#1B3A6B; background:#eef2f8;
+  border:1px solid #c9d6e8; border-radius:5px; padding:2px 7px; cursor:pointer; font-family:inherit; white-space:nowrap; }
+.hm-fb-btn:hover { background:#1B3A6B; color:#fff; border-color:#1B3A6B; }
+/* Feedback modal */
+.hm-fb-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; }
+.hm-fb-modal { background:#fff; border-radius:12px; width:560px; max-width:100%; max-height:90vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,0.3); font-family:inherit; }
+.hm-fb-head { background:#B01A18; color:#fff; padding:16px 20px; border-radius:12px 12px 0 0; font-size:15px; font-weight:700; }
+.hm-fb-body { padding:18px 20px; }
+.hm-fb-body label { display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#888; margin:12px 0 4px; }
+.hm-fb-body label:first-child { margin-top:0; }
+.hm-fb-body input, .hm-fb-body textarea { width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid #ccc; border-radius:7px; font-size:13px; font-family:inherit; color:#1A1A1A; }
+.hm-fb-body textarea { resize:vertical; min-height:170px; line-height:1.6; }
+.hm-fb-to { background:#f3f4f6; font-weight:700; color:#1B3A6B; }
+.hm-fb-foot { display:flex; gap:10px; justify-content:flex-end; padding:0 20px 18px; }
+.hm-fb-cancel { padding:9px 18px; border-radius:8px; border:1px solid #ddd; background:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+.hm-fb-send { padding:9px 22px; border-radius:8px; border:none; background:#2D7A55; color:#fff; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
 /* Performance Detail: table (left) + explanation (right) */
 .hm-detail-row { display:flex; gap:18px; align-items:flex-start; margin-bottom:8px; }
 .hm-detail-table { flex:3 1 0; min-width:0; }
@@ -5226,6 +5255,81 @@ pageEvents.reports = function () {
           _hmSetParam(sel.value, inp.dataset.pk, 'prevScore', inp.value.trim());
           recomputeQoQ(inp.dataset.pk);
         }));
+      // Send feedback buttons
+      prev.querySelectorAll('.hm-fb-btn').forEach(btn =>
+        btn.addEventListener('click', () => hmOpenFeedback(btn.dataset.pk)));
+    }
+
+    // Feedback modal — editable subject/message, sends to the mapped department.
+    function hmOpenFeedback(pk) {
+      const p = HEATMAP_PARAMS.find(x => x.key === pk);
+      const fb = HM_FEEDBACK[pk];
+      if (!p || !fb) return;
+      const qk = sel.value;
+      const q = HEATMAP_QUARTERS.find(x => x.key === qk) || HEATMAP_QUARTERS[0];
+      const rec = _hmGetParam(qk, pk);
+      const derived = ['demand', 'attrition', 'rejoiners'].includes(pk) ? hmDerivedRate(qk, pk) : null;
+      const rateStr = derived != null
+        ? `${derived.toFixed(2)} ${p.unit || ''}`.trim()
+        : (rec.rate ? `${rec.rate} ${p.unit || ''}`.trim() : '(not set)');
+      const rag = hmResolveRag(p, derived != null ? { ...rec, rate: derived.toFixed(2) } : rec);
+      const remarks = rec.remarks || '(none)';
+      const subject = `CUK Heat Map ${q.label} — ${p.name} Feedback`;
+      const message =
+`Dear ${fb.dept} team,
+
+Regarding the "${p.name}" parameter in the CUK Heat Map Report for ${q.label}:
+
+- Success Rate: ${rateStr}
+- RAG status: ${(rag || 'not set').toUpperCase()}
+- CTI Remarks: ${remarks}
+
+[Please add your feedback or required action here.]
+
+Best regards,
+CTI Group Worldwide Services, Inc.`;
+
+      const ov = document.createElement('div');
+      ov.className = 'hm-fb-overlay';
+      ov.innerHTML = `
+        <div class="hm-fb-modal">
+          <div class="hm-fb-head">✉ Send Feedback — ${escH(p.name)}</div>
+          <div class="hm-fb-body">
+            <label>To</label>
+            <input type="text" class="hm-fb-to" value="${escH(fb.email)}" readonly>
+            <label>Subject</label>
+            <input type="text" id="hmFbSubject" value="${escH(subject)}">
+            <label>Message</label>
+            <textarea id="hmFbMessage">${escH(message)}</textarea>
+          </div>
+          <div class="hm-fb-foot">
+            <button type="button" class="hm-fb-cancel">Cancel</button>
+            <button type="button" class="hm-fb-send">Send</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      const close = () => ov.remove();
+      ov.addEventListener('click', e => { if (e.target === ov) close(); });
+      ov.querySelector('.hm-fb-cancel').addEventListener('click', close);
+      const sendB = ov.querySelector('.hm-fb-send');
+      sendB.addEventListener('click', async () => {
+        const subjectV = ov.querySelector('#hmFbSubject').value.trim();
+        const messageV = ov.querySelector('#hmFbMessage').value.trim();
+        if (!subjectV || !messageV) { alert('Subject and message are required.'); return; }
+        sendB.disabled = true; sendB.textContent = 'Sending…';
+        try {
+          const res = await fetch(WORKER_URL + '/api/cruise/send-feedback', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: fb.email, subject: subjectV, message: messageV }),
+          });
+          const data = await res.json();
+          if (data.ok) { close(); alert(`Feedback sent to ${fb.email}.`); }
+          else throw new Error(data.error || 'send failed');
+        } catch (e) {
+          sendB.disabled = false; sendB.textContent = 'Send';
+          alert('Failed to send: ' + (e.message || 'please try again.'));
+        }
+      });
     }
 
     function attachDetailHandlers() {
