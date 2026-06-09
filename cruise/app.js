@@ -5692,18 +5692,14 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
         const usableH = ph - mTop - mBot;
 
         // Render a section to a canvas AND collect safe break points (canvas-px y),
-        // read from the DOM so a page break only lands between rows/blocks. In the
-        // PDF the detail blocks are STACKED (table then explanation, full width) so
-        // a long table paginates cleanly without cutting the side text.
-        const PDF_OVERRIDE = `<style>
-          .hm-detail-row{display:block!important;}
-          .hm-detail-table,.hm-detail-explain{flex:none!important;width:100%!important;}
-          .hm-detail-explain{margin-top:8px;}
-        </style>`;
+        // read from the DOM so a page break only lands between rows/blocks. The
+        // Performance Detail keeps its 2-column layout (table | explanation): a
+        // break inside a 2-col block is only allowed at a table-row boundary that
+        // sits BELOW where the side explanation ends — so neither is ever cut.
         const renderSection = async (viewKey) => {
           const div = document.createElement('div');
           div.style.cssText = `position:fixed;left:-99999px;top:0;width:${RENDER_W}px;background:#fff;`;
-          div.innerHTML = buildHeatMapHTML(viewKey, sel.value, false) + PDF_OVERRIDE;
+          div.innerHTML = buildHeatMapHTML(viewKey, sel.value, false);
           document.body.appendChild(div);
           try {
             await Promise.all([...div.querySelectorAll('img')].map(img =>
@@ -5712,19 +5708,37 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
             const docTop = docEl.getBoundingClientRect().top;
             const docH = docEl.scrollHeight || docEl.getBoundingClientRect().height;
             const set = new Set();
-            // Break AFTER rows / paragraphs / blocks.
-            docEl.querySelectorAll('tr, .hm-para, p, .hm-sum-item, .hm-rollup, .hm-legend, .hm-est-row, .hm-derived-note, .hm-formula, .hm-subhead, table').forEach(el => {
-              const b = el.getBoundingClientRect().bottom - docTop;
-              if (b > 0) set.add(b);
+            const bottomOf = el => el.getBoundingClientRect().bottom - docTop;
+
+            // 2-column detail blocks: only break after the explanation has ended.
+            docEl.querySelectorAll('.hm-detail-row').forEach(row => {
+              const exp = row.querySelector('.hm-detail-explain');
+              const expBottom = exp ? bottomOf(exp) : 0;
+              row.querySelectorAll('tr').forEach(tr => {
+                const b = bottomOf(tr);
+                if (b >= expBottom - 1) set.add(b);
+              });
+              set.add(bottomOf(row));
+            });
+            // Tables NOT inside a detail block (Parameter / Scorecard): every row.
+            docEl.querySelectorAll('table').forEach(t => {
+              if (t.closest('.hm-detail-row')) return;
+              t.querySelectorAll('tr').forEach(tr => set.add(bottomOf(tr)));
+            });
+            // Other standalone blocks (exclude those inside a detail block).
+            docEl.querySelectorAll('.hm-sum-item, .hm-para, p, .hm-rollup, .hm-legend, .hm-est-row, .hm-derived-note, .hm-formula, .hm-subhead').forEach(el => {
+              if (el.closest('.hm-detail-row')) return;
+              set.add(bottomOf(el));
             });
             // Break BEFORE a section title so it's never orphaned at a page bottom.
             docEl.querySelectorAll('.hm-section-title').forEach(el => {
               const t = el.getBoundingClientRect().top - docTop - 4;
               if (t > 0) set.add(t);
             });
+
             const canvas = await h2c(docEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             const scaleY = canvas.height / docH;
-            const breaks = [...set].map(b => Math.round(b * scaleY)).sort((a, b) => a - b);
+            const breaks = [...set].filter(b => b > 0).map(b => Math.round(b * scaleY)).sort((a, b) => a - b);
             return { canvas, breaks };
           } finally { document.body.removeChild(div); }
         };
