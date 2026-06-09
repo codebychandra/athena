@@ -5669,16 +5669,8 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
 
     // PDF — render each section to an image and slice it into A4-landscape pages
     // at BLANK gaps, so a page break never cuts through a row or a line of text.
-    let _hmPdfUnlocked = false;
     const dlBtn = document.getElementById('hmDownloadBtn');
-    if (dlBtn) dlBtn.addEventListener('click', async () => {
-      // Password gate (asked once per session).
-      if (!_hmPdfUnlocked) {
-        const pw = prompt('Enter password to download the Heat Map PDF:');
-        if (pw === null) return;                       // cancelled
-        if (pw !== 'upchurch') { alert('Incorrect password.'); return; }
-        _hmPdfUnlocked = true;
-      }
+    if (dlBtn) dlBtn.addEventListener('click', () => rptPasswordPrompt(async () => {
       const q = HEATMAP_QUARTERS.find(x => x.key === sel.value) || HEATMAP_QUARTERS[0];
       const orig = dlBtn.textContent;
       dlBtn.textContent = 'Generating…'; dlBtn.disabled = true;
@@ -5770,7 +5762,7 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
       } finally {
         dlBtn.textContent = orig; dlBtn.disabled = false;
       }
-    });
+    }));
 
     renderHM();
   })();
