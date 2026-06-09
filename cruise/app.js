@@ -4923,6 +4923,39 @@ function hmExplainText(p, qKey, prevQ) {
   return parts.join(' ');
 }
 
+// Absconder case log (Executive Summary only).
+function _hmAbscCases(qKey) { const a = _hmGetMeta(qKey, 'absconderCases'); return Array.isArray(a) ? a : []; }
+function _hmSetAbscCases(qKey, arr) { _hmSetMeta(qKey, 'absconderCases', arr); }
+function hmAbscLog(qKey, editable) {
+  const cases = _hmAbscCases(qKey);
+  if (!editable && !cases.length) return '';
+  const ib = 'box-sizing:border-box;width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:5px;font-size:11px;font-family:inherit;color:#1A1A1A;';
+  const rows = cases.map(c => editable
+    ? `<tr>
+        <td class="rpt-td" style="width:90px;"><input type="text" class="hm-absc" data-id="${escH(c.id)}" data-f="date" value="${escH(c.date||'')}" placeholder="dd/mm/yyyy" style="${ib}text-align:center;"></td>
+        <td class="rpt-td" style="width:150px;"><input type="text" class="hm-absc" data-id="${escH(c.id)}" data-f="crew" value="${escH(c.crew||'')}" placeholder="Crew name" style="${ib}"></td>
+        <td class="rpt-td" style="width:120px;"><input type="text" class="hm-absc" data-id="${escH(c.id)}" data-f="ship" value="${escH(c.ship||'')}" placeholder="Ship" style="${ib}"></td>
+        <td class="rpt-td"><textarea class="hm-absc" data-id="${escH(c.id)}" data-f="note" rows="2" placeholder="Details…" style="${ib}resize:vertical;">${escH(c.note||'')}</textarea></td>
+        <td class="rpt-td hm-actcol"><button type="button" class="hm-row-del hm-absc-del" data-id="${escH(c.id)}" title="Remove case">×</button></td>
+      </tr>`
+    : `<tr>
+        <td class="rpt-td" style="text-align:center;">${escH(c.date||'—')}</td>
+        <td class="rpt-td" style="font-weight:600;">${escH(c.crew||'—')}</td>
+        <td class="rpt-td">${escH(c.ship||'—')}</td>
+        <td class="rpt-td">${escH(c.note||'—')}</td>
+      </tr>`).join('');
+  const body = rows || (editable ? '' : '<tr><td class="rpt-td" colspan="4" style="color:#999;font-style:italic;">No cases recorded.</td></tr>');
+  return `
+    <div class="hm-section-title">Absconder Cases</div>
+    <table class="rpt-table hm-table">
+      <thead><tr>
+        <th class="rpt-th">Date</th><th class="rpt-th">Crew Name</th><th class="rpt-th">Ship</th><th class="rpt-th">Details</th>${editable ? '<th class="rpt-th hm-actcol"></th>' : ''}
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    ${editable ? '<button type="button" class="hm-row-add hm-absc-add">+ Add case</button>' : ''}`;
+}
+
 // ── PAGE 3: Executive Summary — per parameter: title, heat-map status, explanation ──
 function hmBuildSummary(qKey, editable) {
   const qIdx = HEATMAP_QUARTERS.findIndex(x => x.key === qKey);
@@ -5002,6 +5035,7 @@ function hmBuildSummary(qKey, editable) {
       ${overviewBlock}
       <div class="hm-section-title">Performance Narrative</div>
       ${body}
+      ${hmAbscLog(qKey, editable)}
       ${conclusionBlock}
     </div>
     ${REPORT_STYLES}${HEATMAP_STYLES}`;
@@ -5427,6 +5461,24 @@ CTI Group Worldwide Services, Inc.`;
       bind('hmConclusionText', 'conclusionText');
       prev.querySelectorAll('.hm-sum-text').forEach(area =>
         area.addEventListener('input', () => _hmSetParam(sel.value, area.dataset.pk, 'summaryText', area.value)));
+      // Absconder case log
+      prev.querySelectorAll('.hm-absc').forEach(el =>
+        el.addEventListener('input', () => {
+          const cases = _hmAbscCases(sel.value).map(c =>
+            c.id === el.dataset.id ? { ...c, [el.dataset.f]: el.value } : c);
+          _hmSetAbscCases(sel.value, cases);
+        }));
+      prev.querySelectorAll('.hm-absc-add').forEach(b =>
+        b.addEventListener('click', () => {
+          const cases = _hmAbscCases(sel.value).slice();
+          cases.push({ id: 'a' + Math.random().toString(36).slice(2, 8), date: '', crew: '', ship: '', note: '' });
+          _hmSetAbscCases(sel.value, cases); renderHM();
+        }));
+      prev.querySelectorAll('.hm-absc-del').forEach(b =>
+        b.addEventListener('click', () => {
+          _hmSetAbscCases(sel.value, _hmAbscCases(sel.value).filter(c => c.id !== b.dataset.id));
+          renderHM();
+        }));
     }
 
     // Auto-grow textareas so long text stays fully visible.
