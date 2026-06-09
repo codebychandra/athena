@@ -4030,6 +4030,7 @@ pages.reports = async function () {
               <input type="date" id="rptDate" style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:7px;font-size:13px;font-family:inherit;background:var(--card-bg,#fff);color:var(--text);">
             </div>
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button id="rptShowRealBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Show Real Pending IDs</button>
               <button id="rptDownloadBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">Download This Brand</button>
               <button id="rptDownloadAllBtn" style="padding:9px 22px;font-size:13px;font-weight:600;border-radius:7px;border:none;background:#B01A18;color:#fff;cursor:pointer;font-family:inherit;">Download All Brands</button>
             </div>
@@ -5978,6 +5979,17 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
     input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
   }
 
+  // Toggle: reveal the real (data-computed) Pending Mistral ID under each cell
+  const rptShowRealBtn = document.getElementById('rptShowRealBtn');
+  if (rptShowRealBtn) rptShowRealBtn.addEventListener('click', () => {
+    _showRealPending = !_showRealPending;
+    rptShowRealBtn.textContent = _showRealPending ? 'Hide Real Pending IDs' : 'Show Real Pending IDs';
+    rptShowRealBtn.style.background = _showRealPending ? '#1B3A6B' : 'transparent';
+    rptShowRealBtn.style.color      = _showRealPending ? '#fff' : 'var(--text)';
+    rptShowRealBtn.style.borderColor = _showRealPending ? '#1B3A6B' : 'var(--border,#ddd)';
+    regenerate();
+  });
+
   document.getElementById('rptDownloadBtn').addEventListener('click', () => {
     rptPasswordPrompt(() => {
       const brand = document.getElementById('rptBrand').value;
@@ -6962,6 +6974,10 @@ function buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable) 
 // first, overflow into February, and so on.
 //   e.g. 5 Commis hired, demand 3 (Jan) + 3 (Feb) → 3 land in Jan, 2 in Feb.
 // ── Manual pending-Mistral-ID overrides for monthly demand (shared live) ──────
+// When true, each Pending Mistral ID cell also shows the REAL value computed from
+// the live seafarer data (count with no Seafarer ID), so an override can be
+// compared against what the data actually says. Toggled by the report button.
+let _showRealPending = false;
 function _loadPendingOverrides() {
   return sharedGet('pending_overrides', {}) || {};
 }
@@ -7111,6 +7127,11 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
       const remainingVal = Math.max(0, a.dem - a.hired - pendingVal);
       sub.dem+=a.dem; sub.remaining+=remainingVal; sub.hired+=a.hired;
       sub.male+=a.male; sub.female+=a.female; sub.pending+=pendingVal;
+      // Real value straight from the seafarer data (no override applied).
+      const realHint = _showRealPending
+        ? `<div style="font-size:9px;margin-top:2px;font-weight:600;
+             color:${a.pending === pendingVal ? '#2D7A55' : '#B01A18'};">real: ${a.pending}</div>`
+        : '';
       const pendingCell = editable
         ? `<td class="rpt-td rpt-num">
              <input class="rpt-pending-edit" data-ovrkey="${escH(ovrKey)}"
@@ -7119,13 +7140,15 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
                  border:1px solid ${hasOvr ? '#B01A18' : 'var(--border,#ddd)'};border-radius:4px;
                  background:${hasOvr ? 'rgba(176,26,24,0.05)' : 'var(--card-bg,#fff)'};
                  color:${hasOvr ? '#B01A18' : 'var(--text)'};font-family:inherit;font-weight:${hasOvr?'700':'400'};">
+             ${realHint}
            </td>`
         : (hasOvr
             ? `<td class="rpt-td rpt-num">
                  <span style="display:inline-block;min-width:30px;padding:2px 8px;border:1px solid #B01A18;
                    border-radius:4px;color:#B01A18;font-weight:700;background:rgba(176,26,24,0.05);">${pendingVal}</span>
+                 ${realHint}
                </td>`
-            : `<td class="rpt-td rpt-num">${pendingVal}</td>`);
+            : `<td class="rpt-td rpt-num">${pendingVal}${realHint}</td>`);
       return `
         <tr>
           <td class="rpt-td">${escH(p)}</td>
