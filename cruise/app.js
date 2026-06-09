@@ -5116,13 +5116,13 @@ function hmCollectQuarterData(qKey) {
 
   L.push('\nSCORECARD:');
   HEATMAP_PARAMS.forEach(p => {
-    const rec = _hmGetParam(qKey, p.key);
+    const rec = hmEffectiveRec(qKey, p); // includes derived rate for demand/attrition/rejoiners
     const rag = hmResolveRag(p, rec) || '(not set)';
     const rate = (rec.rate != null && rec.rate !== '') ? `${rec.rate}${p.unit ? ' ' + p.unit : ''}` : '(blank)';
     const prev = (rec.prevScore != null && rec.prevScore !== '') ? rec.prevScore : '(blank)';
     let qoq = '—';
     if (p.numeric) { const pct = hmComputeQoQ(rec.rate, rec.prevScore); if (pct != null) qoq = (pct > 0 ? '+' : '') + pct.toFixed(1) + '%'; }
-    L.push(`- ${p.name} [key=${p.key}]: success rate=${rate}, RAG=${rag}, previous=${prev}, QoQ=${qoq}`);
+    L.push(`- ${p.name} [key=${p.key}]: success rate=${rate}, RAG=${rag.toUpperCase ? rag.toUpperCase() : rag}, previous=${prev}, QoQ=${qoq}`);
   });
 
   const dumpMatrix = (label, sec, defaults, subCols) => {
@@ -5473,8 +5473,9 @@ CTI Group Worldwide Services, Inc.`;
 `You are a senior maritime crewing data analyst preparing the CTI Group Heat Map quarterly performance report for the client Carnival UK (CUK). Write in CTI's professional reporting style: factual, citing the actual numbers and percentages, noting quarter-on-quarter (QoQ) trends and RAG status. Use clear corporate English. Use ONLY the data provided — never invent numbers; if a value is blank, state it is pending/not yet recorded rather than guessing.
 
 KEY RULES:
-- Demand fulfilment counts DEMAND positions only; talent-pool (TP) rows are acknowledged separately and are NOT part of the demand fulfilment formula. Report demand % and talent-pool % as distinct figures.
+- Demand fulfilment % = use the provided "Demand fulfilment rate (DEMAND rows only)" figure EXACTLY. The demand percentage counts DEMAND positions only (in practice P&O demand). NEVER include talent pool in the demand percentage and never recalculate it from a different base. You MAY separately mention the talent-pool fulfilment figure to show performance there, but keep it clearly distinct from the demand %.
 - Attrition % and Re-Joiner % are measured against the Total Establishment.
+- The RAG status for every parameter is given in the SCORECARD section — use it. Do NOT write that a status is "not set" or "pending" when a RAG value (GREEN/AMBER/RED) is provided.
 - The EXECUTIVE SUMMARY is the MASTER report: it must comprehensively explain what the data shows for EVERY parameter — the result, the RAG rating and why, the QoQ trend, and the operational implication/recommendation. Each summary parameter paragraph should be a thorough analytical 3–6 sentences. The overview should set the scene across all metrics; the conclusion should give an overall assessment and outlook for next quarter.
 - Scorecard CTI remarks stay concise (1–2 sentences). Detail commentaries are 2–4 sentences.
 
