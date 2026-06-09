@@ -4964,7 +4964,7 @@ function hmBuildSummary(qKey, editable) {
 
   // RAG roll-up
   const tally = { red:0, amber:0, green:0 };
-  HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).forEach(p => {
+  HEATMAP_PARAMS.filter(p => !['waiting', 'supplier', 'annualAudit'].includes(p.key)).forEach(p => {
     const r = hmResolveRag(p, hmEffectiveRec(qKey, p));
     if (tally[r] !== undefined) tally[r]++;
   });
@@ -4994,7 +4994,7 @@ function hmBuildSummary(qKey, editable) {
         : '');
 
   // One block per parameter: title → heat-map status → editable explanation text area
-  const items = HEATMAP_PARAMS.filter(p => !['waiting', 'supplier'].includes(p.key)).map(p => {
+  const items = HEATMAP_PARAMS.filter(p => !['waiting', 'supplier', 'annualAudit'].includes(p.key)).map(p => {
     const rec = _hmGetParam(qKey, p.key);
     const eff = hmEffectiveRec(qKey, p);   // applies derived rate (demand/attrition/rejoiners)
     const rag = hmResolveRag(p, eff);
@@ -5669,8 +5669,16 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
 
     // PDF — render each section to an image and slice it into A4-landscape pages
     // at BLANK gaps, so a page break never cuts through a row or a line of text.
+    let _hmPdfUnlocked = false;
     const dlBtn = document.getElementById('hmDownloadBtn');
     if (dlBtn) dlBtn.addEventListener('click', async () => {
+      // Password gate (asked once per session).
+      if (!_hmPdfUnlocked) {
+        const pw = prompt('Enter password to download the Heat Map PDF:');
+        if (pw === null) return;                       // cancelled
+        if (pw !== 'upchurch') { alert('Incorrect password.'); return; }
+        _hmPdfUnlocked = true;
+      }
       const q = HEATMAP_QUARTERS.find(x => x.key === sel.value) || HEATMAP_QUARTERS[0];
       const orig = dlBtn.textContent;
       dlBtn.textContent = 'Generating…'; dlBtn.disabled = true;
