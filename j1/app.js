@@ -1121,6 +1121,8 @@ pages.j1visa = async function () {
   const allRows = [...recruitRows, ...crmRows].filter(r =>
     _parActiveSet.has(r.placementStatus) && r.visaAppointment && r.visaAppointment !== '—'
   );
+  // Combined display name (First + Last) for the single frozen Name column.
+  allRows.forEach(r => { r.fullName = `${r.firstName||''} ${r.lastName||''}`.trim(); });
   state.dataCache['visa-rows'] = allRows;
   _visaSortCol = null; _visaSortDir = 'asc';
 
@@ -1905,8 +1907,7 @@ function visaRejectionCount(status) {
 }
 const VISA_TABLE_COLS = [
   { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true, minWidth:'320px' },
-  { label:'First Name',        field:'firstName',        sortable:true,  frozen:true, minWidth:'110px' },
-  { label:'Last Name',         field:'lastName',         sortable:true,  frozen:true, minWidth:'110px' },
+  { label:'Name',              field:'fullName',         sortable:true,  frozen:true, minWidth:'160px' },
   { label:'J1 App Status',     field:'placementStatus',  sortable:true,  statusbadge:true },
   { label:'J1 Source',         field:'programSource',    sortable:true                    },
   { label:'Passport No.',      field:'passportNumber',   sortable:true                    },
