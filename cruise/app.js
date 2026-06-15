@@ -4244,7 +4244,7 @@ const HEATMAP_QUARTERS = [
 // `rule(n)`  → maps the entered number to 'red' | 'amber' | 'green'.
 // `unit`     → hint shown next to the number field.
 const HEATMAP_PARAMS = [
-  { key:'supplier',  name:'Supplier Relationship Management', pic:'Robert Upchurch',
+  { key:'supplier',  name:'Supplier Relationship Management', pic:'Marcos Xavier',
     explain:'Measured from FPO team feedback on the working relationship.',
     red:'Lack of engagement / unwillingness to partner on issues.',
     amber:'Repeat feedback on the same subject, or not rectified in a timely manner.',
