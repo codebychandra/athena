@@ -1154,7 +1154,7 @@ pages.j1visa = async function () {
   // Table headers
   const thSort = VISA_TABLE_COLS.map(col => {
     const w = col.minWidth ? `min-width:${col.minWidth};` : '';
-    const fz = col.journeycol ? ' j1-frozen-col' : '';
+    const fz = (col.journeycol || col.frozen) ? ' j1-frozen-col' : '';
     return col.sortable
       ? `<th data-visafield="${escH(col.field)}" class="sortable${fz}" style="cursor:pointer;user-select:none;white-space:nowrap;${w}">${col.label} <span class="req-sort-icon">⇅</span></th>`
       : `<th class="${fz.trim()}" style="white-space:nowrap;${w}">${col.label}</th>`;
@@ -1193,7 +1193,7 @@ pages.j1visa = async function () {
       </div>
     </th>`;
     const opts = cfDropdowns[col.field];
-    return `<th class="${col.journeycol ? 'j1-frozen-col' : ''}">${opts
+    return `<th class="${(col.journeycol || col.frozen) ? 'j1-frozen-col' : ''}">${opts
       ? `<div id="visaCF_${col.field}" class="j1-multiselect req-cf-ms">
   <button class="j1-ms-btn" type="button" style="height:26px;font-size:10px;padding:0 6px;width:100%;">
     <span class="j1-ms-lbl">All</span><span class="j1-ms-badge"></span><span class="j1-ms-arrow">▾</span>
@@ -1432,7 +1432,7 @@ pageEvents.j1visa = function () {
   }
   function renderRows(rows) {
     if (!rows.length) return `<tr><td colspan="${VISA_TABLE_COLS.length+1}" style="text-align:center;padding:32px;color:var(--text-muted);">No matching records.</td></tr>`;
-    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td class="${col.journeycol?'j1-frozen-col':''}">${cellContent(r,col)}</td>`).join('')}<td style="text-align:center;"><button class="visa-detail-btn" data-visaidx="${allRows.indexOf(r)}"
+    return rows.map(r => `<tr>${VISA_TABLE_COLS.map(col=>`<td class="${(col.journeycol||col.frozen)?'j1-frozen-col':''}">${cellContent(r,col)}</td>`).join('')}<td style="text-align:center;"><button class="visa-detail-btn" data-visaidx="${allRows.indexOf(r)}"
       style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border,#ddd);
         background:var(--bg-card,#fff);cursor:pointer;color:var(--text,#111);">Details</button></td></tr>`).join('');
   }
@@ -1462,6 +1462,26 @@ pageEvents.j1visa = function () {
     }
   }
 
+  // Multiple frozen columns (Visa Journey + First/Last Name) need cumulative
+  // left offsets. Widths are dynamic (names vary), so measure the header cells
+  // and pin every frozen cell in that column to the running left position.
+  function applyVisaFrozenOffsets() {
+    const sortRow = document.getElementById('visaSortRow');
+    const tbl = document.getElementById('visaMainTable');
+    if (!sortRow || !tbl) return;
+    const frozenIdx = [];
+    [...sortRow.children].forEach((th, i) => { if (th.classList.contains('j1-frozen-col')) frozenIdx.push(i); });
+    if (!frozenIdx.length) return;
+    let acc = 0; const lefts = {};
+    frozenIdx.forEach(i => { lefts[i] = acc; acc += sortRow.children[i].getBoundingClientRect().width; });
+    tbl.querySelectorAll('tr').forEach(tr => {
+      frozenIdx.forEach(i => {
+        const cell = tr.children[i];
+        if (cell && cell.classList.contains('j1-frozen-col')) cell.style.left = lefts[i] + 'px';
+      });
+    });
+  }
+
   let _currentRows = [...allRows];
   function refresh() {
     _currentRows = doSort(applyFilters([...allRows]));
@@ -1470,9 +1490,11 @@ pageEvents.j1visa = function () {
     const cnt = document.getElementById('visaCount');
     if (cnt) cnt.textContent = `${_currentRows.length} of ${allRows.length} records`;
     updateKpis(_currentRows);
+    applyVisaFrozenOffsets();
   }
 
   refresh();
+  window.addEventListener('resize', applyVisaFrozenOffsets);
 
   // Filters
   initMS(document.getElementById('main-content'));
@@ -1883,10 +1905,10 @@ function visaRejectionCount(status) {
 }
 const VISA_TABLE_COLS = [
   { label:'Visa Journey',      field:'visaStatus',       sortable:true,  journeycol:true, minWidth:'320px' },
+  { label:'First Name',        field:'firstName',        sortable:true,  frozen:true, minWidth:'110px' },
+  { label:'Last Name',         field:'lastName',         sortable:true,  frozen:true, minWidth:'110px' },
   { label:'J1 App Status',     field:'placementStatus',  sortable:true,  statusbadge:true },
   { label:'J1 Source',         field:'programSource',    sortable:true                    },
-  { label:'First Name',        field:'firstName',        sortable:true                    },
-  { label:'Last Name',         field:'lastName',         sortable:true                    },
   { label:'Passport No.',      field:'passportNumber',   sortable:true                    },
   { label:'Hosting Company',   field:'hostCompany',      sortable:true                    },
   { label:'Eligible Programs', field:'eligiblePrograms', sortable:true                    },
