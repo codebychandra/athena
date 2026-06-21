@@ -4154,10 +4154,10 @@ pages.reports = async function () {
               style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
               Export JSON
             </button>
-            <label id="dmdImportLabel"
-              style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
-              Import JSON
-              <input id="dmdImportInput" type="file" accept="application/json" style="display:none;">
+            <label id="dmdImportLabel" title="Click to choose a JSON file, or drag &amp; drop one here"
+              style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px dashed var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;transition:border-color 0.15s,background 0.15s;">
+              Import JSON <span style="font-weight:400;color:var(--text-muted,#888);">· or drop file</span>
+              <input id="dmdImportInput" type="file" accept="application/json,.json" style="display:none;">
             </label>
             <button id="dmdLoadDefaultsBtn"
               style="padding:8px 16px;font-size:12.5px;font-weight:600;border-radius:7px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;">
@@ -6636,26 +6636,50 @@ Scorecard remarks: 1-2 sentences each. Detail and summary paragraphs: 2-4 senten
     }
   });
 
-  // ── Import JSON ────────────────────────────────────────────────────────────
-  document.getElementById('dmdImportInput').addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
+  // ── Import JSON (file picker OR drag & drop) ────────────────────────────────
+  async function importDemandFile(file) {
     if (!file) return;
+    if (!/\.json$/i.test(file.name) && file.type && !/json/.test(file.type)) {
+      flashSaveStatus('Import failed: please drop a .json file', true); return;
+    }
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
       if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid format');
-      if (!confirm(`Replace current requisition config with the file? This cannot be undone.`)) {
-        e.target.value = ''; return;
-      }
+      if (!confirm(`Replace current requisition config with "${file.name}"? This cannot be undone.`)) return;
       saveDemand(parsed);
       flashSaveStatus(`Imported ${Object.keys(parsed).length} brand${Object.keys(parsed).length!==1?'s':''}`);
       renderDemandTable();
     } catch (err) {
       flashSaveStatus(`Import failed: ${err.message}`, true);
-    } finally {
-      e.target.value = '';
     }
+  }
+
+  const dmdImportInput = document.getElementById('dmdImportInput');
+  dmdImportInput?.addEventListener('change', async (e) => {
+    await importDemandFile(e.target.files?.[0]);
+    e.target.value = '';
   });
+
+  // Drag & drop onto the Import label
+  const dmdImportLabel = document.getElementById('dmdImportLabel');
+  if (dmdImportLabel) {
+    const setDrag = on => {
+      dmdImportLabel.style.borderColor = on ? '#B01A18' : 'var(--border,#ddd)';
+      dmdImportLabel.style.background  = on ? 'rgba(176,26,24,0.06)' : 'transparent';
+    };
+    ['dragenter','dragover'].forEach(ev => dmdImportLabel.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation(); setDrag(true);
+    }));
+    ['dragleave','dragend'].forEach(ev => dmdImportLabel.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation(); setDrag(false);
+    }));
+    dmdImportLabel.addEventListener('drop', async e => {
+      e.preventDefault(); e.stopPropagation(); setDrag(false);
+      const file = e.dataTransfer?.files?.[0];
+      await importDemandFile(file);
+    });
+  }
 
   applyTypeUI();
   renderDemandTable();
