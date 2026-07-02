@@ -4003,6 +4003,17 @@ pageEvents.deployment = function () {
 //   employment status = New Hire · onboarding status is NOT Resign (and not blank)
 //   · sign-on date is blank.
 let _tpAllRows = [];
+let _tpSortF = '_wait';
+let _tpSortD = -1;               // 1 = asc, -1 = desc
+const TP_COLS = [
+  { label:'Waiting Period',    field:'_wait',            sort:true,  filter:null   },
+  { label:'Onboarding Status', field:'onboardingStatus', sort:true,  filter:'ms'   },
+  { label:'Name',              field:'fullName',         sort:true,  filter:'text' },
+  { label:'Email',             field:'email',            sort:true,  filter:'text' },
+  { label:'Seafarer ID',       field:'seafarerIdNumber', sort:true,  filter:'text' },
+  { label:'Position',          field:'positionHired',    sort:true,  filter:'text' },
+  { label:'Cruise Line',       field:'cruiseLine',       sort:true,  filter:'ms'   },
+];
 function tpIsTalentPool(r) {
   const emp = (r.employmentStatus || '').trim().toLowerCase();
   const onb = (r.onboardingStatus || '').trim().toLowerCase();
@@ -4043,6 +4054,19 @@ pages.candidate = async function () {
   ])].sort();
   const onbStatuses = [...new Set(_tpAllRows.map(r => r.onboardingStatus).filter(Boolean))].sort();
 
+  const colTxt = f => `<input class="tp-col-f" data-field="${escH(f)}" type="text" placeholder="—"
+    style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
+      border-radius:5px;background:var(--card-bg,#fff);color:var(--text);">`;
+  const thSort = TP_COLS.map(c =>
+    `<th class="tp-th${c.sort ? ' tp-sortable' : ''}" data-tpfield="${escH(c.field)}"
+       style="${c.sort ? 'cursor:pointer;user-select:none;' : ''}">${escH(c.label)}${c.sort ? ' <span class="tp-sort-icon" style="opacity:0.45;">⇅</span>' : ''}</th>`
+  ).join('');
+  const thFilter = TP_COLS.map(c => {
+    if (c.filter === 'text') return `<th class="tp-thf">${colTxt(c.field)}</th>`;
+    if (c.filter === 'ms')   return `<th class="tp-thf">${buildColMS('tpColMS_' + c.field, c.field === 'onboardingStatus' ? onbStatuses : cruiseLines)}</th>`;
+    return `<th class="tp-thf"></th>`;
+  }).join('');
+
   const kpiCard = (id, label, valHtml, color, sub) =>
     `<div class="req-kpi-card" style="cursor:default;">
        <span class="req-kpi-label">${escH(label)}</span>
@@ -4073,15 +4097,15 @@ pages.candidate = async function () {
     </div>
 
     <div class="req-chart-row">
-      <div class="card req-chart-card">
+      <div class="card req-chart-card" style="min-height:420px;">
         <div class="req-card-title">Requisition vs Talent Pool</div>
-        <div class="req-card-sub">Per position — sourced (green) + remaining (grey); total requisition on top</div>
-        <canvas id="tpReqChart"></canvas>
+        <div class="req-card-sub">Per position — sourced (green) + remaining (grey) + surplus (amber); requisition marked with a tick</div>
+        <div style="position:relative;height:360px;"><canvas id="tpReqChart"></canvas></div>
       </div>
       <div class="card req-chart-card">
         <div class="req-card-title">Waiting Period</div>
         <div class="req-card-sub">Days since hired (today − hired date), no assignment yet</div>
-        <canvas id="tpWaitChart"></canvas>
+        <div style="position:relative;height:280px;"><canvas id="tpWaitChart"></canvas></div>
       </div>
     </div>
 
@@ -4096,15 +4120,8 @@ pages.candidate = async function () {
       <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:820px;">
           <thead style="position:sticky;top:0;z-index:2;">
-            <tr>
-              <th class="tp-th">Waiting Period</th>
-              <th class="tp-th">Onboarding Status</th>
-              <th class="tp-th">Name</th>
-              <th class="tp-th">Email</th>
-              <th class="tp-th">Seafarer ID</th>
-              <th class="tp-th">Position</th>
-              <th class="tp-th">Cruise Line</th>
-            </tr>
+            <tr id="tpSortRow">${thSort}</tr>
+            <tr id="tpFilterRow">${thFilter}</tr>
           </thead>
           <tbody id="tpTableBody"></tbody>
         </table>
@@ -4114,6 +4131,9 @@ pages.candidate = async function () {
       .tp-th { padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
         text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
         border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap; }
+      .tp-sortable:hover { color:var(--text); }
+      .tp-th.tp-sort-active { color:var(--text); }
+      .tp-thf { padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb); }
     </style>`;
 };
 
@@ -4133,10 +4153,20 @@ pageEvents.candidate = function () {
     const gPos    = msGetVals('tpCF_position');
     const gOnb    = msGetVals('tpCF_onboarding');
     const search  = (document.getElementById('tpSearch')?.value || '').trim().toLowerCase();
+    // per-column filters (text inputs + column multi-selects), like other tables
+    const colText = {};
+    document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => { if (inp.value.trim()) colText[inp.dataset.field] = inp.value.trim().toLowerCase(); });
+    const colOnb    = msGetVals('tpColMS_onboardingStatus');
+    const colCruise = msGetVals('tpColMS_cruiseLine');
     return _tpAllRows.filter(r => {
       if (gCruise.length && !gCruise.some(b => (r.cruiseLine || '').includes(b))) return false;
       if (gPos.length && !gPos.includes(r.positionHired)) return false;
       if (gOnb.length && !gOnb.includes(r.onboardingStatus)) return false;
+      if (colOnb.length && !colOnb.includes(r.onboardingStatus)) return false;
+      if (colCruise.length && !colCruise.some(b => (r.cruiseLine || '').includes(b))) return false;
+      for (const [f, fv] of Object.entries(colText)) {
+        if (!String(r[f] ?? '').toLowerCase().includes(fv)) return false;
+      }
       if (search) {
         const hay = [r.fullName, r.email, r.seafarerIdNumber, r.positionHired, r.cruiseLine].join(' ').toLowerCase();
         if (!hay.includes(search)) return false;
@@ -4152,26 +4182,40 @@ pageEvents.candidate = function () {
       background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${d}d</span>`;
   }
 
+  const tpCellFor = (r, field) => {
+    switch (field) {
+      case '_wait':            return waitBadge(tpWaitingDays(r));
+      case 'onboardingStatus': return sfOnbBadge(r.onboardingStatus);
+      case 'cruiseLine':       return sfCruiseBadge(r.cruiseLine);
+      default:                 return escH(r[field] || '—');
+    }
+  };
+  function doSort(rows) {
+    const f = _tpSortF;
+    if (!f) return rows;
+    return [...rows].sort((a, b) => {
+      if (f === '_wait') return ((tpWaitingDays(a) ?? -1) - (tpWaitingDays(b) ?? -1)) * _tpSortD;
+      return String(a[f] ?? '').toLowerCase().localeCompare(String(b[f] ?? '').toLowerCase()) * _tpSortD;
+    });
+  }
+  function updateSortIcons() {
+    document.querySelectorAll('#tpSortRow th[data-tpfield]').forEach(th => {
+      const icon = th.querySelector('.tp-sort-icon');
+      const active = th.dataset.tpfield === _tpSortF;
+      th.classList.toggle('tp-sort-active', active);
+      if (icon) { icon.textContent = active ? (_tpSortD === 1 ? '▲' : '▼') : '⇅'; icon.style.opacity = active ? '1' : '0.45'; }
+    });
+  }
   function renderTable(rows) {
     const tbody = document.getElementById('tpTableBody');
     if (!tbody) return;
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px;">No talent pool crew found</td></tr>`;
-      return;
+      tbody.innerHTML = `<tr><td colspan="${TP_COLS.length}" style="padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px;">No talent pool crew found</td></tr>`;
+      updateSortIcons(); return;
     }
     const td = c => `<td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);white-space:nowrap;font-size:11.5px;">${c}</td>`;
-    tbody.innerHTML = rows
-      .slice()
-      .sort((a, b) => (tpWaitingDays(b) ?? -1) - (tpWaitingDays(a) ?? -1))
-      .map(r => `<tr>
-        ${td(waitBadge(tpWaitingDays(r)))}
-        ${td(sfOnbBadge(r.onboardingStatus))}
-        ${td(escH(r.fullName || '—'))}
-        ${td(escH(r.email || '—'))}
-        ${td(escH(r.seafarerIdNumber || '—'))}
-        ${td(escH(r.positionHired || '—'))}
-        ${td(sfCruiseBadge(r.cruiseLine))}
-      </tr>`).join('');
+    tbody.innerHTML = doSort(rows).map(r => `<tr>${TP_COLS.map(c => td(tpCellFor(r, c.field))).join('')}</tr>`).join('');
+    updateSortIcons();
   }
 
   function tpApply() {
@@ -4203,25 +4247,29 @@ pageEvents.candidate = function () {
     setH('tpCount',      `${rows.length} talent pool crew`);
     setH('tpTableCount', `${rows.length} record${rows.length !== 1 ? 's' : ''}`);
 
-    // ── Chart 1: Requisition vs Talent Pool (stacked) ──────────────────────────
+    // ── Chart 1: Requisition vs Talent Pool (horizontal stacked + surplus) ─────
     const chartPositions = Object.keys(reqMap).sort((a, b) => reqMap[b] - reqMap[a]);
-    const reqArr     = chartPositions.map(p => reqMap[p]);
-    const sourcedArr = chartPositions.map(p => Math.min(sourcedByPos[p] || 0, reqMap[p]));
-    const remainArr  = chartPositions.map((p, i) => Math.max(0, reqMap[p] - sourcedArr[i]));
-    const totalsPlugin = {
-      id: 'tpTotals',
+    const reqArr       = chartPositions.map(p => reqMap[p]);
+    const fulfilledArr = chartPositions.map(p => Math.min(sourcedByPos[p] || 0, reqMap[p]));
+    const remainArr    = chartPositions.map((p, i) => Math.max(0, reqMap[p] - fulfilledArr[i]));
+    const surplusArr   = chartPositions.map(p => Math.max(0, (sourcedByPos[p] || 0) - reqMap[p]));
+    // Draw a tick + the requisition number at the requisition position of each bar.
+    const reqMarker = {
+      id: 'tpReqMarker',
       afterDatasetsDraw(chart) {
-        const { ctx } = chart;
-        const m0 = chart.getDatasetMeta(0), m1 = chart.getDatasetMeta(1);
+        const { ctx, scales: { x } } = chart;
+        const m0 = chart.getDatasetMeta(0);
         chart.data.labels.forEach((_, i) => {
-          const b0 = m0.data[i], b1 = m1.data[i];
-          if (!b0) return;
-          const topY = Math.min(b0.y, b1 ? b1.y : b0.y);
+          const bar = m0.data[i]; if (!bar) return;
+          const px = x.getPixelForValue(reqArr[i]);
+          const h = bar.height || 16;
+          const top = bar.y - h / 2, bot = bar.y + h / 2;
           ctx.save();
-          ctx.fillStyle = dark ? '#eee' : '#1A1A1A';
-          ctx.font = '700 11px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(String(reqArr[i]), b0.x, topY - 6);
+          ctx.strokeStyle = dark ? '#e5e7eb' : '#111'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(px, top - 3); ctx.lineTo(px, bot + 3); ctx.stroke();
+          ctx.fillStyle = dark ? '#eee' : '#1A1A1A'; ctx.font = '700 10px sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.fillText(String(reqArr[i]), px, top - 4);
           ctx.restore();
         });
       },
@@ -4234,28 +4282,30 @@ pageEvents.candidate = function () {
         data: {
           labels: chartPositions,
           datasets: [
-            { label: 'Talent Pool', data: sourcedArr, backgroundColor: '#2D7A55', maxBarThickness: 46 },
-            { label: 'Remaining',   data: remainArr,  backgroundColor: dark ? '#4B5563' : '#D1D5DB', maxBarThickness: 46 },
+            { label: 'Talent Pool', data: fulfilledArr, backgroundColor: '#2D7A55', maxBarThickness: 22 },
+            { label: 'Remaining',   data: remainArr,     backgroundColor: dark ? '#4B5563' : '#D1D5DB', maxBarThickness: 22 },
+            { label: 'Surplus',     data: surplusArr,    backgroundColor: '#D97706', maxBarThickness: 22 },
           ],
         },
         options: {
+          indexAxis: 'y',
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 22 } },
+          layout: { padding: { top: 8, right: 18 } },
           plugins: {
             legend: { display: true, position: 'bottom', labels: { color: tick, font: { size: 10 }, boxWidth: 12 } },
-            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.x}` } },
             datalabels: {
-              color: c => c.datasetIndex === 0 ? '#fff' : (dark ? '#ddd' : '#555'),
+              color: c => c.datasetIndex === 0 ? '#fff' : (dark ? '#eee' : '#444'),
               font: { size: 10, weight: 700 },
               formatter: v => v > 0 ? v : '',
             },
           },
           scales: {
-            x: { stacked: true, grid: { display: false }, ticks: { color: tick, font: { size: 9 }, maxRotation: 60, minRotation: 30 } },
-            y: { stacked: true, display: false, beginAtZero: true },
+            x: { stacked: true, display: false, beginAtZero: true, grace: '8%' },
+            y: { stacked: true, grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
           },
         },
-        plugins: [totalsPlugin],
+        plugins: [reqMarker],
       });
     }
 
@@ -4296,9 +4346,19 @@ pageEvents.candidate = function () {
 
   initMS();
   ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding'].forEach(id => msOnChange(id, tpApply));
+  ['tpColMS_onboardingStatus','tpColMS_cruiseLine'].forEach(id => msOnChange(id, tpApply));
+  document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.addEventListener('input', tpApply));
   document.getElementById('tpSearch')?.addEventListener('input', tpApply);
+  document.getElementById('tpSortRow')?.addEventListener('click', e => {
+    const th = e.target.closest('th[data-tpfield]'); if (!th) return;
+    const f = th.dataset.tpfield;
+    if (_tpSortF === f) _tpSortD = -_tpSortD;
+    else { _tpSortF = f; _tpSortD = (f === '_wait' ? -1 : 1); }
+    tpApply();
+  });
   document.getElementById('tpClearBtn')?.addEventListener('click', () => {
-    ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding'].forEach(msClear);
+    ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding','tpColMS_onboardingStatus','tpColMS_cruiseLine'].forEach(msClear);
+    document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.value = '');
     const s = document.getElementById('tpSearch'); if (s) s.value = '';
     tpApply();
   });
