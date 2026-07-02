@@ -956,10 +956,14 @@ export default {
       }
 
       // ── GET /api/recruit/job-openings ─────────────────────────────────
+      // ?refresh=1 skips the cache (targeted re-pull) but still re-caches, so it
+      // is much faster than clearing every cache.
       if (method === 'GET' && path === '/api/recruit/job-openings') {
-        const cached = await getCached(env, 'recruit-job-openings');
-        if (cached) return json(cached, 200, ch);
-
+        const refresh = url.searchParams.get('refresh');
+        if (!refresh) {
+          const cached = await getCached(env, 'recruit-job-openings');
+          if (cached) return json(cached, 200, ch);
+        }
         const token   = await getToken(env);
         const fields  = Object.values(JF).join(',');
         const records = await fetchAll(token, ZOHO_RECRUIT, 'Job_Openings', fields);

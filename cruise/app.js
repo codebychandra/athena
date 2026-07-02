@@ -3194,6 +3194,7 @@ pages.requisition = async function () {
       ${buildMS('reqStatusFilter', 'Status', statuses)}
       ${buildMS('reqDeptFilter', 'Department', depts)}
       <button id="reqClearBtn" class="req-clear-btn">✕ Clear</button>
+      <button id="reqRefreshBtn" class="req-clear-btn" title="Re-pull job openings live from Zoho">↻ Refresh Data</button>
       <span id="reqCount" class="req-count-badge">${rows.length} requisitions</span>
     </div>
 
@@ -3344,6 +3345,14 @@ function wireRequisitionFilters() {
     sortField = null; sortDir = 1;
     document.querySelectorAll('#reqSortRow .req-sort-icon').forEach(s => s.textContent = '⇅');
     apply();
+  });
+  // Targeted refresh: re-pull ONLY the job openings live from Zoho (fast — does
+  // not clear other caches), then re-render.
+  document.getElementById('reqRefreshBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = '↻ Refreshing…';
+    try { await safeJson(WORKER_URL + '/api/recruit/job-openings?refresh=1'); } catch (_) {}
+    await navigate('requisition');   // re-runs pages.requisition → fresh (re-cached) data
   });
   document.querySelectorAll('#reqSortRow th.sortable').forEach(th => {
     th.addEventListener('click', () => {
