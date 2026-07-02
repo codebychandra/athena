@@ -4168,10 +4168,8 @@ pages.candidate = async function () {
           <input id="tpSearch" type="text" placeholder="🔍 Search name / email / ID / position…"
             style="height:28px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 10px;
               font-size:11px;background:var(--card-bg,#fff);color:var(--text);min-width:200px;">
-          <button id="tpExportFilteredBtn" title="Export the rows currently shown (respects filters)"
-            style="height:28px;padding:0 12px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;">⬇ Export Filtered</button>
-          <button id="tpExportAllBtn" title="Export every talent pool crew (ignores filters)"
-            style="height:28px;padding:0 12px;font-size:11px;font-weight:600;border-radius:6px;border:none;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇ Export All</button>
+          <button id="tpExportBtn" title="Export the rows currently shown (respects all filters)"
+            style="height:28px;padding:0 16px;font-size:11px;font-weight:600;border-radius:6px;border:none;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇ Export</button>
         </div>
       </div>
       <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
@@ -4292,7 +4290,7 @@ pageEvents.candidate = function () {
       if (icon) { icon.textContent = active ? (_tpSortD === 1 ? '▲' : '▼') : '⇅'; icon.style.opacity = active ? '1' : '0.45'; }
     });
   }
-  function tpExport(rows, suffix) {
+  function tpExport(rows) {
     const header = ['Waiting Period', 'Waiting (days)', 'Hired Date', 'Onboarding Status', 'Name', 'Email', 'Seafarer ID', 'Position', 'Cruise Line'];
     const aoa = [header];
     doSort(rows).forEach(r => aoa.push([
@@ -4306,7 +4304,7 @@ pageEvents.candidate = function () {
       r.positionHired || '',
       r.cruiseLine || '',
     ]));
-    const fname = `Talent_Pool_${suffix}_${new Date().toISOString().slice(0, 10)}`;
+    const fname = `Talent_Pool_${new Date().toISOString().slice(0, 10)}`;
     if (window.XLSX) {
       const ws = window.XLSX.utils.aoa_to_sheet(aoa);
       const wb = window.XLSX.utils.book_new();
@@ -4474,8 +4472,7 @@ pageEvents.candidate = function () {
   ['tpColMS_onboardingStatus','tpColMS_cruiseLine'].forEach(id => msOnChange(id, tpApply));
   document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.addEventListener('input', tpApply));
   document.getElementById('tpSearch')?.addEventListener('input', tpApply);
-  document.getElementById('tpExportFilteredBtn')?.addEventListener('click', () => tpExport(tpFiltered(), 'filtered'));
-  document.getElementById('tpExportAllBtn')?.addEventListener('click', () => tpExport(_tpAllRows, 'all'));
+  document.getElementById('tpExportBtn')?.addEventListener('click', () => tpExport(tpFiltered()));
   document.getElementById('tpSortRow')?.addEventListener('click', e => {
     const th = e.target.closest('th[data-tpfield]'); if (!th) return;
     const f = th.dataset.tpfield;
