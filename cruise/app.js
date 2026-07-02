@@ -4018,6 +4018,7 @@ let _tpSortF = '_wait';
 let _tpSortD = -1;               // 1 = asc, -1 = desc
 const TP_COLS = [
   { label:'Waiting Period',    field:'_wait',            sort:true,  filter:null   },
+  { label:'Hired Date',        field:'hiredDate',        sort:true,  filter:null   },
   { label:'Onboarding Status', field:'onboardingStatus', sort:true,  filter:'ms'   },
   { label:'Name',              field:'fullName',         sort:true,  filter:'text' },
   { label:'Email',             field:'email',            sort:true,  filter:'text' },
@@ -4269,6 +4270,11 @@ pageEvents.candidate = function () {
     if (!f) return rows;
     return [...rows].sort((a, b) => {
       if (f === '_wait') return ((tpWaitingDays(a) ?? -1) - (tpWaitingDays(b) ?? -1)) * _tpSortD;
+      if (f === 'hiredDate') {
+        const av = a.hiredDate ? new Date(a.hiredDate).getTime() : 0;
+        const bv = b.hiredDate ? new Date(b.hiredDate).getTime() : 0;
+        return (av - bv) * _tpSortD;
+      }
       return String(a[f] ?? '').toLowerCase().localeCompare(String(b[f] ?? '').toLowerCase()) * _tpSortD;
     });
   }
