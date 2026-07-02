@@ -4106,10 +4106,17 @@ pages.candidate = async function () {
     </div>
 
     <div class="req-chart-row">
-      <div class="card req-chart-card" style="min-height:420px;">
+      <div class="card req-chart-card">
         <div class="req-card-title">Requisition vs Talent Pool</div>
         <div class="req-card-sub">Per position — sourced (green) + remaining (grey) + surplus (amber); requisition marked with a tick</div>
-        <div style="position:relative;height:360px;"><canvas id="tpReqChart"></canvas></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--text-muted,#888);margin:6px 0 4px;">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2D7A55;vertical-align:middle;margin-right:4px;"></span>Talent Pool</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D1D5DB;vertical-align:middle;margin-right:4px;"></span>Remaining</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D97706;vertical-align:middle;margin-right:4px;"></span>Surplus</span>
+        </div>
+        <div style="max-height:470px;overflow-y:auto;overflow-x:hidden;">
+          <div id="tpReqCanvasBox" style="position:relative;height:360px;"><canvas id="tpReqChart"></canvas></div>
+        </div>
       </div>
       <div class="card req-chart-card">
         <div class="req-card-title">Waiting Period</div>
@@ -4285,8 +4292,10 @@ pageEvents.candidate = function () {
       },
     };
     const reqEl = document.getElementById('tpReqChart');
-    // Grow the chart height with the number of positions so bars stay readable.
-    if (reqEl && reqEl.parentElement) reqEl.parentElement.style.height = Math.max(260, chartPositions.length * 24 + 54) + 'px';
+    // Size the (scrollable) chart box to the number of positions so every row is
+    // readable — ~30px per position, tick/number fits in the gap above each bar.
+    const reqBox = document.getElementById('tpReqCanvasBox');
+    if (reqBox) reqBox.style.height = Math.max(220, chartPositions.length * 30 + 26) + 'px';
     if (window._tpCharts.req) window._tpCharts.req.destroy();
     if (reqEl) {
       window._tpCharts.req = new Chart(reqEl, {
@@ -4294,27 +4303,29 @@ pageEvents.candidate = function () {
         data: {
           labels: chartPositions,
           datasets: [
-            { label: 'Talent Pool', data: fulfilledArr, backgroundColor: '#2D7A55', maxBarThickness: 22 },
-            { label: 'Remaining',   data: remainArr,     backgroundColor: dark ? '#4B5563' : '#D1D5DB', maxBarThickness: 22 },
-            { label: 'Surplus',     data: surplusArr,    backgroundColor: '#D97706', maxBarThickness: 22 },
+            { label: 'Talent Pool', data: fulfilledArr, backgroundColor: '#2D7A55', maxBarThickness: 18 },
+            { label: 'Remaining',   data: remainArr,     backgroundColor: dark ? '#4B5563' : '#D1D5DB', maxBarThickness: 18 },
+            { label: 'Surplus',     data: surplusArr,    backgroundColor: '#D97706', maxBarThickness: 18 },
           ],
         },
         options: {
           indexAxis: 'y',
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 8, right: 18 } },
+          layout: { padding: { top: 10, right: 26 } },
           plugins: {
-            legend: { display: true, position: 'bottom', labels: { color: tick, font: { size: 10 }, boxWidth: 12 } },
+            legend: { display: false },
             tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.x}` } },
             datalabels: {
               color: c => c.datasetIndex === 0 ? '#fff' : (dark ? '#eee' : '#444'),
-              font: { size: 10, weight: 700 },
+              font: { size: 9, weight: 700 },
+              clamp: true,
+              display: c => c.dataset.data[c.dataIndex] > 0,
               formatter: v => v > 0 ? v : '',
             },
           },
           scales: {
-            x: { stacked: true, display: false, beginAtZero: true, grace: '8%' },
-            y: { stacked: true, grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
+            x: { stacked: true, display: false, beginAtZero: true, grace: '10%' },
+            y: { stacked: true, grid: { display: false }, ticks: { color: tick, font: { size: 10 }, autoSkip: false } },
           },
         },
         plugins: [reqMarker],
