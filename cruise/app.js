@@ -4164,9 +4164,15 @@ pages.candidate = async function () {
       <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
         border-bottom:1px solid var(--border,#e5e7eb);flex-wrap:wrap;gap:8px;">
         <span style="font-size:12px;font-weight:600;color:var(--text);" id="tpTableCount">—</span>
-        <input id="tpSearch" type="text" placeholder="🔍 Search name / email / ID / position…"
-          style="height:28px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 10px;
-            font-size:11px;background:var(--card-bg,#fff);color:var(--text);min-width:220px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="tpSearch" type="text" placeholder="🔍 Search name / email / ID / position…"
+            style="height:28px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 10px;
+              font-size:11px;background:var(--card-bg,#fff);color:var(--text);min-width:200px;">
+          <button id="tpExportFilteredBtn" title="Export the rows currently shown (respects filters)"
+            style="height:28px;padding:0 12px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid var(--border,#ddd);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;">⬇ Export Filtered</button>
+          <button id="tpExportAllBtn" title="Export every talent pool crew (ignores filters)"
+            style="height:28px;padding:0 12px;font-size:11px;font-weight:600;border-radius:6px;border:none;background:#2D7A55;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇ Export All</button>
+        </div>
       </div>
       <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
         <table style="width:100%;border-collapse:collapse;min-width:820px;">
@@ -4286,6 +4292,36 @@ pageEvents.candidate = function () {
       if (icon) { icon.textContent = active ? (_tpSortD === 1 ? '▲' : '▼') : '⇅'; icon.style.opacity = active ? '1' : '0.45'; }
     });
   }
+  function tpExport(rows, suffix) {
+    const header = ['Waiting Period', 'Waiting (days)', 'Hired Date', 'Onboarding Status', 'Name', 'Email', 'Seafarer ID', 'Position', 'Cruise Line'];
+    const aoa = [header];
+    doSort(rows).forEach(r => aoa.push([
+      tpWaitText(r) || '',
+      tpWaitingDays(r) ?? '',
+      r.hiredDate || '',
+      r.onboardingStatus || '',
+      r.fullName || '',
+      r.email || '',
+      r.seafarerIdNumber || '',
+      r.positionHired || '',
+      r.cruiseLine || '',
+    ]));
+    const fname = `Talent_Pool_${suffix}_${new Date().toISOString().slice(0, 10)}`;
+    if (window.XLSX) {
+      const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, 'Talent Pool');
+      window.XLSX.writeFile(wb, fname + '.xlsx');
+    } else {
+      const csv = aoa.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = fname + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  }
+
   function renderTable(rows) {
     const tbody = document.getElementById('tpTableBody');
     if (!tbody) return;
@@ -4437,6 +4473,8 @@ pageEvents.candidate = function () {
   ['tpColMS_onboardingStatus','tpColMS_cruiseLine'].forEach(id => msOnChange(id, tpApply));
   document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.addEventListener('input', tpApply));
   document.getElementById('tpSearch')?.addEventListener('input', tpApply);
+  document.getElementById('tpExportFilteredBtn')?.addEventListener('click', () => tpExport(tpFiltered(), 'filtered'));
+  document.getElementById('tpExportAllBtn')?.addEventListener('click', () => tpExport(_tpAllRows, 'all'));
   document.getElementById('tpSortRow')?.addEventListener('click', e => {
     const th = e.target.closest('th[data-tpfield]'); if (!th) return;
     const f = th.dataset.tpfield;
