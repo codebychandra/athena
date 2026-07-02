@@ -4150,6 +4150,9 @@ pages.candidate = async function () {
       .tp-sortable:hover { color:var(--text); }
       .tp-th.tp-sort-active { color:var(--text); }
       .tp-thf { padding:4px 6px;background:var(--bg-page,#fafafa);border-bottom:1px solid var(--border,#e5e7eb); }
+      /* Override the global .req-chart-card canvas max-height so the scrollable
+         requisition chart can grow to fit all positions. */
+      #tpReqChart { max-height:none !important; }
     </style>`;
 };
 
