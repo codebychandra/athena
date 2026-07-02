@@ -4149,8 +4149,8 @@ pages.candidate = async function () {
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D1D5DB;vertical-align:middle;margin-right:4px;"></span>Remaining</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D97706;vertical-align:middle;margin-right:4px;"></span>Surplus</span>
         </div>
-        <div style="max-height:470px;overflow-y:auto;overflow-x:hidden;">
-          <div id="tpReqCanvasBox" style="position:relative;height:360px;"><canvas id="tpReqChart"></canvas></div>
+        <div style="max-height:250px;overflow-y:auto;overflow-x:hidden;">
+          <div id="tpReqCanvasBox" style="position:relative;height:250px;"><canvas id="tpReqChart"></canvas></div>
         </div>
       </div>
       <div class="card req-chart-card">
