@@ -8,8 +8,7 @@ const WORKER_URL = 'https://cti-athena.cti-athena.workers.dev';
 
 const CRUISE_PAGE_TITLES = {
   requisition:         'Requisition',
-  candidate:           'Candidate',
-  finalinterview:      'Final Interview',
+  candidate:           'Talent Pool',
   seafarer:            'Seafarer',
   seafarerAttachment:  'Attachment',
   visa:                'Visa',
