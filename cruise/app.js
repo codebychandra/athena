@@ -3997,6 +3997,316 @@ pageEvents.deployment = function () {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// TALENT POOL PAGE — new-hire crew with no assignment yet
+// ═════════════════════════════════════════════════════════════════════════════
+// Talent Pool = crew that never boarded and have no assignment:
+//   employment status = New Hire · onboarding status is NOT Resign (and not blank)
+//   · sign-on date is blank.
+let _tpAllRows = [];
+function tpIsTalentPool(r) {
+  const emp = (r.employmentStatus || '').trim().toLowerCase();
+  const onb = (r.onboardingStatus || '').trim().toLowerCase();
+  const signOn = (r.signOnDate == null ? '' : String(r.signOnDate)).trim();
+  return emp === 'new hire'
+    && onb && onb !== 'resign' && onb !== 'resigned'
+    && !signOn;
+}
+function tpWaitingDays(r) {
+  if (!r.hiredDate) return null;
+  const h = new Date(r.hiredDate); if (isNaN(h.getTime())) return null;
+  h.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((today - h) / 86400000));
+}
+// Requisition (talent-pool target) headcount per position, summed over brands.
+function tpRequisition(demand, brands) {
+  const out = {};
+  (brands && brands.length ? brands : CRUISE_BRANDS).forEach(b => {
+    const tp = (demand[b] && demand[b].talentPool) || {};
+    Object.entries(tp).forEach(([pos, qty]) => { out[pos] = (out[pos] || 0) + Number(qty || 0); });
+  });
+  return out;
+}
+
+pages.candidate = async function () {
+  try { await hydrateDemand(); } catch (_) {}
+  const { seafarers } = await fetchCruiseData(false);
+  _tpAllRows = (seafarers || []).filter(tpIsTalentPool);
+  setTimeout(buildFullPortalContext, 0);
+
+  const demand = loadDemand();
+  const reqAll = tpRequisition(demand, CRUISE_BRANDS);
+  const cruiseLines = CRUISE_BRANDS.slice();
+  const positions   = [...new Set([
+    ...Object.keys(reqAll),
+    ..._tpAllRows.map(r => r.positionHired).filter(p => p && p !== '—'),
+  ])].sort();
+  const onbStatuses = [...new Set(_tpAllRows.map(r => r.onboardingStatus).filter(Boolean))].sort();
+
+  const kpiCard = (id, label, valHtml, color, sub) =>
+    `<div class="req-kpi-card" style="cursor:default;">
+       <span class="req-kpi-label">${escH(label)}</span>
+       <span class="req-kpi-value" style="color:${color};" id="tpKpi_${id}">${valHtml}</span>
+       <span class="req-kpi-sub">${escH(sub)}</span>
+     </div>`;
+
+  return `
+    <div class="req-page-header">
+      <h1>Talent Pool</h1>
+      <span class="req-live-badge">● Live · Zoho Recruit</span>
+      <span class="req-page-sub">New-hire crew, never boarded, no assignment yet — available to source against requisitions</span>
+    </div>
+
+    <div class="card req-filter-bar">
+      ${buildMS('tpCF_cruiseLine','Cruise Line',cruiseLines)}
+      ${buildMS('tpCF_position','Position',positions)}
+      ${buildMS('tpCF_onboarding','Onboarding Status',onbStatuses)}
+      <button id="tpClearBtn" class="req-clear-btn">Clear</button>
+      <span id="tpCount" class="req-count-badge">—</span>
+    </div>
+
+    <div class="req-kpi-grid" id="tpKpiGrid" style="grid-template-columns:repeat(4,minmax(0,1fr));">
+      ${kpiCard('pool',  'Total Talent Pool',   '0', '#1B3A6B', 'new hires available to source')}
+      ${kpiCard('req',   'Requisition Headcount','0', '#7C3AED', 'total positions requested')}
+      ${kpiCard('remain','Remaining to Source',  '0', '#B01A18', 'still needed vs requisition')}
+      ${kpiCard('rate',  'Success Rate',        'N/A','#2D7A55', 'sourced vs requisition')}
+    </div>
+
+    <div class="req-chart-row">
+      <div class="card req-chart-card">
+        <div class="req-card-title">Requisition vs Talent Pool</div>
+        <div class="req-card-sub">Per position — sourced (green) + remaining (grey); total requisition on top</div>
+        <canvas id="tpReqChart"></canvas>
+      </div>
+      <div class="card req-chart-card">
+        <div class="req-card-title">Waiting Period</div>
+        <div class="req-card-sub">Days since hired (today − hired date), no assignment yet</div>
+        <canvas id="tpWaitChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
+        border-bottom:1px solid var(--border,#e5e7eb);flex-wrap:wrap;gap:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);" id="tpTableCount">—</span>
+        <input id="tpSearch" type="text" placeholder="🔍 Search name / email / ID / position…"
+          style="height:28px;border:1px solid var(--border,#ddd);border-radius:6px;padding:0 10px;
+            font-size:11px;background:var(--card-bg,#fff);color:var(--text);min-width:220px;">
+      </div>
+      <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:820px;">
+          <thead style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="tp-th">Waiting Period</th>
+              <th class="tp-th">Onboarding Status</th>
+              <th class="tp-th">Name</th>
+              <th class="tp-th">Email</th>
+              <th class="tp-th">Seafarer ID</th>
+              <th class="tp-th">Position</th>
+              <th class="tp-th">Cruise Line</th>
+            </tr>
+          </thead>
+          <tbody id="tpTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <style>
+      .tp-th { padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:0.05em;
+        text-transform:uppercase;color:var(--text-muted,#888);background:var(--bg-page,#fafafa);
+        border-bottom:1px solid var(--border,#e5e7eb);white-space:nowrap; }
+    </style>`;
+};
+
+pageEvents.candidate = function () {
+  if (typeof Chart === 'undefined') return;
+  if (Chart && window.ChartDataLabels && !Chart._cruiseDLRegistered) {
+    Chart.register(window.ChartDataLabels);
+    Chart._cruiseDLRegistered = true;
+  }
+  window._tpCharts = window._tpCharts || {};
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const tick = dark ? '#aaa' : '#555';
+  const _dash = '<span style="color:var(--text-muted,#aaa);">—</span>';
+
+  function tpFiltered() {
+    const gCruise = msGetVals('tpCF_cruiseLine');
+    const gPos    = msGetVals('tpCF_position');
+    const gOnb    = msGetVals('tpCF_onboarding');
+    const search  = (document.getElementById('tpSearch')?.value || '').trim().toLowerCase();
+    return _tpAllRows.filter(r => {
+      if (gCruise.length && !gCruise.some(b => (r.cruiseLine || '').includes(b))) return false;
+      if (gPos.length && !gPos.includes(r.positionHired)) return false;
+      if (gOnb.length && !gOnb.includes(r.onboardingStatus)) return false;
+      if (search) {
+        const hay = [r.fullName, r.email, r.seafarerIdNumber, r.positionHired, r.cruiseLine].join(' ').toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+  }
+
+  function waitBadge(d) {
+    if (d == null) return _dash;
+    const col = d > 90 ? '#B01A18' : d > 45 ? '#D97706' : '#1B3A6B';
+    return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+      background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${d}d</span>`;
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById('tpTableBody');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px;">No talent pool crew found</td></tr>`;
+      return;
+    }
+    const td = c => `<td style="padding:6px 10px;border-bottom:1px solid var(--border,#f0f0f0);white-space:nowrap;font-size:11.5px;">${c}</td>`;
+    tbody.innerHTML = rows
+      .slice()
+      .sort((a, b) => (tpWaitingDays(b) ?? -1) - (tpWaitingDays(a) ?? -1))
+      .map(r => `<tr>
+        ${td(waitBadge(tpWaitingDays(r)))}
+        ${td(sfOnbBadge(r.onboardingStatus))}
+        ${td(escH(r.fullName || '—'))}
+        ${td(escH(r.email || '—'))}
+        ${td(escH(r.seafarerIdNumber || '—'))}
+        ${td(escH(r.positionHired || '—'))}
+        ${td(sfCruiseBadge(r.cruiseLine))}
+      </tr>`).join('');
+  }
+
+  function tpApply() {
+    const rows    = tpFiltered();
+    const gCruise = msGetVals('tpCF_cruiseLine');
+    const gPos    = msGetVals('tpCF_position');
+
+    // Requisition per position (selected brands; narrowed to selected positions).
+    let reqMap = tpRequisition(loadDemand(), gCruise);
+    if (gPos.length) reqMap = Object.fromEntries(Object.entries(reqMap).filter(([p]) => gPos.includes(p)));
+
+    // Sourced (talent pool) per position from the filtered crew.
+    const sourcedByPos = {};
+    rows.forEach(r => { const p = r.positionHired || '—'; sourcedByPos[p] = (sourcedByPos[p] || 0) + 1; });
+
+    const reqHeadcount = Object.values(reqMap).reduce((s, v) => s + v, 0);
+    let fulfilled = 0;
+    Object.entries(reqMap).forEach(([p, req]) => { fulfilled += Math.min(sourcedByPos[p] || 0, req); });
+    const remaining = Math.max(0, reqHeadcount - fulfilled);
+    const rate = reqHeadcount > 0 ? Math.round(fulfilled / reqHeadcount * 100) : null;
+
+    const setH = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    setH('tpKpi_pool',   rows.length.toLocaleString());
+    setH('tpKpi_req',    reqHeadcount.toLocaleString());
+    setH('tpKpi_remain', remaining.toLocaleString());
+    setH('tpKpi_rate',   rate === null ? 'N/A' : rate + '%');
+    const rateEl = document.getElementById('tpKpi_rate');
+    if (rateEl) rateEl.style.color = rate === null ? '#6B7280' : rate >= 80 ? '#2D7A55' : rate >= 50 ? '#D97706' : '#B01A18';
+    setH('tpCount',      `${rows.length} talent pool crew`);
+    setH('tpTableCount', `${rows.length} record${rows.length !== 1 ? 's' : ''}`);
+
+    // ── Chart 1: Requisition vs Talent Pool (stacked) ──────────────────────────
+    const chartPositions = Object.keys(reqMap).sort((a, b) => reqMap[b] - reqMap[a]);
+    const reqArr     = chartPositions.map(p => reqMap[p]);
+    const sourcedArr = chartPositions.map(p => Math.min(sourcedByPos[p] || 0, reqMap[p]));
+    const remainArr  = chartPositions.map((p, i) => Math.max(0, reqMap[p] - sourcedArr[i]));
+    const totalsPlugin = {
+      id: 'tpTotals',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const m0 = chart.getDatasetMeta(0), m1 = chart.getDatasetMeta(1);
+        chart.data.labels.forEach((_, i) => {
+          const b0 = m0.data[i], b1 = m1.data[i];
+          if (!b0) return;
+          const topY = Math.min(b0.y, b1 ? b1.y : b0.y);
+          ctx.save();
+          ctx.fillStyle = dark ? '#eee' : '#1A1A1A';
+          ctx.font = '700 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(String(reqArr[i]), b0.x, topY - 6);
+          ctx.restore();
+        });
+      },
+    };
+    const reqEl = document.getElementById('tpReqChart');
+    if (window._tpCharts.req) window._tpCharts.req.destroy();
+    if (reqEl) {
+      window._tpCharts.req = new Chart(reqEl, {
+        type: 'bar',
+        data: {
+          labels: chartPositions,
+          datasets: [
+            { label: 'Talent Pool', data: sourcedArr, backgroundColor: '#2D7A55', maxBarThickness: 46 },
+            { label: 'Remaining',   data: remainArr,  backgroundColor: dark ? '#4B5563' : '#D1D5DB', maxBarThickness: 46 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          layout: { padding: { top: 22 } },
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { color: tick, font: { size: 10 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+            datalabels: {
+              color: c => c.datasetIndex === 0 ? '#fff' : (dark ? '#ddd' : '#555'),
+              font: { size: 10, weight: 700 },
+              formatter: v => v > 0 ? v : '',
+            },
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: tick, font: { size: 9 }, maxRotation: 60, minRotation: 30 } },
+            y: { stacked: true, display: false, beginAtZero: true },
+          },
+        },
+        plugins: [totalsPlugin],
+      });
+    }
+
+    // ── Chart 2: Waiting Period distribution ───────────────────────────────────
+    const buckets = [
+      { label: '0–30d',   test: d => d <= 30 },
+      { label: '31–60d',  test: d => d > 30 && d <= 60 },
+      { label: '61–90d',  test: d => d > 60 && d <= 90 },
+      { label: '91–180d', test: d => d > 90 && d <= 180 },
+      { label: '180d+',   test: d => d > 180 },
+    ];
+    const bucketCounts = buckets.map(() => 0);
+    rows.forEach(r => { const d = tpWaitingDays(r); if (d == null) return; const i = buckets.findIndex(b => b.test(d)); if (i >= 0) bucketCounts[i]++; });
+    const waitEl = document.getElementById('tpWaitChart');
+    if (window._tpCharts.wait) window._tpCharts.wait.destroy();
+    if (waitEl) {
+      window._tpCharts.wait = new Chart(waitEl, {
+        type: 'bar',
+        data: { labels: buckets.map(b => b.label), datasets: [{ data: bucketCounts, backgroundColor: '#1B3A6B', maxBarThickness: 52 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          layout: { padding: { top: 18 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => ` ${c.parsed.y} crew` } },
+            datalabels: { anchor: 'end', align: 'end', offset: 2, color: dark ? '#eee' : '#1A1A1A', font: { size: 10, weight: 700 }, formatter: v => v || '' },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: tick, font: { size: 10 } } },
+            y: { display: false, beginAtZero: true },
+          },
+        },
+      });
+    }
+
+    renderTable(rows);
+  }
+
+  initMS();
+  ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding'].forEach(id => msOnChange(id, tpApply));
+  document.getElementById('tpSearch')?.addEventListener('input', tpApply);
+  document.getElementById('tpClearBtn')?.addEventListener('click', () => {
+    ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding'].forEach(msClear);
+    const s = document.getElementById('tpSearch'); if (s) s.value = '';
+    tpApply();
+  });
+
+  tpApply();
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // REPORT PAGE — Weekly cruise hiring report generator
 // ═════════════════════════════════════════════════════════════════════════════
 pages.reports = async function () {
