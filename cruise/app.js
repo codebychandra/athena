@@ -4435,11 +4435,12 @@ pageEvents.candidate = function () {
 
     // ── Chart 2: Waiting Period distribution ───────────────────────────────────
     const buckets = [
-      { label: '≤ 1 mo',  test: d => d <= 30 },
-      { label: '1–2 mo',  test: d => d > 30 && d <= 60 },
-      { label: '2–3 mo',  test: d => d > 60 && d <= 90 },
-      { label: '3–6 mo',  test: d => d > 90 && d <= 180 },
-      { label: '6 mo+',   test: d => d > 180 },
+      { label: '≤ 1 mo',   test: d => d <= 30 },
+      { label: '1–3 mo',   test: d => d > 30 && d <= 90 },
+      { label: '3–6 mo',   test: d => d > 90 && d <= 180 },
+      { label: '6–9 mo',   test: d => d > 180 && d <= 270 },
+      { label: '9–12 mo',  test: d => d > 270 && d <= 365 },
+      { label: '1 year+',  test: d => d > 365 },
     ];
     const bucketCounts = buckets.map(() => 0);
     rows.forEach(r => { const d = tpWaitingDays(r); if (d == null) return; const i = buckets.findIndex(b => b.test(d)); if (i >= 0) bucketCounts[i]++; });
