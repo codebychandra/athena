@@ -4013,6 +4013,7 @@ pageEvents.deployment = function () {
 //   · sign-on date is blank.
 let _tpAllRows = [];
 let _tpReqRows = [];             // live Zoho cruise job openings (requisition source)
+let _tpSaved = { ms: {}, text: {}, search: '' };   // filter state kept across navigations
 let _tpSortF = '_wait';
 let _tpSortD = -1;               // 1 = asc, -1 = desc
 const TP_COLS = [
@@ -4203,6 +4204,26 @@ pageEvents.candidate = function () {
     });
   }
 
+  const TP_MS_IDS = ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding','tpColMS_onboardingStatus','tpColMS_cruiseLine'];
+  function tpPersist() {
+    _tpSaved.ms = {};
+    TP_MS_IDS.forEach(id => { const v = msGetVals(id); if (v.length) _tpSaved.ms[id] = v; });
+    _tpSaved.text = {};
+    document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => { if (inp.value.trim()) _tpSaved.text[inp.dataset.field] = inp.value; });
+    _tpSaved.search = document.getElementById('tpSearch')?.value || '';
+  }
+  function tpRestore() {
+    Object.entries(_tpSaved.ms).forEach(([id, vals]) => {
+      const el = document.getElementById(id); if (!el) return;
+      el.querySelectorAll('.j1-ms-cb').forEach(cb => { cb.checked = vals.includes(cb.value); });
+      _msUpdateBadge(el);
+    });
+    Object.entries(_tpSaved.text).forEach(([f, v]) => {
+      const inp = document.querySelector(`#tpFilterRow .tp-col-f[data-field="${f}"]`); if (inp) inp.value = v;
+    });
+    const s = document.getElementById('tpSearch'); if (s) s.value = _tpSaved.search || '';
+  }
+
   function waitBadge(d) {
     if (d == null) return _dash;
     const col = d > 90 ? '#B01A18' : d > 45 ? '#D97706' : '#1B3A6B';
@@ -4247,6 +4268,7 @@ pageEvents.candidate = function () {
   }
 
   function tpApply() {
+    tpPersist();
     const rows    = tpFiltered();
     const gCruise = msGetVals('tpCF_cruiseLine');
     const gPos    = msGetVals('tpCF_position');
@@ -4398,6 +4420,7 @@ pageEvents.candidate = function () {
     tpApply();
   });
 
+  tpRestore();   // re-apply filters remembered from a previous visit
   tpApply();
 };
 
