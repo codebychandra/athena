@@ -4003,6 +4003,7 @@ pageEvents.deployment = function () {
 //   employment status = New Hire · onboarding status is NOT Resign (and not blank)
 //   · sign-on date is blank.
 let _tpAllRows = [];
+let _tpReqRows = [];             // live Zoho cruise job openings (requisition source)
 let _tpSortF = '_wait';
 let _tpSortD = -1;               // 1 = asc, -1 = desc
 const TP_COLS = [
@@ -4029,25 +4030,33 @@ function tpWaitingDays(r) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return Math.max(0, Math.round((today - h) / 86400000));
 }
-// Requisition (talent-pool target) headcount per position, summed over brands.
-function tpRequisition(demand, brands) {
+// Requisition headcount per position from LIVE Zoho job openings — the SAME
+// source as the Requisition menu (Sea Based + River, non-closed). Optionally
+// narrowed to the selected cruise lines (client names).
+function tpReqByPosition(reqRows, brands) {
   const out = {};
-  (brands && brands.length ? brands : CRUISE_BRANDS).forEach(b => {
-    const tp = (demand[b] && demand[b].talentPool) || {};
-    Object.entries(tp).forEach(([pos, qty]) => { out[pos] = (out[pos] || 0) + Number(qty || 0); });
+  (reqRows || []).forEach(j => {
+    if (brands && brands.length && !brands.includes((j.clientName || '').trim())) return;
+    const p = (j.positionName || '—').trim();
+    out[p] = (out[p] || 0) + (parseInt(j.numPositions) || 0);
   });
   return out;
 }
 
 pages.candidate = async function () {
-  try { await hydrateDemand(); } catch (_) {}
-  const { seafarers } = await fetchCruiseData(false);
-  _tpAllRows = (seafarers || []).filter(tpIsTalentPool);
+  const [reqRows, cruiseData] = await Promise.all([
+    fetchCruiseRequisitions().catch(() => []),
+    fetchCruiseData(false),
+  ]);
+  _tpReqRows = reqRows || [];
+  _tpAllRows = (cruiseData.seafarers || []).filter(tpIsTalentPool);
   setTimeout(buildFullPortalContext, 0);
 
-  const demand = loadDemand();
-  const reqAll = tpRequisition(demand, CRUISE_BRANDS);
-  const cruiseLines = CRUISE_BRANDS.slice();
+  const reqAll = tpReqByPosition(_tpReqRows, []);
+  const cruiseLines = [...new Set([
+    ..._tpReqRows.map(j => (j.clientName || '').trim()).filter(Boolean),
+    ..._tpAllRows.flatMap(r => String(r.cruiseLine || '').split(',').map(s => s.trim())).filter(Boolean),
+  ])].sort();
   const positions   = [...new Set([
     ...Object.keys(reqAll),
     ..._tpAllRows.map(r => r.positionHired).filter(p => p && p !== '—'),
@@ -4223,8 +4232,9 @@ pageEvents.candidate = function () {
     const gCruise = msGetVals('tpCF_cruiseLine');
     const gPos    = msGetVals('tpCF_position');
 
-    // Requisition per position (selected brands; narrowed to selected positions).
-    let reqMap = tpRequisition(loadDemand(), gCruise);
+    // Requisition per position from live job openings (selected cruise lines;
+    // narrowed to selected positions).
+    let reqMap = tpReqByPosition(_tpReqRows, gCruise);
     if (gPos.length) reqMap = Object.fromEntries(Object.entries(reqMap).filter(([p]) => gPos.includes(p)));
 
     // Sourced (talent pool) per position from the filtered crew.
@@ -4275,6 +4285,8 @@ pageEvents.candidate = function () {
       },
     };
     const reqEl = document.getElementById('tpReqChart');
+    // Grow the chart height with the number of positions so bars stay readable.
+    if (reqEl && reqEl.parentElement) reqEl.parentElement.style.height = Math.max(260, chartPositions.length * 24 + 54) + 'px';
     if (window._tpCharts.req) window._tpCharts.req.destroy();
     if (reqEl) {
       window._tpCharts.req = new Chart(reqEl, {
