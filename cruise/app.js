@@ -4040,6 +4040,30 @@ function tpWaitingDays(r) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return Math.max(0, Math.round((today - h) / 86400000));
 }
+// Calendar-accurate years / months / days since hired.
+function tpWaitParts(r) {
+  if (!r.hiredDate) return null;
+  const h = new Date(r.hiredDate); if (isNaN(h.getTime())) return null;
+  const now = new Date();
+  let y = now.getFullYear() - h.getFullYear();
+  let m = now.getMonth() - h.getMonth();
+  let d = now.getDate() - h.getDate();
+  if (d < 0) { m -= 1; d += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); }
+  if (m < 0) { y -= 1; m += 12; }
+  if (y < 0) { y = 0; m = 0; d = 0; }
+  return { y, m, d };
+}
+function tpWaitText(r) {
+  const days = tpWaitingDays(r);
+  if (days == null) return null;
+  if (days <= 0) return 'Today';
+  const p = tpWaitParts(r); if (!p) return `${days}d`;
+  const bits = [];
+  if (p.y) bits.push(p.y + 'y');
+  if (p.m) bits.push(p.m + 'm');
+  if (p.d || !bits.length) bits.push(p.d + 'd');
+  return bits.join(' ');
+}
 // Requisition headcount per position from LIVE Zoho job openings — the SAME
 // source as the Requisition menu (Sea Based + River, non-closed). Optionally
 // narrowed to the selected cruise lines (client names).
@@ -4224,16 +4248,17 @@ pageEvents.candidate = function () {
     const s = document.getElementById('tpSearch'); if (s) s.value = _tpSaved.search || '';
   }
 
-  function waitBadge(d) {
+  function waitBadge(r) {
+    const d = tpWaitingDays(r);
     if (d == null) return _dash;
     const col = d > 90 ? '#B01A18' : d > 45 ? '#D97706' : '#1B3A6B';
-    return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
-      background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${d}d</span>`;
+    return `<span title="${d} days" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;
+      background:${col}18;color:${col};border:1px solid ${col}30;white-space:nowrap;">${tpWaitText(r)}</span>`;
   }
 
   const tpCellFor = (r, field) => {
     switch (field) {
-      case '_wait':            return waitBadge(tpWaitingDays(r));
+      case '_wait':            return waitBadge(r);
       case 'onboardingStatus': return sfOnbBadge(r.onboardingStatus);
       case 'cruiseLine':       return sfCruiseBadge(r.cruiseLine);
       default:                 return escH(r[field] || '—');
@@ -4368,11 +4393,11 @@ pageEvents.candidate = function () {
 
     // ── Chart 2: Waiting Period distribution ───────────────────────────────────
     const buckets = [
-      { label: '0–30d',   test: d => d <= 30 },
-      { label: '31–60d',  test: d => d > 30 && d <= 60 },
-      { label: '61–90d',  test: d => d > 60 && d <= 90 },
-      { label: '91–180d', test: d => d > 90 && d <= 180 },
-      { label: '180d+',   test: d => d > 180 },
+      { label: '≤ 1 mo',  test: d => d <= 30 },
+      { label: '1–2 mo',  test: d => d > 30 && d <= 60 },
+      { label: '2–3 mo',  test: d => d > 60 && d <= 90 },
+      { label: '3–6 mo',  test: d => d > 90 && d <= 180 },
+      { label: '6 mo+',   test: d => d > 180 },
     ];
     const bucketCounts = buckets.map(() => 0);
     rows.forEach(r => { const d = tpWaitingDays(r); if (d == null) return; const i = buckets.findIndex(b => b.test(d)); if (i >= 0) bucketCounts[i]++; });
