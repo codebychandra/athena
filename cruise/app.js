@@ -4203,12 +4203,12 @@ pages.candidate = async function () {
          requisition chart can grow to fit all positions. */
       #tpReqChart { max-height:none !important; }
       /* Dual-thumb waiting-period range slider */
-      .tp-range-track { position:absolute; left:0; right:0; top:8px; height:4px; border-radius:2px; background:var(--border,#ddd); }
+      .tp-range-track { position:absolute; left:7px; right:7px; top:8px; height:4px; border-radius:2px; background:var(--border,#ddd); }
       .tp-range-fill  { position:absolute; top:8px; height:4px; border-radius:2px; background:#1B3A6B; }
       .tp-range-input { position:absolute; left:0; top:0; width:100%; height:20px; margin:0; background:transparent; pointer-events:none; -webkit-appearance:none; appearance:none; }
-      .tp-range-input::-webkit-slider-runnable-track { background:transparent; height:20px; }
-      .tp-range-input::-moz-range-track { background:transparent; height:20px; }
-      .tp-range-input::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; pointer-events:auto; width:14px; height:14px; border-radius:50%; background:#1B3A6B; border:2px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.35); cursor:pointer; }
+      .tp-range-input::-webkit-slider-runnable-track { background:transparent; height:20px; border:none; }
+      .tp-range-input::-moz-range-track { background:transparent; height:20px; border:none; }
+      .tp-range-input::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; pointer-events:auto; width:14px; height:14px; margin-top:3px; border-radius:50%; background:#1B3A6B; border:2px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.35); cursor:pointer; }
       .tp-range-input::-moz-range-thumb { pointer-events:auto; width:14px; height:14px; border-radius:50%; background:#1B3A6B; border:2px solid #fff; cursor:pointer; }
     </style>`;
 };
@@ -4231,7 +4231,22 @@ pageEvents.candidate = function () {
     if (!mn || !mx) return;
     const max = +mn.max || 1;
     const a = Math.min(+mn.value, +mx.value), b = Math.max(+mn.value, +mx.value);
-    if (fill) { fill.style.left = (a / max * 100) + '%'; fill.style.width = ((b - a) / max * 100) + '%'; }
+    // The native thumb is inset by half its width at each end, so position the
+    // fill in pixels within that same inset range to line up with the thumbs.
+    if (fill) {
+      const W = (mn.parentElement ? mn.parentElement.clientWidth : 0);
+      const half = 7;
+      if (W > half * 2) {
+        const usable = W - half * 2;
+        const lx = half + (a / max) * usable;
+        const rx = half + (b / max) * usable;
+        fill.style.left = lx + 'px';
+        fill.style.width = Math.max(0, rx - lx) + 'px';
+      } else {
+        fill.style.left = (a / max * 100) + '%';
+        fill.style.width = ((b - a) / max * 100) + '%';
+      }
+    }
     if (lbl) lbl.textContent = (a === 0 && b === max) ? 'All' : `${fmtWait(a)} – ${fmtWait(b)}`;
   }
 
@@ -4518,6 +4533,7 @@ pageEvents.candidate = function () {
   if (wMinEl && wMaxEl) {
     wMinEl.addEventListener('input', () => { if (+wMinEl.value > +wMaxEl.value) wMinEl.value = wMaxEl.value; updateWaitUI(); tpApply(); });
     wMaxEl.addEventListener('input', () => { if (+wMaxEl.value < +wMinEl.value) wMaxEl.value = wMinEl.value; updateWaitUI(); tpApply(); });
+    window.addEventListener('resize', updateWaitUI);
   }
   document.getElementById('tpSortRow')?.addEventListener('click', e => {
     const th = e.target.closest('th[data-tpfield]'); if (!th) return;
