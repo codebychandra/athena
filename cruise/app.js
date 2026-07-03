@@ -4225,7 +4225,13 @@ pageEvents.candidate = function () {
   const tick = dark ? '#aaa' : '#555';
   const _dash = '<span style="color:var(--text-muted,#aaa);">—</span>';
 
-  const fmtWait = d => d >= 30 ? Math.round(d / 30) + 'mo' : d + 'd';
+  const fmtWait = d => {
+    if (d < 30) return d + 'd';
+    const mo = Math.round(d / 30);
+    if (mo < 12) return mo + 'mo';
+    const y = Math.floor(mo / 12), rem = mo % 12;
+    return rem ? `${y}y ${rem}mo` : `${y}y`;
+  };
   function updateWaitUI() {
     const mn = document.getElementById('tpWaitMin'), mx = document.getElementById('tpWaitMax');
     const fill = document.getElementById('tpWaitFill'), lbl = document.getElementById('tpWaitRangeLbl');
