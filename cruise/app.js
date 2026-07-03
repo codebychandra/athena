@@ -4156,9 +4156,9 @@ pages.candidate = async function () {
         <div class="req-card-title">Requisition vs Talent Pool</div>
         <div class="req-card-sub">Per position — sourced (green) + remaining (grey) + surplus (amber); requisition marked with a tick</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--text-muted,#888);margin:6px 0 4px;">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2D7A55;vertical-align:middle;margin-right:4px;"></span>Talent Pool</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D1D5DB;vertical-align:middle;margin-right:4px;"></span>Remaining</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D97706;vertical-align:middle;margin-right:4px;"></span>Surplus</span>
+          <span class="tp-legend-item" data-ds="0" title="Click to show/hide" style="cursor:pointer;user-select:none;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2D7A55;vertical-align:middle;margin-right:4px;"></span>Talent Pool</span>
+          <span class="tp-legend-item" data-ds="1" title="Click to show/hide" style="cursor:pointer;user-select:none;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D1D5DB;vertical-align:middle;margin-right:4px;"></span>Remaining</span>
+          <span class="tp-legend-item" data-ds="2" title="Click to show/hide" style="cursor:pointer;user-select:none;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#D97706;vertical-align:middle;margin-right:4px;"></span>Surplus</span>
         </div>
         <div style="max-height:250px;overflow-y:auto;overflow-x:hidden;">
           <div id="tpReqCanvasBox" style="position:relative;height:250px;"><canvas id="tpReqChart"></canvas></div>
@@ -4492,6 +4492,9 @@ pageEvents.candidate = function () {
         },
         plugins: [reqMarker],
       });
+      [0, 1, 2].forEach(ds => window._tpCharts.req.setDatasetVisibility(ds, !tpHidden[ds]));
+      window._tpCharts.req.update();
+      tpApplyLegendStyle();
     }
 
     // ── Chart 2: Waiting Period distribution ───────────────────────────────────
@@ -4558,6 +4561,26 @@ pageEvents.candidate = function () {
     if (wmx) wmx.value = wmx.max;
     updateWaitUI();
     tpApply();
+  });
+
+  // Clickable legend → toggle each series in the requisition chart
+  const tpHidden = { 0: false, 1: false, 2: false };
+  function tpApplyLegendStyle() {
+    document.querySelectorAll('.tp-legend-item').forEach(item => {
+      const ds = +item.dataset.ds;
+      item.style.opacity = tpHidden[ds] ? '0.4' : '1';
+      item.style.textDecoration = tpHidden[ds] ? 'line-through' : 'none';
+    });
+  }
+  document.querySelectorAll('.tp-legend-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const chart = window._tpCharts.req; if (!chart) return;
+      const ds = +item.dataset.ds;
+      tpHidden[ds] = !tpHidden[ds];
+      chart.setDatasetVisibility(ds, !tpHidden[ds]);
+      chart.update();
+      tpApplyLegendStyle();
+    });
   });
 
   tpRestore();   // re-apply filters remembered from a previous visit
