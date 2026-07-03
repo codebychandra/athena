@@ -4032,6 +4032,7 @@ function tpIsTalentPool(r) {
   const signOn = (r.signOnDate == null ? '' : String(r.signOnDate)).trim();
   return emp === 'new hire'
     && onb && onb !== 'resign' && onb !== 'resigned'
+    && onb !== 'process by mss philippines'
     && !signOn;
 }
 function tpWaitingDays(r) {
