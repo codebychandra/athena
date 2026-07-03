@@ -4097,6 +4097,7 @@ pages.candidate = async function () {
     ..._tpAllRows.map(r => r.positionHired).filter(p => p && p !== '—'),
   ])].sort();
   const onbStatuses = [...new Set(_tpAllRows.map(r => r.onboardingStatus).filter(Boolean))].sort();
+  const maxWaitDays = Math.max(30, Math.ceil(Math.max(0, ..._tpAllRows.map(r => tpWaitingDays(r) || 0)) / 30) * 30);
 
   const colTxt = f => `<input class="tp-col-f" data-field="${escH(f)}" type="text" placeholder="—"
     style="width:100%;height:24px;font-size:10px;padding:0 6px;border:1px solid var(--border,#ddd);
@@ -4129,6 +4130,15 @@ pages.candidate = async function () {
       ${buildMS('tpCF_cruiseLine','Cruise Line',cruiseLines)}
       ${buildMS('tpCF_position','Position',positions)}
       ${buildMS('tpCF_onboarding','Onboarding Status',onbStatuses)}
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:210px;">
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted,#888);">Waiting: <span id="tpWaitRangeLbl" style="color:var(--text);">All</span></span>
+        <div style="position:relative;height:20px;">
+          <div class="tp-range-track"></div>
+          <div class="tp-range-fill" id="tpWaitFill"></div>
+          <input type="range" class="tp-range-input" id="tpWaitMin" min="0" max="${maxWaitDays}" value="0" step="1">
+          <input type="range" class="tp-range-input" id="tpWaitMax" min="0" max="${maxWaitDays}" value="${maxWaitDays}" step="1">
+        </div>
+      </div>
       <button id="tpClearBtn" class="req-clear-btn">Clear</button>
       <span id="tpCount" class="req-count-badge">—</span>
     </div>
@@ -4192,6 +4202,14 @@ pages.candidate = async function () {
       /* Override the global .req-chart-card canvas max-height so the scrollable
          requisition chart can grow to fit all positions. */
       #tpReqChart { max-height:none !important; }
+      /* Dual-thumb waiting-period range slider */
+      .tp-range-track { position:absolute; left:0; right:0; top:8px; height:4px; border-radius:2px; background:var(--border,#ddd); }
+      .tp-range-fill  { position:absolute; top:8px; height:4px; border-radius:2px; background:#1B3A6B; }
+      .tp-range-input { position:absolute; left:0; top:0; width:100%; height:20px; margin:0; background:transparent; pointer-events:none; -webkit-appearance:none; appearance:none; }
+      .tp-range-input::-webkit-slider-runnable-track { background:transparent; height:20px; }
+      .tp-range-input::-moz-range-track { background:transparent; height:20px; }
+      .tp-range-input::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; pointer-events:auto; width:14px; height:14px; border-radius:50%; background:#1B3A6B; border:2px solid #fff; box-shadow:0 0 2px rgba(0,0,0,0.35); cursor:pointer; }
+      .tp-range-input::-moz-range-thumb { pointer-events:auto; width:14px; height:14px; border-radius:50%; background:#1B3A6B; border:2px solid #fff; cursor:pointer; }
     </style>`;
 };
 
@@ -4206,6 +4224,17 @@ pageEvents.candidate = function () {
   const tick = dark ? '#aaa' : '#555';
   const _dash = '<span style="color:var(--text-muted,#aaa);">—</span>';
 
+  const fmtWait = d => d >= 30 ? Math.round(d / 30) + 'mo' : d + 'd';
+  function updateWaitUI() {
+    const mn = document.getElementById('tpWaitMin'), mx = document.getElementById('tpWaitMax');
+    const fill = document.getElementById('tpWaitFill'), lbl = document.getElementById('tpWaitRangeLbl');
+    if (!mn || !mx) return;
+    const max = +mn.max || 1;
+    const a = Math.min(+mn.value, +mx.value), b = Math.max(+mn.value, +mx.value);
+    if (fill) { fill.style.left = (a / max * 100) + '%'; fill.style.width = ((b - a) / max * 100) + '%'; }
+    if (lbl) lbl.textContent = (a === 0 && b === max) ? 'All' : `${fmtWait(a)} – ${fmtWait(b)}`;
+  }
+
   function tpFiltered() {
     const gCruise = msGetVals('tpCF_cruiseLine');
     const gPos    = msGetVals('tpCF_position');
@@ -4216,7 +4245,13 @@ pageEvents.candidate = function () {
     document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => { if (inp.value.trim()) colText[inp.dataset.field] = inp.value.trim().toLowerCase(); });
     const colOnb    = msGetVals('tpColMS_onboardingStatus');
     const colCruise = msGetVals('tpColMS_cruiseLine');
+    // Waiting-period range slider
+    const wMinEl = document.getElementById('tpWaitMin'), wMaxEl = document.getElementById('tpWaitMax');
+    const wLo = wMinEl ? Math.min(+wMinEl.value, +wMaxEl.value) : 0;
+    const wHi = wMaxEl ? Math.max(+wMinEl.value, +wMaxEl.value) : Infinity;
+    const wActive = wMinEl && (wLo > 0 || wHi < +wMinEl.max);
     return _tpAllRows.filter(r => {
+      if (wActive) { const d = tpWaitingDays(r); if (d == null || d < wLo || d > wHi) return false; }
       if (gCruise.length && !gCruise.some(b => (r.cruiseLine || '').includes(b))) return false;
       if (gPos.length && !gPos.includes(r.positionHired)) return false;
       if (gOnb.length && !gOnb.includes(r.onboardingStatus)) return false;
@@ -4240,6 +4275,8 @@ pageEvents.candidate = function () {
     _tpSaved.text = {};
     document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => { if (inp.value.trim()) _tpSaved.text[inp.dataset.field] = inp.value; });
     _tpSaved.search = document.getElementById('tpSearch')?.value || '';
+    _tpSaved.waitMin = document.getElementById('tpWaitMin')?.value ?? null;
+    _tpSaved.waitMax = document.getElementById('tpWaitMax')?.value ?? null;
   }
   function tpRestore() {
     Object.entries(_tpSaved.ms).forEach(([id, vals]) => {
@@ -4251,6 +4288,10 @@ pageEvents.candidate = function () {
       const inp = document.querySelector(`#tpFilterRow .tp-col-f[data-field="${f}"]`); if (inp) inp.value = v;
     });
     const s = document.getElementById('tpSearch'); if (s) s.value = _tpSaved.search || '';
+    const wmn = document.getElementById('tpWaitMin'), wmx = document.getElementById('tpWaitMax');
+    if (wmn && _tpSaved.waitMin != null) wmn.value = _tpSaved.waitMin;
+    if (wmx && _tpSaved.waitMax != null) wmx.value = _tpSaved.waitMax;
+    updateWaitUI();
   }
 
   function waitBadge(r) {
@@ -4473,6 +4514,11 @@ pageEvents.candidate = function () {
   document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.addEventListener('input', tpApply));
   document.getElementById('tpSearch')?.addEventListener('input', tpApply);
   document.getElementById('tpExportBtn')?.addEventListener('click', () => tpExport(tpFiltered()));
+  const wMinEl = document.getElementById('tpWaitMin'), wMaxEl = document.getElementById('tpWaitMax');
+  if (wMinEl && wMaxEl) {
+    wMinEl.addEventListener('input', () => { if (+wMinEl.value > +wMaxEl.value) wMinEl.value = wMaxEl.value; updateWaitUI(); tpApply(); });
+    wMaxEl.addEventListener('input', () => { if (+wMaxEl.value < +wMinEl.value) wMaxEl.value = wMinEl.value; updateWaitUI(); tpApply(); });
+  }
   document.getElementById('tpSortRow')?.addEventListener('click', e => {
     const th = e.target.closest('th[data-tpfield]'); if (!th) return;
     const f = th.dataset.tpfield;
@@ -4484,6 +4530,10 @@ pageEvents.candidate = function () {
     ['tpCF_cruiseLine','tpCF_position','tpCF_onboarding','tpColMS_onboardingStatus','tpColMS_cruiseLine'].forEach(msClear);
     document.querySelectorAll('#tpFilterRow .tp-col-f').forEach(inp => inp.value = '');
     const s = document.getElementById('tpSearch'); if (s) s.value = '';
+    const wmn = document.getElementById('tpWaitMin'), wmx = document.getElementById('tpWaitMax');
+    if (wmn) wmn.value = 0;
+    if (wmx) wmx.value = wmx.max;
+    updateWaitUI();
     tpApply();
   });
 
