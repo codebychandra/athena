@@ -7760,9 +7760,10 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
         ? `<div style="font-size:9px;margin-top:2px;font-weight:600;
              color:${a.pending === pendingVal ? '#2D7A55' : '#B01A18'};">real: ${a.pending}</div>`
         : '';
-      // Only highlight an override (red) when the value is non-zero. A pending of
-      // 0 needs no red border.
-      const showOvr = hasOvr && Number(pendingVal) > 0;
+      // Only highlight an override (red) when it is non-zero AND actually differs
+      // from the real computed value. If the override matches the real number it
+      // is not really an override, so no red border.
+      const showOvr = hasOvr && Number(pendingVal) > 0 && Number(pendingVal) !== Number(a.pending);
       const pendingCell = editable
         ? `<td class="rpt-td rpt-num">
              <input class="rpt-pending-edit" data-ovrkey="${escH(ovrKey)}"
