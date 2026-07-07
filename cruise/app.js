@@ -7365,12 +7365,12 @@ function isDemandEligible(s) {
   return d >= cutoff;
 }
 
-function aggregateBrandData(brand, allSeafarers, allFinalInt) {
-  // Pick the eligibility rule by layout:
+function aggregateBrandData(brand, allSeafarers, allFinalInt, eligOverride) {
+  // Pick the eligibility rule by layout (or an explicit override):
   //   talent-pool  (Cunard, CUK) → New Hire / no Sign On / onboarding in list
   //   monthly-demand (P&O)       → onboarding != Resign AND hired >= 2025-01-01
   const layout     = BRAND_LAYOUT[brand] || 'talent-pool';
-  const eligibleFn = layout === 'monthly-demand' ? isDemandEligible : isTalentPoolEligible;
+  const eligibleFn = eligOverride || (layout === 'monthly-demand' ? isDemandEligible : isTalentPoolEligible);
   const seafarers  = allSeafarers.filter(s =>
     (s.cruiseLine || '').trim() === brand && eligibleFn(s)
   );
@@ -7419,9 +7419,13 @@ function aggregateBrandData(brand, allSeafarers, allFinalInt) {
 function buildReportHTML(brand, reportDate, allSeafarers, allFinalInt, notesOverride, editable) {
   const agg    = aggregateBrandData(brand, allSeafarers, allFinalInt);
   const layout = BRAND_LAYOUT[brand] || 'talent-pool';
-  return layout === 'monthly-demand'
-    ? buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable)
-    : buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable);
+  if (layout === 'monthly-demand') {
+    // Talent-pool rows on a demand report must use talent-pool eligibility, not
+    // the demand rule — otherwise they count repeaters / already-deployed crew.
+    const tpAgg = aggregateBrandData(brand, allSeafarers, allFinalInt, isTalentPoolEligible);
+    return buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable, tpAgg);
+  }
+  return buildTalentPoolReport(brand, reportDate, agg, notesOverride, editable);
 }
 
 // Recruiting Notes block — editable textarea in the preview, static bullets in the PDF.
@@ -7613,7 +7617,7 @@ function _savePendingOverride(key, val) {
 }
 function _pendingOvrKey(brand, mk, pos) { return `${brand}||${mk}||${pos}`; }
 
-function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable) {
+function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editable, tpAgg) {
   const year      = reportDate.getFullYear();
   const node      = brandNode(loadDemand(), brand);
   const monthly   = node.monthly    || {};
@@ -7640,7 +7644,7 @@ function buildMonthlyDemandReport(brand, reportDate, agg, notesOverride, editabl
   if (tpPositions.length) {
     const tpRows = tpPositions.sort().map(pos => {
       const req    = Number(talentPool[pos] || 0);
-      const recs   = agg.byPosition[pos.toLowerCase()] || [];
+      const recs   = (tpAgg || agg).byPosition[pos.toLowerCase()] || [];
       const withId = recs.filter(r => r.hasId);
       const fulfil = withId.length;
       const male   = withId.filter(r => r.gender === 'M').length;
