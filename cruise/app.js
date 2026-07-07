@@ -7325,7 +7325,7 @@ const ELIGIBLE_ONBOARDING = new Set([
 ]);
 function isTalentPoolEligible(s) {
   const emp = (s.employmentStatus || '').trim().toLowerCase();
-  if (emp && emp !== 'new hire') return false;
+  if (emp !== 'new hire') return false;                    // must be New Hire (blank excluded)
   if (s.signOnDate) return false;                          // already deployed -> exclude
   const ob = (s.onboardingStatus || '').trim().toLowerCase();
   if (ob && !ELIGIBLE_ONBOARDING.has(ob)) return false;
